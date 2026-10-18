@@ -1,0 +1,96 @@
+# =============================================================================
+# MIPS ERP - Supabase Local & Cloud Configuration (config.toml)
+# Governs authentication policies, token lifetimes, and synthetic email handling
+# =============================================================================
+
+project_id = "mips_erp"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+# =============================================================================
+# Authentication Engine Configuration
+# =============================================================================
+[auth]
+enabled = true
+port = 54324
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://localhost:3000", "http://localhost:5000"]
+
+# Token lifetimes: Access token 1 hour (3600 seconds)
+jwt_expiry = 3600
+
+# STRICT: Disable public self-registration (only admin / Edge Functions can provision users)
+enable_signup = false
+enable_manual_linking = false
+
+[auth.sessions]
+# Refresh token validity: 30 days
+timebox = "30d"
+inactivity_timeout = "30d"
+
+# =============================================================================
+# Email Engine & Synthetic Domain Handling
+# Disabled completely so Supabase never attempts to deliver mail to synthetic
+# addresses: {@students.mips.invalid, @teachers.mips.invalid}
+# =============================================================================
+[auth.email]
+enable_signup = false
+double_confirm_changes = false
+enable_confirmations = false
+max_frequency = "1s"
+
+[auth.email.template.confirmation]
+enabled = false
+
+[auth.email.template.recovery]
+enabled = false
+
+[auth.email.template.invite]
+enabled = false
+
+[auth.email.template.magic_link]
+enabled = false
+
+[auth.email.template.email_change]
+enabled = false
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+# =============================================================================
+# MFA & Edge Functions
+# =============================================================================
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[edge_runtime]
+enabled = true
+port = 54326
+inspector_port = 8083
+
+[analytics]
+enabled = false
+port = 54327
+vector_port = 54328

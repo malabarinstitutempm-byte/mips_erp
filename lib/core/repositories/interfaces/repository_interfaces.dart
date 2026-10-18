@@ -1,0 +1,15 @@
+export 'student_repository_interface.dart';
+export 'course_repository_interface.dart';
+export 'batch_repository_interface.dart';
+export 'fee_repository_interface.dart';
+export 'payment_repository_interface.dart';
+export 'exam_repository_interface.dart';
+export 'mark_repository_interface.dart';
+export 'result_repository_interface.dart';
+export 'grading_repository_interface.dart';
+export 'settings_repository_interface.dart';
+export 'report_repository_interface.dart';
+export 'attendance_admin_repository_interface.dart';
+export 'teacher_admin_repository_interface.dart';
+export 'announcement_repository_interface.dart';
+export 'timetable_repository_interface.dart';

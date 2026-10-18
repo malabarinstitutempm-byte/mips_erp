@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "exam_id": 1,
+    "student_id": 1,
+    "total_marks": 450.0,
+    "percentage": 90.0,
+    "grade": "A+",
+    "status": "Pass",
+    "rank": 1,
+    "student_name": "Demo Student",
+    "admission_number": "ADM-2026-0001"
+  }
+]

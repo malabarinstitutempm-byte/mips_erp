@@ -1,0 +1,42 @@
+name: Supabase Free Tier Keep-Alive
+
+on:
+  schedule:
+    # Runs twice a week (Tuesday & Friday at 06:00 UTC / 11:30 AM IST)
+    # Prevents Supabase Free Tier projects from auto-pausing after 7 days of inactivity during holidays/vacations.
+    - cron: '0 6 * * 2,5'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub Actions tab
+
+jobs:
+  keepalive:
+    name: Ping Supabase Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Keep-Alive Ping
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning ::SUPABASE_URL or SUPABASE_ANON_KEY secret is not set. Skipping keep-alive ping."
+            exit 0
+          fi
+          
+          echo "Sending keep-alive heartbeat to $SUPABASE_URL at $(date -u)..."
+          
+          # Query a lightweight public catalog view with anon key to register real API activity
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/courses?select=id&limit=1")
+          
+          echo "HTTP Response Status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "Keep-alive ping successful. Project activity registered."
+          elif [ "$HTTP_STATUS" -eq 503 ] || [ "$HTTP_STATUS" -eq 410 ]; then
+            echo "::error ::Supabase project appears PAUSED (HTTP $HTTP_STATUS). Restore required from dashboard."
+            exit 1
+          else
+            echo "Heartbeat completed with HTTP $HTTP_STATUS."
+          fi

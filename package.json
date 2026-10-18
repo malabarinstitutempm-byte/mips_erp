@@ -1,0 +1,19 @@
+{
+  "name": "mips-erp-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MIPS ERP Backend Tooling & Scripts",
+  "type": "module",
+  "scripts": {
+    "create-admin": "tsx scripts/create_admin.ts",
+    "test": "tsx scripts/test_auth_suite.ts",
+    "test:auth": "tsx scripts/test_auth_suite.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "2023mlt042": {
+    "identifier": "2023mlt042",
+    "status": "active",
+    "firstLoginRequired": false,
+    "updatedAt": "2026-10-18T10:57:40.704Z",
+    "role": "student",
+    "name": "Muhammed Nihal C",
+    "dob": "2004-08-15",
+    "password": "123456789",
+    "tempPassword": null,
+    "mustChangePassword": false
+  }
+}
