@@ -642,7 +642,8 @@ CREATE POLICY p_attendance_sessions_teacher_select ON attendance_sessions
         )
     );
 
--- Only Admin can update submitted sessions; teachers cannot modify submitted sessions
+-- Only Admin can update/delete/insert sessions; teachers cannot modify submitted sessions
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_insert ON attendance_sessions;
 DROP POLICY IF EXISTS p_attendance_sessions_teacher_update ON attendance_sessions;
 DROP POLICY IF EXISTS p_attendance_sessions_teacher_delete ON attendance_sessions;
 
@@ -685,7 +686,7 @@ CREATE POLICY p_timetable_entries_teacher_select ON timetable_entries
 -- -----------------------------------------------------------------------------
 -- 8. Drop Obsolete teacher_has_assignment() Function
 -- -----------------------------------------------------------------------------
-DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint);
+DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint) CASCADE;
 
 
 -- -----------------------------------------------------------------------------

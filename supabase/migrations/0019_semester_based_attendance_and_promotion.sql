@@ -194,8 +194,8 @@ END $$;
 -- =============================================================================
 -- 7. student_attendance_summary(student_id, enrollment_id, semester_no)
 -- =============================================================================
-DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint);
-DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int);
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint) CASCADE;
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int) CASCADE;
 
 CREATE OR REPLACE FUNCTION student_attendance_summary(
     p_student_id bigint, 

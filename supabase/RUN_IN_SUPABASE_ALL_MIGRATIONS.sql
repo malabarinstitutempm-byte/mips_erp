@@ -22,6 +22,10 @@ DROP VIEW IF EXISTS student_profile_view CASCADE;
 DROP VIEW IF EXISTS student_payments_view CASCADE;
 DROP VIEW IF EXISTS batch_semesters CASCADE;
 
+-- Drop obsolete policies and functions that had cross-dependencies
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_insert ON attendance_sessions;
+DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint) CASCADE;
+
 -- Ensure courses table has course_type and structure
 DO $$ BEGIN
     IF EXISTS (
@@ -7308,7 +7312,8 @@ CREATE POLICY p_attendance_sessions_teacher_select ON attendance_sessions
         )
     );
 
--- Only Admin can update submitted sessions; teachers cannot modify submitted sessions
+-- Only Admin can update/delete/insert sessions; teachers cannot modify submitted sessions
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_insert ON attendance_sessions;
 DROP POLICY IF EXISTS p_attendance_sessions_teacher_update ON attendance_sessions;
 DROP POLICY IF EXISTS p_attendance_sessions_teacher_delete ON attendance_sessions;
 
@@ -7351,7 +7356,7 @@ CREATE POLICY p_timetable_entries_teacher_select ON timetable_entries
 -- -----------------------------------------------------------------------------
 -- 8. Drop Obsolete teacher_has_assignment() Function
 -- -----------------------------------------------------------------------------
-DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint);
+DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint) CASCADE;
 
 
 -- -----------------------------------------------------------------------------
@@ -9658,8 +9663,8 @@ END $$;
 -- =============================================================================
 -- 7. student_attendance_summary(student_id, enrollment_id, semester_no)
 -- =============================================================================
-DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint);
-DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int);
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint) CASCADE;
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int) CASCADE;
 
 CREATE OR REPLACE FUNCTION student_attendance_summary(
     p_student_id bigint, 
