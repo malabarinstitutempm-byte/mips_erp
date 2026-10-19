@@ -9,7 +9,8 @@ INSERT INTO settings (key, value) VALUES ('institution_address', 'CH Centre, Mal
 INSERT INTO settings (key, value) VALUES ('receipt_prefix', 'REC-') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- 2. Academic Years
-INSERT INTO academic_years (id, legacy_id, year_name, start_date, end_date, is_current) OVERRIDING SYSTEM VALUE VALUES (1, 1, '2026-2027', '2026-06-01', '2027-05-31', true) ON CONFLICT (id) DO UPDATE SET year_name = EXCLUDED.year_name;
+ALTER TABLE IF EXISTS academic_years ADD COLUMN IF NOT EXISTS start_date date, ADD COLUMN IF NOT EXISTS end_date date;
+INSERT INTO academic_years (id, legacy_id, year_name, is_current) OVERRIDING SYSTEM VALUE VALUES (1, 1, '2026-2027', true) ON CONFLICT (id) DO UPDATE SET year_name = EXCLUDED.year_name;
 
 -- 3. Universities
 INSERT INTO universities (id, legacy_id, name) OVERRIDING SYSTEM VALUE VALUES (1, 1, 'BSS / Kerala University of Health Sciences') ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
