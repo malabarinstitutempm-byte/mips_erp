@@ -22,8 +22,7 @@ DROP VIEW IF EXISTS student_profile_view CASCADE;
 DROP VIEW IF EXISTS student_payments_view CASCADE;
 DROP VIEW IF EXISTS batch_semesters CASCADE;
 
--- Drop obsolete policies and functions that had cross-dependencies
-DROP POLICY IF EXISTS p_attendance_sessions_teacher_insert ON attendance_sessions;
+-- Drop obsolete functions with CASCADE (automatically severs any dependent legacy policies)
 DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint) CASCADE;
 
 -- Ensure courses table has course_type and structure
