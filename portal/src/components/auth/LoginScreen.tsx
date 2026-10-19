@@ -4,7 +4,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { TurnstileWidget } from './TurnstileWidget';
-import { FirstLoginModal } from './FirstLoginModal';
 import { EcgLine } from '../common/EcgLine';
 import { Lock, User, Eye, EyeOff, AlertCircle, ArrowRight, ShieldAlert } from 'lucide-react';
 
@@ -27,7 +26,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   // UI States
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [firstLoginOpen, setFirstLoginOpen] = useState(false);
 
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
@@ -222,17 +220,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
 
           </form>
 
-          {/* Student & Teacher First-Time Activation Link */}
-          <div className="mt-5 pt-4 border-t border-slate-100 text-center">
-            <button
-              type="button"
-              onClick={() => setFirstLoginOpen(true)}
-              className="text-xs font-semibold text-primary hover:text-primary-hover transition-colors inline-flex items-center gap-1.5 min-h-touch py-1"
-            >
-              <span>First time activation? Verify student or teacher credentials</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
         </div>
       </main>
 
@@ -243,16 +230,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
           © {new Date().getFullYear()} Malabar Institute of Paramedical Science
         </p>
       </footer>
-
-      {/* First-Time Activation Modal */}
-      <FirstLoginModal
-        isOpen={firstLoginOpen}
-        onClose={() => setFirstLoginOpen(false)}
-        onSuccess={() => {
-          setFirstLoginOpen(false);
-          onSuccess?.();
-        }}
-      />
     </div>
   );
 };
