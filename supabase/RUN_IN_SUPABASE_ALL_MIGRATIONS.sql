@@ -217,8 +217,8 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE TRIGGER trg_settings_updated_at
-BEFORE UPDATE ON settings
+DROP TRIGGER IF EXISTS trg_settings_updated_at ON settings;
+CREATE OR REPLACE TRIGGER trg_settings_updated_at BEFORE UPDATE ON settings
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Academic Years
@@ -233,8 +233,8 @@ CREATE TABLE IF NOT EXISTS academic_years (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_academic_years_updated_at
-BEFORE UPDATE ON academic_years
+DROP TRIGGER IF EXISTS trg_academic_years_updated_at ON academic_years;
+CREATE OR REPLACE TRIGGER trg_academic_years_updated_at BEFORE UPDATE ON academic_years
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Universities / Boards
@@ -248,8 +248,8 @@ CREATE TABLE IF NOT EXISTS universities (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_universities_updated_at
-BEFORE UPDATE ON universities
+DROP TRIGGER IF EXISTS trg_universities_updated_at ON universities;
+CREATE OR REPLACE TRIGGER trg_universities_updated_at BEFORE UPDATE ON universities
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Courses
@@ -274,8 +274,8 @@ CREATE TABLE IF NOT EXISTS courses (
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_type text NOT NULL DEFAULT 'primary';
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS structure text NOT NULL DEFAULT 'year';
 
-CREATE TRIGGER trg_courses_updated_at
-BEFORE UPDATE ON courses
+DROP TRIGGER IF EXISTS trg_courses_updated_at ON courses;
+CREATE OR REPLACE TRIGGER trg_courses_updated_at BEFORE UPDATE ON courses
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Course Curriculum Subjects
@@ -294,8 +294,8 @@ CREATE TABLE IF NOT EXISTS course_subjects (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_course_subjects_updated_at
-BEFORE UPDATE ON course_subjects
+DROP TRIGGER IF EXISTS trg_course_subjects_updated_at ON course_subjects;
+CREATE OR REPLACE TRIGGER trg_course_subjects_updated_at BEFORE UPDATE ON course_subjects
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Batches
@@ -317,8 +317,8 @@ CREATE TABLE IF NOT EXISTS batches (
 ALTER TABLE batches ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
 ALTER TABLE batches ADD COLUMN IF NOT EXISTS completed_on date;
 
-CREATE TRIGGER trg_batches_updated_at
-BEFORE UPDATE ON batches
+DROP TRIGGER IF EXISTS trg_batches_updated_at ON batches;
+CREATE OR REPLACE TRIGGER trg_batches_updated_at BEFORE UPDATE ON batches
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =============================================================================
@@ -341,8 +341,8 @@ CREATE TABLE IF NOT EXISTS teachers (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_teachers_updated_at
-BEFORE UPDATE ON teachers
+DROP TRIGGER IF EXISTS trg_teachers_updated_at ON teachers;
+CREATE OR REPLACE TRIGGER trg_teachers_updated_at BEFORE UPDATE ON teachers
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Students
@@ -370,8 +370,8 @@ CREATE TABLE IF NOT EXISTS students (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_students_updated_at
-BEFORE UPDATE ON students
+DROP TRIGGER IF EXISTS trg_students_updated_at ON students;
+CREATE OR REPLACE TRIGGER trg_students_updated_at BEFORE UPDATE ON students
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- User Profiles (Linked to Supabase auth.users)
@@ -393,8 +393,8 @@ CREATE TABLE IF NOT EXISTS profiles (
     )
 );
 
-CREATE TRIGGER trg_profiles_updated_at
-BEFORE UPDATE ON profiles
+DROP TRIGGER IF EXISTS trg_profiles_updated_at ON profiles;
+CREATE OR REPLACE TRIGGER trg_profiles_updated_at BEFORE UPDATE ON profiles
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Teacher Assignments
@@ -410,8 +410,8 @@ CREATE TABLE IF NOT EXISTS teacher_assignments (
     UNIQUE (teacher_id, batch_id, subject_id)
 );
 
-CREATE TRIGGER trg_teacher_assignments_updated_at
-BEFORE UPDATE ON teacher_assignments
+DROP TRIGGER IF EXISTS trg_teacher_assignments_updated_at ON teacher_assignments;
+CREATE OR REPLACE TRIGGER trg_teacher_assignments_updated_at BEFORE UPDATE ON teacher_assignments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =============================================================================
@@ -432,8 +432,8 @@ CREATE TABLE IF NOT EXISTS fees (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_fees_updated_at
-BEFORE UPDATE ON fees
+DROP TRIGGER IF EXISTS trg_fees_updated_at ON fees;
+CREATE OR REPLACE TRIGGER trg_fees_updated_at BEFORE UPDATE ON fees
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Payments
@@ -457,8 +457,8 @@ CREATE TABLE IF NOT EXISTS payments (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_payments_updated_at
-BEFORE UPDATE ON payments
+DROP TRIGGER IF EXISTS trg_payments_updated_at ON payments;
+CREATE OR REPLACE TRIGGER trg_payments_updated_at BEFORE UPDATE ON payments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Receipts
@@ -473,8 +473,8 @@ CREATE TABLE IF NOT EXISTS receipts (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_receipts_updated_at
-BEFORE UPDATE ON receipts
+DROP TRIGGER IF EXISTS trg_receipts_updated_at ON receipts;
+CREATE OR REPLACE TRIGGER trg_receipts_updated_at BEFORE UPDATE ON receipts
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =============================================================================
@@ -500,8 +500,8 @@ CREATE TABLE IF NOT EXISTS exams (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_exams_updated_at
-BEFORE UPDATE ON exams
+DROP TRIGGER IF EXISTS trg_exams_updated_at ON exams;
+CREATE OR REPLACE TRIGGER trg_exams_updated_at BEFORE UPDATE ON exams
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Exam Subjects
@@ -522,8 +522,8 @@ CREATE TABLE IF NOT EXISTS exam_subjects (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_exam_subjects_updated_at
-BEFORE UPDATE ON exam_subjects
+DROP TRIGGER IF EXISTS trg_exam_subjects_updated_at ON exam_subjects;
+CREATE OR REPLACE TRIGGER trg_exam_subjects_updated_at BEFORE UPDATE ON exam_subjects
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Marks Matrix
@@ -544,8 +544,8 @@ CREATE TABLE IF NOT EXISTS marks (
     UNIQUE (exam_id, subject_id, student_id)
 );
 
-CREATE TRIGGER trg_marks_updated_at
-BEFORE UPDATE ON marks
+DROP TRIGGER IF EXISTS trg_marks_updated_at ON marks;
+CREATE OR REPLACE TRIGGER trg_marks_updated_at BEFORE UPDATE ON marks
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Computed Results Transcripts
@@ -566,8 +566,8 @@ CREATE TABLE IF NOT EXISTS results (
     UNIQUE (exam_id, student_id)
 );
 
-CREATE TRIGGER trg_results_updated_at
-BEFORE UPDATE ON results
+DROP TRIGGER IF EXISTS trg_results_updated_at ON results;
+CREATE OR REPLACE TRIGGER trg_results_updated_at BEFORE UPDATE ON results
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Grading Schemes (Configurable grade bands)
@@ -582,8 +582,8 @@ CREATE TABLE IF NOT EXISTS grading_schemes (
     updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE TRIGGER trg_grading_schemes_updated_at
-BEFORE UPDATE ON grading_schemes
+DROP TRIGGER IF EXISTS trg_grading_schemes_updated_at ON grading_schemes;
+CREATE OR REPLACE TRIGGER trg_grading_schemes_updated_at BEFORE UPDATE ON grading_schemes
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =============================================================================
@@ -604,8 +604,8 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
     UNIQUE (batch_id, subject_id, date, period)
 );
 
-CREATE TRIGGER trg_attendance_sessions_updated_at
-BEFORE UPDATE ON attendance_sessions
+DROP TRIGGER IF EXISTS trg_attendance_sessions_updated_at ON attendance_sessions;
+CREATE OR REPLACE TRIGGER trg_attendance_sessions_updated_at BEFORE UPDATE ON attendance_sessions
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS attendance_records (
@@ -619,8 +619,8 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     UNIQUE (session_id, student_id)
 );
 
-CREATE TRIGGER trg_attendance_records_updated_at
-BEFORE UPDATE ON attendance_records
+DROP TRIGGER IF EXISTS trg_attendance_records_updated_at ON attendance_records;
+CREATE OR REPLACE TRIGGER trg_attendance_records_updated_at BEFORE UPDATE ON attendance_records
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- Attendance Changes Audit (INSERT ONLY)
@@ -649,8 +649,8 @@ CREATE TABLE IF NOT EXISTS document_templates (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_document_templates_updated_at
-BEFORE UPDATE ON document_templates
+DROP TRIGGER IF EXISTS trg_document_templates_updated_at ON document_templates;
+CREATE OR REPLACE TRIGGER trg_document_templates_updated_at BEFORE UPDATE ON document_templates
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS generated_documents (
@@ -666,8 +666,8 @@ CREATE TABLE IF NOT EXISTS generated_documents (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_generated_documents_updated_at
-BEFORE UPDATE ON generated_documents
+DROP TRIGGER IF EXISTS trg_generated_documents_updated_at ON generated_documents;
+CREATE OR REPLACE TRIGGER trg_generated_documents_updated_at BEFORE UPDATE ON generated_documents
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =============================================================================
@@ -684,8 +684,8 @@ CREATE TABLE IF NOT EXISTS number_counters (
     UNIQUE (kind, year)
 );
 
-CREATE TRIGGER trg_number_counters_updated_at
-BEFORE UPDATE ON number_counters
+DROP TRIGGER IF EXISTS trg_number_counters_updated_at ON number_counters;
+CREATE OR REPLACE TRIGGER trg_number_counters_updated_at BEFORE UPDATE ON number_counters
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- =============================================================================
@@ -732,44 +732,44 @@ REVOKE UPDATE, DELETE ON audit_log FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE, DELETE ON attendance_changes FROM PUBLIC, anon, authenticated;
 
 -- Attach Audit Triggers to Core Tables
-CREATE TRIGGER trg_audit_students
-AFTER INSERT OR UPDATE OR DELETE ON students
+DROP TRIGGER IF EXISTS trg_audit_students ON students;
+CREATE OR REPLACE TRIGGER trg_audit_students AFTER INSERT OR UPDATE OR DELETE ON students
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_courses
-AFTER INSERT OR UPDATE OR DELETE ON courses
+DROP TRIGGER IF EXISTS trg_audit_courses ON courses;
+CREATE OR REPLACE TRIGGER trg_audit_courses AFTER INSERT OR UPDATE OR DELETE ON courses
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_batches
-AFTER INSERT OR UPDATE OR DELETE ON batches
+DROP TRIGGER IF EXISTS trg_audit_batches ON batches;
+CREATE OR REPLACE TRIGGER trg_audit_batches AFTER INSERT OR UPDATE OR DELETE ON batches
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_fees
-AFTER INSERT OR UPDATE OR DELETE ON fees
+DROP TRIGGER IF EXISTS trg_audit_fees ON fees;
+CREATE OR REPLACE TRIGGER trg_audit_fees AFTER INSERT OR UPDATE OR DELETE ON fees
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_payments
-AFTER INSERT OR UPDATE OR DELETE ON payments
+DROP TRIGGER IF EXISTS trg_audit_payments ON payments;
+CREATE OR REPLACE TRIGGER trg_audit_payments AFTER INSERT OR UPDATE OR DELETE ON payments
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_receipts
-AFTER INSERT OR UPDATE OR DELETE ON receipts
+DROP TRIGGER IF EXISTS trg_audit_receipts ON receipts;
+CREATE OR REPLACE TRIGGER trg_audit_receipts AFTER INSERT OR UPDATE OR DELETE ON receipts
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_exams
-AFTER INSERT OR UPDATE OR DELETE ON exams
+DROP TRIGGER IF EXISTS trg_audit_exams ON exams;
+CREATE OR REPLACE TRIGGER trg_audit_exams AFTER INSERT OR UPDATE OR DELETE ON exams
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_marks
-AFTER INSERT OR UPDATE OR DELETE ON marks
+DROP TRIGGER IF EXISTS trg_audit_marks ON marks;
+CREATE OR REPLACE TRIGGER trg_audit_marks AFTER INSERT OR UPDATE OR DELETE ON marks
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_results
-AFTER INSERT OR UPDATE OR DELETE ON results
+DROP TRIGGER IF EXISTS trg_audit_results ON results;
+CREATE OR REPLACE TRIGGER trg_audit_results AFTER INSERT OR UPDATE OR DELETE ON results
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
-CREATE TRIGGER trg_audit_attendance_sessions
-AFTER INSERT OR UPDATE OR DELETE ON attendance_sessions
+DROP TRIGGER IF EXISTS trg_audit_attendance_sessions ON attendance_sessions;
+CREATE OR REPLACE TRIGGER trg_audit_attendance_sessions AFTER INSERT OR UPDATE OR DELETE ON attendance_sessions
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 -- =============================================================================
@@ -3828,12 +3828,12 @@ CREATE TABLE IF NOT EXISTS student_enrollments (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_student_enrollments_updated_at
-BEFORE UPDATE ON student_enrollments
+DROP TRIGGER IF EXISTS trg_student_enrollments_updated_at ON student_enrollments;
+CREATE OR REPLACE TRIGGER trg_student_enrollments_updated_at BEFORE UPDATE ON student_enrollments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_audit_student_enrollments
-AFTER INSERT OR UPDATE OR DELETE ON student_enrollments
+DROP TRIGGER IF EXISTS trg_audit_student_enrollments ON student_enrollments;
+CREATE OR REPLACE TRIGGER trg_audit_student_enrollments AFTER INSERT OR UPDATE OR DELETE ON student_enrollments
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 -- Enforce at most ONE active primary and at most ONE active skill enrollment per student
@@ -3885,12 +3885,12 @@ CREATE TABLE IF NOT EXISTS fee_items (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_fee_items_updated_at
-BEFORE UPDATE ON fee_items
+DROP TRIGGER IF EXISTS trg_fee_items_updated_at ON fee_items;
+CREATE OR REPLACE TRIGGER trg_fee_items_updated_at BEFORE UPDATE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_audit_fee_items
-AFTER INSERT OR UPDATE OR DELETE ON fee_items
+DROP TRIGGER IF EXISTS trg_audit_fee_items ON fee_items;
+CREATE OR REPLACE TRIGGER trg_audit_fee_items AFTER INSERT OR UPDATE OR DELETE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_fee_items_student 
@@ -3971,8 +3971,8 @@ CREATE TABLE IF NOT EXISTS fee_adjustments (
     created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE TRIGGER trg_audit_fee_adjustments
-AFTER INSERT OR UPDATE OR DELETE ON fee_adjustments
+DROP TRIGGER IF EXISTS trg_audit_fee_adjustments ON fee_adjustments;
+CREATE OR REPLACE TRIGGER trg_audit_fee_adjustments AFTER INSERT OR UPDATE OR DELETE ON fee_adjustments
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_fee_adjustments_student 
@@ -4005,8 +4005,8 @@ CREATE TABLE IF NOT EXISTS announcements (
     retracted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_audit_announcements
-AFTER INSERT OR UPDATE OR DELETE ON announcements
+DROP TRIGGER IF EXISTS trg_audit_announcements ON announcements;
+CREATE OR REPLACE TRIGGER trg_audit_announcements AFTER INSERT OR UPDATE OR DELETE ON announcements
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_announcements_created 
@@ -4034,12 +4034,12 @@ CREATE TABLE IF NOT EXISTS timetables (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_timetables_updated_at
-BEFORE UPDATE ON timetables
+DROP TRIGGER IF EXISTS trg_timetables_updated_at ON timetables;
+CREATE OR REPLACE TRIGGER trg_timetables_updated_at BEFORE UPDATE ON timetables
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_audit_timetables
-AFTER INSERT OR UPDATE OR DELETE ON timetables
+DROP TRIGGER IF EXISTS trg_audit_timetables ON timetables;
+CREATE OR REPLACE TRIGGER trg_audit_timetables AFTER INSERT OR UPDATE OR DELETE ON timetables
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_timetables_batch 
@@ -4063,8 +4063,8 @@ CREATE TABLE IF NOT EXISTS timetable_entries (
     UNIQUE (timetable_id, weekday, slot, start_time)
 );
 
-CREATE TRIGGER trg_timetable_entries_updated_at
-BEFORE UPDATE ON timetable_entries
+DROP TRIGGER IF EXISTS trg_timetable_entries_updated_at ON timetable_entries;
+CREATE OR REPLACE TRIGGER trg_timetable_entries_updated_at BEFORE UPDATE ON timetable_entries
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS idx_timetable_entries_lookup 
@@ -4117,8 +4117,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_check_skill_course_withdrawal ON student_enrollments;
-CREATE TRIGGER trg_check_skill_course_withdrawal
-BEFORE UPDATE OR DELETE ON student_enrollments
+DROP TRIGGER IF EXISTS trg_check_skill_course_withdrawal ON student_enrollments;
+CREATE OR REPLACE TRIGGER trg_check_skill_course_withdrawal BEFORE UPDATE OR DELETE ON student_enrollments
 FOR EACH ROW EXECUTE FUNCTION check_skill_course_withdrawal();
 
 
@@ -4161,8 +4161,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_check_timetable_teacher_clash ON timetable_entries;
-CREATE TRIGGER trg_check_timetable_teacher_clash
-BEFORE INSERT OR UPDATE ON timetable_entries
+DROP TRIGGER IF EXISTS trg_check_timetable_teacher_clash ON timetable_entries;
+CREATE OR REPLACE TRIGGER trg_check_timetable_teacher_clash BEFORE INSERT OR UPDATE ON timetable_entries
 FOR EACH ROW EXECUTE FUNCTION check_timetable_teacher_clash();
 
 
@@ -4195,8 +4195,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trg_sync_legacy_fees ON fee_items;
-CREATE TRIGGER trg_sync_legacy_fees
-AFTER INSERT OR UPDATE OR DELETE ON fee_items
+DROP TRIGGER IF EXISTS trg_sync_legacy_fees ON fee_items;
+CREATE OR REPLACE TRIGGER trg_sync_legacy_fees AFTER INSERT OR UPDATE OR DELETE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION sync_legacy_fees_from_items();
 
 

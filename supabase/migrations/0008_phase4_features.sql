@@ -180,12 +180,12 @@ CREATE TABLE IF NOT EXISTS student_enrollments (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_student_enrollments_updated_at
-BEFORE UPDATE ON student_enrollments
+DROP TRIGGER IF EXISTS trg_student_enrollments_updated_at ON student_enrollments;
+CREATE OR REPLACE TRIGGER trg_student_enrollments_updated_at BEFORE UPDATE ON student_enrollments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_audit_student_enrollments
-AFTER INSERT OR UPDATE OR DELETE ON student_enrollments
+DROP TRIGGER IF EXISTS trg_audit_student_enrollments ON student_enrollments;
+CREATE OR REPLACE TRIGGER trg_audit_student_enrollments AFTER INSERT OR UPDATE OR DELETE ON student_enrollments
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 -- Enforce at most ONE active primary and at most ONE active skill enrollment per student
@@ -237,12 +237,12 @@ CREATE TABLE IF NOT EXISTS fee_items (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_fee_items_updated_at
-BEFORE UPDATE ON fee_items
+DROP TRIGGER IF EXISTS trg_fee_items_updated_at ON fee_items;
+CREATE OR REPLACE TRIGGER trg_fee_items_updated_at BEFORE UPDATE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_audit_fee_items
-AFTER INSERT OR UPDATE OR DELETE ON fee_items
+DROP TRIGGER IF EXISTS trg_audit_fee_items ON fee_items;
+CREATE OR REPLACE TRIGGER trg_audit_fee_items AFTER INSERT OR UPDATE OR DELETE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_fee_items_student 
@@ -323,8 +323,8 @@ CREATE TABLE IF NOT EXISTS fee_adjustments (
     created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE TRIGGER trg_audit_fee_adjustments
-AFTER INSERT OR UPDATE OR DELETE ON fee_adjustments
+DROP TRIGGER IF EXISTS trg_audit_fee_adjustments ON fee_adjustments;
+CREATE OR REPLACE TRIGGER trg_audit_fee_adjustments AFTER INSERT OR UPDATE OR DELETE ON fee_adjustments
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_fee_adjustments_student 
@@ -357,8 +357,8 @@ CREATE TABLE IF NOT EXISTS announcements (
     retracted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_audit_announcements
-AFTER INSERT OR UPDATE OR DELETE ON announcements
+DROP TRIGGER IF EXISTS trg_audit_announcements ON announcements;
+CREATE OR REPLACE TRIGGER trg_audit_announcements AFTER INSERT OR UPDATE OR DELETE ON announcements
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_announcements_created 
@@ -386,12 +386,12 @@ CREATE TABLE IF NOT EXISTS timetables (
     deleted_by uuid REFERENCES auth.users(id)
 );
 
-CREATE TRIGGER trg_timetables_updated_at
-BEFORE UPDATE ON timetables
+DROP TRIGGER IF EXISTS trg_timetables_updated_at ON timetables;
+CREATE OR REPLACE TRIGGER trg_timetables_updated_at BEFORE UPDATE ON timetables
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_audit_timetables
-AFTER INSERT OR UPDATE OR DELETE ON timetables
+DROP TRIGGER IF EXISTS trg_audit_timetables ON timetables;
+CREATE OR REPLACE TRIGGER trg_audit_timetables AFTER INSERT OR UPDATE OR DELETE ON timetables
 FOR EACH ROW EXECUTE FUNCTION audit_log_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_timetables_batch 
@@ -415,8 +415,8 @@ CREATE TABLE IF NOT EXISTS timetable_entries (
     UNIQUE (timetable_id, weekday, slot, start_time)
 );
 
-CREATE TRIGGER trg_timetable_entries_updated_at
-BEFORE UPDATE ON timetable_entries
+DROP TRIGGER IF EXISTS trg_timetable_entries_updated_at ON timetable_entries;
+CREATE OR REPLACE TRIGGER trg_timetable_entries_updated_at BEFORE UPDATE ON timetable_entries
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS idx_timetable_entries_lookup 
@@ -469,8 +469,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_check_skill_course_withdrawal ON student_enrollments;
-CREATE TRIGGER trg_check_skill_course_withdrawal
-BEFORE UPDATE OR DELETE ON student_enrollments
+DROP TRIGGER IF EXISTS trg_check_skill_course_withdrawal ON student_enrollments;
+CREATE OR REPLACE TRIGGER trg_check_skill_course_withdrawal BEFORE UPDATE OR DELETE ON student_enrollments
 FOR EACH ROW EXECUTE FUNCTION check_skill_course_withdrawal();
 
 
@@ -513,8 +513,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_check_timetable_teacher_clash ON timetable_entries;
-CREATE TRIGGER trg_check_timetable_teacher_clash
-BEFORE INSERT OR UPDATE ON timetable_entries
+DROP TRIGGER IF EXISTS trg_check_timetable_teacher_clash ON timetable_entries;
+CREATE OR REPLACE TRIGGER trg_check_timetable_teacher_clash BEFORE INSERT OR UPDATE ON timetable_entries
 FOR EACH ROW EXECUTE FUNCTION check_timetable_teacher_clash();
 
 
@@ -547,8 +547,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trg_sync_legacy_fees ON fee_items;
-CREATE TRIGGER trg_sync_legacy_fees
-AFTER INSERT OR UPDATE OR DELETE ON fee_items
+DROP TRIGGER IF EXISTS trg_sync_legacy_fees ON fee_items;
+CREATE OR REPLACE TRIGGER trg_sync_legacy_fees AFTER INSERT OR UPDATE OR DELETE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION sync_legacy_fees_from_items();
 
 
