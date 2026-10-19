@@ -334,6 +334,7 @@ CREATE TABLE IF NOT EXISTS payments (
     reference_number text,
     remarks text,
     date date NOT NULL DEFAULT CURRENT_DATE,
+    payment_date date GENERATED ALWAYS AS (date) STORED,
     is_cancelled boolean NOT NULL DEFAULT false,
     cancel_reason text,
     cancelled_at timestamptz,

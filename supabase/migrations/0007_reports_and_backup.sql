@@ -74,6 +74,16 @@ LEFT JOIN courses c ON s.course_id = c.id
 LEFT JOIN batches b ON s.batch_id = b.id
 WHERE r.deleted_at IS NULL;
 
+-- Ensure payment_date column exists on payments table
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'payments' AND column_name = 'payment_date'
+    ) THEN
+        ALTER TABLE public.payments ADD COLUMN payment_date date GENERATED ALWAYS AS (date) STORED;
+    END IF;
+END $$;
+
 -- Daily fee collection view
 CREATE OR REPLACE VIEW view_fee_collection_daily AS
 SELECT 
