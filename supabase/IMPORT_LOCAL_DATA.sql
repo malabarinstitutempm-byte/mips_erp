@@ -96,8 +96,10 @@ INSERT INTO grading_schemes (id, min_percent, max_percent, grade, is_pass) OVERR
 -- 12. Exams
 INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (1, 1, 'jejjedjfd', 1, 2, 1, '2026-10-06T13:21:44.395814', NULL, 'draft', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status;
 INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (2, 2, 'final exam 2026', 1, 2, 1, '2026-10-12T10:56:21.408646', NULL, 'draft', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status;
+INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (3, 3, 'Internal Assessment', 1, 2, 1, '2026-10-10T10:00:00', NULL, 'draft', NULL) ON CONFLICT (id) DO NOTHING;
 INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (4, 4, 'regrgrgr', 1, 2, 1, '2026-10-12T11:13:52.366877', NULL, 'draft', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status;
 INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (5, 5, 'frforjjrfjr', 1, 3, 1, '2026-10-12T11:14:36.593787', NULL, 'draft', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status;
+INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (6, 6, 'Model Exam', 1, 3, 1, '2026-10-12T12:00:00', NULL, 'draft', NULL) ON CONFLICT (id) DO NOTHING;
 INSERT INTO exams (id, legacy_id, name, academic_year_id, course_id, batch_id, exam_date, publish_date, status, semester) OVERRIDING SYSTEM VALUE VALUES (7, 7, 'final test new', 1, 3, 1, '2026-10-13T13:27:39.072305', '2026-10-13T13:28:22.174525', 'draft', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = EXCLUDED.status;
 
 -- 13. Exam Subjects
@@ -123,19 +125,36 @@ INSERT INTO marks (id, legacy_id, exam_id, subject_id, student_id, marks_obtaine
 INSERT INTO marks (id, legacy_id, exam_id, subject_id, student_id, marks_obtained, is_absent) OVERRIDING SYSTEM VALUE VALUES (8, 8, 7, 12, 11, 30.0, false) ON CONFLICT (id) DO UPDATE SET marks_obtained = EXCLUDED.marks_obtained;
 
 -- 15. Results
-INSERT INTO results (id, legacy_id, exam_id, student_id, total_marks, percentage, grade, status, rank) OVERRIDING SYSTEM VALUE VALUES (1, 1, 7, 10, 100.0, 50.0, 'C+', 'Pass', 1) ON CONFLICT (id) DO UPDATE SET total_marks = EXCLUDED.total_marks;
+ALTER TABLE results DROP CONSTRAINT IF EXISTS results_status_check;
+ALTER TABLE results ADD CONSTRAINT results_status_check CHECK (lower(status) IN ('pass', 'fail', 'pending', 'withheld'));
 
--- 16. Reset Identity Sequences
-SELECT setval(pg_get_serial_sequence('academic_years', 'id'), coalesce(max(id), 1)) FROM academic_years;
-SELECT setval(pg_get_serial_sequence('universities', 'id'), coalesce(max(id), 1)) FROM universities;
-SELECT setval(pg_get_serial_sequence('courses', 'id'), coalesce(max(id), 1)) FROM courses;
-SELECT setval(pg_get_serial_sequence('batches', 'id'), coalesce(max(id), 1)) FROM batches;
-SELECT setval(pg_get_serial_sequence('students', 'id'), coalesce(max(id), 1)) FROM students;
-SELECT setval(pg_get_serial_sequence('fees', 'id'), coalesce(max(id), 1)) FROM fees;
-SELECT setval(pg_get_serial_sequence('payments', 'id'), coalesce(max(id), 1)) FROM payments;
-SELECT setval(pg_get_serial_sequence('receipts', 'id'), coalesce(max(id), 1)) FROM receipts;
-SELECT setval(pg_get_serial_sequence('grading_schemes', 'id'), coalesce(max(id), 1)) FROM grading_schemes;
-SELECT setval(pg_get_serial_sequence('exams', 'id'), coalesce(max(id), 1)) FROM exams;
-SELECT setval(pg_get_serial_sequence('exam_subjects', 'id'), coalesce(max(id), 1)) FROM exam_subjects;
-SELECT setval(pg_get_serial_sequence('marks', 'id'), coalesce(max(id), 1)) FROM marks;
-SELECT setval(pg_get_serial_sequence('results', 'id'), coalesce(max(id), 1)) FROM results;
+INSERT INTO results (id, legacy_id, exam_id, student_id, total_marks, percentage, grade, status, rank) 
+OVERRIDING SYSTEM VALUE 
+VALUES (1, 1, 7, 10, 100.0, 50.0, 'C+', 'PASS', 1) 
+ON CONFLICT (id) DO UPDATE SET 
+    total_marks = EXCLUDED.total_marks,
+    percentage = EXCLUDED.percentage,
+    grade = EXCLUDED.grade,
+    status = EXCLUDED.status,
+    rank = EXCLUDED.rank;
+
+-- 16. Reset Identity Sequences Safely
+DO $$ 
+DECLARE
+    t text;
+    s text;
+    m bigint;
+BEGIN
+    FOR t IN SELECT unnest(ARRAY[
+        'academic_years', 'universities', 'courses', 'batches', 'students', 
+        'fees', 'payments', 'receipts', 'grading_schemes', 'exams', 
+        'exam_subjects', 'marks', 'results'
+    ])
+    LOOP
+        s := pg_get_serial_sequence(t, 'id');
+        IF s IS NOT NULL THEN
+            EXECUTE format('SELECT coalesce(max(id), 1) FROM %I', t) INTO m;
+            PERFORM setval(s, m, true);
+        END IF;
+    END LOOP;
+END $$;
