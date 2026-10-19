@@ -373,4 +373,23 @@ class SupabaseCourseRepository implements CourseRepository {
 
     return await SupabaseBatchRepository().getBatches(courseId: courseId, includeCompleted: includeCompleted);
   }
+
+  @override
+  Future<bool> isCourseStructureLocked(int courseId) async {
+    try {
+      final exams = await _client.from('exams').select('id').eq('course_id', courseId).isFilter('deleted_at', null).limit(1);
+      if (exams is List && exams.isNotEmpty) return true;
+
+      final batches = await _client.from('batches').select('id').eq('course_id', courseId).isFilter('deleted_at', null);
+      if (batches is List && batches.isNotEmpty) {
+        final bIds = (batches as List).map((b) => b['id']).toList();
+        final sessions = await _client.from('attendance_sessions').select('id').inFilter('batch_id', bIds).limit(1);
+        if (sessions is List && sessions.isNotEmpty) return true;
+      }
+    } catch (e) {
+      debugPrint('SupabaseCourseRepository.isCourseStructureLocked check error: $e');
+    }
+    return false;
+  }
 }
+

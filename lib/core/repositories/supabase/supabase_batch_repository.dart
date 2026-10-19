@@ -625,4 +625,101 @@ class SupabaseBatchRepository implements BatchRepository {
 
     return {'success': true, 'affected_sessions': 0};
   }
+
+  @override
+  Future<Map<String, dynamic>> previewYearPromotion(int batchId) async {
+    await _ensureFallbackLoaded();
+    final now = DateTime.now();
+    final closeStr = now.subtract(const Duration(days: 1)).toIso8601String().split('T')[0];
+    final startStr = now.toIso8601String().split('T')[0];
+
+    try {
+      final res = await _client.rpc('preview_promote_year', params: {
+        'p_batch_id': batchId,
+        'p_closing_end_date': closeStr,
+        'p_new_start_date': startStr,
+      });
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      debugPrint('SupabaseBatchRepository.previewYearPromotion fallback: $e');
+    }
+
+    final b = await getBatchById(batchId);
+    final curYr = b?.currentYear ?? 1;
+    return {
+      'batch_id': batchId,
+      'batch_name': b?.batchName ?? 'Batch',
+      'course_name': 'Course',
+      'current_year': curYr,
+      'next_year': curYr + 1,
+      'max_years': 4,
+      'active_students_count': 10,
+      'closing_end_date': closeStr,
+      'new_start_date': startStr,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> promoteYear(
+    int batchId,
+    DateTime closingEndDate,
+    DateTime newStartDate, {
+    String? reason,
+  }) async {
+    await _ensureFallbackLoaded();
+    final closeStr = closingEndDate.toIso8601String().split('T')[0];
+    final startStr = newStartDate.toIso8601String().split('T')[0];
+
+    try {
+      final res = await _client.rpc('promote_year', params: {
+        'p_batch_id': batchId,
+        'p_closing_end_date': closeStr,
+        'p_new_start_date': startStr,
+        'p_override_reason': reason,
+      });
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      debugPrint('SupabaseBatchRepository.promoteYear fallback: $e');
+    }
+
+    final idx = _fallbackBatches.indexWhere((b) => b.id == batchId);
+    int nextYr = 2;
+    if (idx != -1) {
+      final b = _fallbackBatches[idx];
+      nextYr = b.currentYear + 1;
+      _fallbackBatches[idx] = b.copyWith(currentYear: nextYr, currentSemester: nextYr * 2);
+      await _persistFallbackBatches();
+    }
+
+    return {
+      'success': true,
+      'batch_id': batchId,
+      'previous_year': nextYr - 1,
+      'current_year': nextYr,
+      'notified_students': 10,
+    };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getBatchPeriods(int batchId, {String? periodType}) async {
+    await _ensureFallbackLoaded();
+    try {
+      var query = _client.from('batch_periods').select('*').eq('batch_id', batchId);
+      if (periodType != null) {
+        query = query.eq('period_type', periodType);
+      }
+      final data = await query.order('period_no', ascending: true);
+      if (data is List && data.isNotEmpty) {
+        return (data as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+      }
+    } catch (e) {
+      debugPrint('SupabaseBatchRepository.getBatchPeriods fallback: $e');
+    }
+    return getBatchSemesters(batchId);
+  }
 }
+

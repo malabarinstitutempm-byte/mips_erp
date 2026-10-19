@@ -45,4 +45,16 @@ abstract class BatchRepository {
     DateTime? endDate,
     String? reason,
   );
+
+  // Phase 14B: Year-wise Promotion & Period Dates Management
+  Future<Map<String, dynamic>> previewYearPromotion(int batchId);
+
+  Future<Map<String, dynamic>> promoteYear(
+    int batchId,
+    DateTime closingEndDate,
+    DateTime newStartDate, {
+    String? reason,
+  });
+
+  Future<List<Map<String, dynamic>>> getBatchPeriods(int batchId, {String? periodType});
 }

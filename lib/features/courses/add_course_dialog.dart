@@ -17,12 +17,16 @@ class AddCourseDialog extends ConsumerStatefulWidget {
 }
 
 class _CourseSubjectRow {
+  int? id;
+  int? periodNo;
   final TextEditingController nameCtrl;
   final TextEditingController codeCtrl;
   final TextEditingController maxCtrl;
   final TextEditingController passCtrl;
 
   _CourseSubjectRow({
+    this.id,
+    this.periodNo,
     String name = '',
     String code = '',
     String max = '100',
@@ -46,26 +50,45 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
   late TextEditingController _codeCtrl;
   late TextEditingController _durationCtrl;
   late TextEditingController _feeCtrl;
+
   String _courseType = 'primary';
+  String _structure = 'semester'; // 'semester', 'year', 'single'
+  String _attendanceBasis = 'semester'; // 'semester', 'year', 'none'
+  bool _isStructureLocked = false;
 
   final List<_CourseSubjectRow> _subjects = [];
   bool _isSaving = false;
   bool _isLoadingSubjects = false;
 
+  // Selected tab: 1..N for periods, or -1 for "Unassigned"
+  int _selectedTabPeriod = 1;
+
   @override
   void initState() {
     super.initState();
-    _courseType = widget.existingCourse?.courseType ?? 'primary';
-    _nameCtrl = TextEditingController(text: widget.existingCourse?.name);
-    _codeCtrl = TextEditingController(text: widget.existingCourse?.code);
-    _durationCtrl = TextEditingController(text: widget.existingCourse?.duration);
-    _feeCtrl = TextEditingController(text: widget.existingCourse?.totalFee.toString() ?? '');
+    final c = widget.existingCourse;
+    _courseType = c?.courseType ?? 'primary';
+    _structure = c?.structure ?? (_courseType == 'skill' ? 'single' : 'semester');
+    _attendanceBasis = c?.attendanceBasis ?? (_structure == 'single' ? 'none' : _structure);
 
-    if (widget.existingCourse != null && widget.existingCourse!.id != null) {
-      _loadExistingSubjects(widget.existingCourse!.id!);
+    _nameCtrl = TextEditingController(text: c?.name);
+    _codeCtrl = TextEditingController(text: c?.code);
+    _durationCtrl = TextEditingController(text: c?.duration ?? '2 Years');
+    _feeCtrl = TextEditingController(text: c?.totalFee.toString() ?? '');
+
+    if (c != null && c.id != null) {
+      _checkStructureLock(c.id!);
+      _loadExistingSubjects(c.id!);
     } else {
-      _subjects.add(_CourseSubjectRow());
+      _subjects.add(_CourseSubjectRow(periodNo: _structure == 'single' ? null : 1));
     }
+  }
+
+  Future<void> _checkStructureLock(int courseId) async {
+    try {
+      final locked = await ref.read(courseRepositoryProvider).isCourseStructureLocked(courseId);
+      if (mounted) setState(() => _isStructureLocked = locked);
+    } catch (_) {}
   }
 
   Future<void> _loadExistingSubjects(int courseId) async {
@@ -78,6 +101,8 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
           if (list.isNotEmpty) {
             for (final s in list) {
               _subjects.add(_CourseSubjectRow(
+                id: s.id,
+                periodNo: s.periodNo,
                 name: s.subjectName,
                 code: s.subjectCode ?? '',
                 max: s.maxMarks.toStringAsFixed(0),
@@ -85,30 +110,184 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
               ));
             }
           } else {
-            _subjects.add(_CourseSubjectRow());
+            _subjects.add(_CourseSubjectRow(periodNo: _structure == 'single' ? null : 1));
           }
         });
       }
     } catch (_) {
       if (mounted && _subjects.isEmpty) {
-        _subjects.add(_CourseSubjectRow());
+        _subjects.add(_CourseSubjectRow(periodNo: _structure == 'single' ? null : 1));
       }
     } finally {
       if (mounted) setState(() => _isLoadingSubjects = false);
     }
   }
 
+  int get _durationYears {
+    final match = RegExp(r'\d+').firstMatch(_durationCtrl.text);
+    if (match != null) {
+      final val = int.tryParse(match.group(0)!);
+      if (val != null && val > 0) return val;
+    }
+    return 2;
+  }
+
+  int get _totalPeriods {
+    if (_structure == 'single') return 1;
+    if (_structure == 'year') return _durationYears;
+    return _durationYears * 2;
+  }
+
+  String get _periodLabel => _structure == 'year' ? 'Year' : 'Semester';
+
+  List<_CourseSubjectRow> get _currentPeriodSubjects {
+    if (_structure == 'single') return _subjects;
+    if (_selectedTabPeriod == -1) {
+      return _subjects.where((s) => s.periodNo == null).toList();
+    }
+    return _subjects.where((s) => s.periodNo == _selectedTabPeriod).toList();
+  }
+
+  bool get _hasUnassignedSubjects =>
+      _structure != 'single' && _subjects.any((s) => s.periodNo == null);
+
   void _addSubject() {
     setState(() {
-      _subjects.add(_CourseSubjectRow());
+      _subjects.add(_CourseSubjectRow(
+        periodNo: _structure == 'single'
+            ? null
+            : (_selectedTabPeriod == -1 ? 1 : _selectedTabPeriod),
+      ));
     });
   }
 
-  void _removeSubject(int index) {
+  void _removeSubject(_CourseSubjectRow row) {
     setState(() {
-      final removed = _subjects.removeAt(index);
-      removed.dispose();
+      _subjects.remove(row);
+      row.dispose();
     });
+  }
+
+  void _copySubjectsFromDialog() {
+    final periods = List.generate(_totalPeriods, (i) => i + 1)
+        .where((p) => p != _selectedTabPeriod)
+        .toList();
+
+    if (periods.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No other periods available to copy from.')),
+      );
+      return;
+    }
+
+    int sourcePeriod = periods.first;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Copy Subjects to $_periodLabel $_selectedTabPeriod'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select the $_periodLabel to copy subjects from:'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: sourcePeriod,
+                decoration: InputDecoration(
+                  labelText: 'Source $_periodLabel',
+                  border: const OutlineInputBorder(),
+                ),
+                items: periods.map((p) {
+                  final count = _subjects.where((s) => s.periodNo == p).length;
+                  return DropdownMenuItem(
+                    value: p,
+                    child: Text('$_periodLabel $p ($count subjects)'),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => sourcePeriod = v);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final toCopy = _subjects.where((s) => s.periodNo == sourcePeriod).toList();
+                if (toCopy.isEmpty) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('No subjects found in $_periodLabel $sourcePeriod to copy.')),
+                  );
+                  return;
+                }
+
+                setState(() {
+                  for (final s in toCopy) {
+                    _subjects.add(_CourseSubjectRow(
+                      periodNo: _selectedTabPeriod == -1 ? 1 : _selectedTabPeriod,
+                      name: s.nameCtrl.text.trim(),
+                      code: s.codeCtrl.text.trim(),
+                      max: s.maxCtrl.text.trim(),
+                      pass: s.passCtrl.text.trim(),
+                    ));
+                  }
+                });
+
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Copied ${toCopy.length} subjects to $_periodLabel $_selectedTabPeriod!')),
+                );
+              },
+              child: const Text('Copy Subjects'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _assignUnassignedDialog(_CourseSubjectRow sub) {
+    int targetPeriod = 1;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Assign "${sub.nameCtrl.text}" to $_periodLabel'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                value: targetPeriod,
+                decoration: InputDecoration(labelText: 'Target $_periodLabel'),
+                items: List.generate(_totalPeriods, (i) => i + 1).map((p) {
+                  return DropdownMenuItem(value: p, child: Text('$_periodLabel $p'));
+                }).toList(),
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => targetPeriod = v);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                setState(() => sub.periodNo = targetPeriod);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Assign'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -164,6 +343,8 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
         code: _codeCtrl.text.trim(),
         duration: _durationCtrl.text.trim(),
         courseType: _courseType,
+        structure: _structure,
+        attendanceBasis: _attendanceBasis,
         totalFee: double.tryParse(_feeCtrl.text.trim()) ?? 0.0,
         universityId: widget.existingCourse?.universityId ?? 1,
       );
@@ -180,7 +361,9 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
       final validSubjects = _subjects
           .where((s) => s.nameCtrl.text.trim().isNotEmpty)
           .map((s) => CourseSubject(
+                id: s.id,
                 courseId: courseId,
+                periodNo: _structure == 'single' ? null : s.periodNo,
                 subjectName: s.nameCtrl.text.trim(),
                 subjectCode: s.codeCtrl.text.trim().isEmpty ? null : s.codeCtrl.text.trim(),
                 maxMarks: double.tryParse(s.maxCtrl.text.trim()) ?? 100.0,
@@ -213,12 +396,14 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final curSubs = _currentPeriodSubjects;
+
     return Dialog(
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radius14)),
       child: Container(
-        width: 860,
-        height: 640,
+        width: 980,
+        height: 700,
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Form(
           key: _formKey,
@@ -254,7 +439,32 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
               ),
               const SizedBox(height: AppSpacing.md),
               const Divider(height: 1),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
+
+              // Locked Warning Banner (if structure is locked)
+              if (_isStructureLocked) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF59E0B)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(LucideIcons.lock, size: 16, color: Color(0xFFB45309)),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Course structure is locked because exams, marks, or attendance records already exist for this course.',
+                          style: TextStyle(fontSize: 12, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
 
               // Content Area
               Expanded(
@@ -263,13 +473,13 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                   children: [
                     // Left Column: Course Metadata
                     SizedBox(
-                      width: 280,
+                      width: 290,
                       child: SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Course Details',
+                              'Course Configuration',
                               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textStrong),
                             ),
                             const SizedBox(height: AppSpacing.md),
@@ -293,15 +503,62 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                               validator: (v) => v == null || v.trim().isEmpty ? 'Course code is required' : null,
                             ),
                             const SizedBox(height: AppSpacing.md),
+
+                            // Structure Choice
+                            DropdownButtonFormField<String>(
+                              value: _structure,
+                              decoration: InputDecoration(
+                                labelText: 'Course Structure',
+                                prefixIcon: const Icon(LucideIcons.layoutGrid, size: 18),
+                                helperText: _isStructureLocked ? 'Locked by academic records' : 'Determines syllabus and exam periods',
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'semester', child: Text('Semester-wise')),
+                                DropdownMenuItem(value: 'year', child: Text('Year-wise')),
+                                DropdownMenuItem(value: 'single', child: Text('Single Subject List')),
+                              ],
+                              onChanged: _isStructureLocked
+                                  ? null
+                                  : (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          _structure = val;
+                                          _attendanceBasis = val == 'single' ? 'none' : val;
+                                          _selectedTabPeriod = 1;
+                                        });
+                                      }
+                                    },
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+
+                            // Attendance Basis
+                            DropdownButtonFormField<String>(
+                              value: _attendanceBasis,
+                              decoration: const InputDecoration(
+                                labelText: 'Attendance Basis',
+                                prefixIcon: Icon(LucideIcons.calendarCheck, size: 18),
+                                helperText: 'Attendance evaluation window',
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'semester', child: Text('Semester-basis (6 Months)')),
+                                DropdownMenuItem(value: 'year', child: Text('Year-basis (Annual)')),
+                                DropdownMenuItem(value: 'none', child: Text('No Attendance Tracking')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) setState(() => _attendanceBasis = val);
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+
                             DropdownButtonFormField<String>(
                               value: _courseType,
                               decoration: const InputDecoration(
-                                labelText: 'Course Type',
+                                labelText: 'Course Category',
                                 prefixIcon: Icon(LucideIcons.layers, size: 18),
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'primary', child: Text('Primary Course')),
-                                DropdownMenuItem(value: 'skill', child: Text('Skill Course (Optional)')),
+                                DropdownMenuItem(value: 'primary', child: Text('Primary Degree/Diploma')),
+                                DropdownMenuItem(value: 'skill', child: Text('Certified Skill Course')),
                               ],
                               onChanged: (val) {
                                 if (val != null) setState(() => _courseType = val);
@@ -312,9 +569,10 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                               controller: _durationCtrl,
                               decoration: const InputDecoration(
                                 labelText: 'Duration',
-                                hintText: 'e.g. 2 Years / 6 Months',
+                                hintText: 'e.g. 2 Years / 1 Year',
                                 prefixIcon: Icon(LucideIcons.clock, size: 18),
                               ),
+                              onChanged: (_) => setState(() {}),
                             ),
                             const SizedBox(height: AppSpacing.md),
                             TextFormField(
@@ -336,64 +594,167 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                       ),
                     ),
 
-                    const SizedBox(width: AppSpacing.xl),
+                    const SizedBox(width: AppSpacing.lg),
                     const VerticalDivider(width: 1),
-                    const SizedBox(width: AppSpacing.xl),
+                    const SizedBox(width: AppSpacing.lg),
 
-                    // Right Column: Course Subjects
+                    // Right Column: Period Tabs & Subject Editor
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Period Tabs Header
+                          if (_structure != 'single') ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        for (int p = 1; p <= _totalPeriods; p++) ...[
+                                          InkWell(
+                                            onTap: () => setState(() => _selectedTabPeriod = p),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: _selectedTabPeriod == p
+                                                    ? AppColors.brandDark
+                                                    : const Color(0xFFF1F5F9),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: _selectedTabPeriod == p
+                                                      ? AppColors.brandDark
+                                                      : const Color(0xFFCBD5E1),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Text(
+                                                    '$_periodLabel $p',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: _selectedTabPeriod == p ? Colors.white : AppColors.textStrong,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                                    decoration: BoxDecoration(
+                                                      color: _selectedTabPeriod == p ? Colors.white24 : Colors.black12,
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                    child: Text(
+                                                      '${_subjects.where((s) => s.periodNo == p).length}',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: _selectedTabPeriod == p ? Colors.white : AppColors.textMuted,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+
+                                        // Unassigned Tab if any exist
+                                        if (_hasUnassignedSubjects) ...[
+                                          InkWell(
+                                            onTap: () => setState(() => _selectedTabPeriod = -1),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: _selectedTabPeriod == -1
+                                                    ? const Color(0xFFDC2626)
+                                                    : const Color(0xFFFEF2F2),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: _selectedTabPeriod == -1
+                                                      ? const Color(0xFFDC2626)
+                                                      : const Color(0xFFFCA5A5),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    LucideIcons.alertCircle,
+                                                    size: 13,
+                                                    color: _selectedTabPeriod == -1 ? Colors.white : const Color(0xFFDC2626),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Unassigned',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: _selectedTabPeriod == -1 ? Colors.white : const Color(0xFFDC2626),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    '(${_subjects.where((s) => s.periodNo == null).length})',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: _selectedTabPeriod == -1 ? Colors.white : const Color(0xFFDC2626),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                OutlinedButton.icon(
+                                  onPressed: _copySubjectsFromDialog,
+                                  icon: const Icon(LucideIcons.copy, size: 13),
+                                  label: const Text('Copy from...'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    textStyle: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                          ],
+
+                          // Subtitle & Add button
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'Curriculum Subjects',
-                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textStrong),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFE0F2FE),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: const Text(
-                                            'Optional',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'Define optional subjects now. Total & pass marks can be edited during mark entry.',
-                                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                    ),
-                                  ],
-                                ),
+                              Text(
+                                _structure == 'single'
+                                    ? 'All Curriculum Subjects (${_subjects.length})'
+                                    : (_selectedTabPeriod == -1
+                                        ? 'Unassigned Subjects (assign to a period below)'
+                                        : '$_periodLabel $_selectedTabPeriod Subjects (${curSubs.length})'),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textStrong),
                               ),
-                              const SizedBox(width: AppSpacing.md),
                               ElevatedButton.icon(
                                 onPressed: _addSubject,
-                                icon: const Icon(LucideIcons.plus, size: 15),
-                                label: const Text('Add Subject'),
+                                icon: const Icon(LucideIcons.plus, size: 14),
+                                label: Text(_structure == 'single' ? 'Add Subject' : 'Add to $_periodLabel $_selectedTabPeriod'),
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  textStyle: const TextStyle(fontSize: 12),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.sm),
 
-                          // Subjects List Header
+                          // Table Header
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
@@ -401,175 +762,146 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
-                              children: const [
-                                Expanded(flex: 4, child: Text('Subject Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                                SizedBox(width: 8),
-                                Expanded(flex: 2, child: Text('Code', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                                SizedBox(width: 8),
-                                Expanded(flex: 2, child: Text('Max Mark', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                                SizedBox(width: 8),
-                                Expanded(flex: 2, child: Text('Pass Mark', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                                SizedBox(width: 36),
+                              children: [
+                                const Expanded(flex: 5, child: Text('Subject Name', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                const Expanded(flex: 3, child: Text('Code', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                const Expanded(flex: 2, child: Text('Max', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                const Expanded(flex: 2, child: Text('Pass', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                const Expanded(flex: 3, child: Text('Presets', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                if (_selectedTabPeriod == -1)
+                                  const Expanded(flex: 3, child: Text('Assign', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                const SizedBox(width: 32),
                               ],
                             ),
                           ),
                           const SizedBox(height: 6),
 
+                          // Subjects List Rows
                           Expanded(
                             child: _isLoadingSubjects
                                 ? const Center(child: CircularProgressIndicator())
-                                : _subjects.isEmpty
-                                    ? Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: AppColors.border),
-                                          borderRadius: BorderRadius.circular(AppRadius.card),
-                                        ),
-                                        child: Center(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(LucideIcons.bookOpen, size: 36, color: AppColors.textMuted.withOpacity(0.4)),
-                                              const SizedBox(height: 8),
-                                              const Text(
-                                                'No Subjects Added (Optional)',
-                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textStrong),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              const Text(
-                                                'You can create the course now and add subjects anytime later.',
-                                                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                              const SizedBox(height: 12),
-                                              OutlinedButton.icon(
-                                                onPressed: _addSubject,
-                                                icon: const Icon(LucideIcons.plus, size: 14),
-                                                label: const Text('Add Optional Subject'),
-                                              ),
-                                            ],
-                                          ),
+                                : curSubs.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(LucideIcons.bookOpen, size: 36, color: Colors.grey.shade400),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              _selectedTabPeriod == -1
+                                                  ? 'No unassigned subjects!'
+                                                  : 'No subjects added for $_periodLabel $_selectedTabPeriod yet.',
+                                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            ElevatedButton(
+                                              onPressed: _addSubject,
+                                              child: Text('Add First Subject'),
+                                            ),
+                                          ],
                                         ),
                                       )
-                                    : Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: AppColors.border),
-                                          borderRadius: BorderRadius.circular(AppRadius.card),
-                                        ),
-                                        child: ListView.separated(
-                                          padding: const EdgeInsets.all(AppSpacing.sm),
-                                          itemCount: _subjects.length,
-                                          separatorBuilder: (_, __) => const Divider(height: 1),
-                                          itemBuilder: (context, i) {
-                                            final sub = _subjects[i];
-                                            return Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    : ListView.separated(
+                                        itemCount: curSubs.length,
+                                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                                        itemBuilder: (context, index) {
+                                          final sub = curSubs[index];
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  flex: 5,
+                                                  child: TextFormField(
+                                                    controller: sub.nameCtrl,
+                                                    style: const TextStyle(fontSize: 12),
+                                                    decoration: const InputDecoration(
+                                                      isDense: true,
+                                                      hintText: 'e.g. Clinical Biochemistry',
+                                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: TextFormField(
+                                                    controller: sub.codeCtrl,
+                                                    style: const TextStyle(fontSize: 12),
+                                                    decoration: const InputDecoration(
+                                                      isDense: true,
+                                                      hintText: 'e.g. BIO101',
+                                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: TextFormField(
+                                                    controller: sub.maxCtrl,
+                                                    style: const TextStyle(fontSize: 12),
+                                                    keyboardType: TextInputType.number,
+                                                    decoration: const InputDecoration(
+                                                      isDense: true,
+                                                      hintText: '100',
+                                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: TextFormField(
+                                                    controller: sub.passCtrl,
+                                                    style: const TextStyle(fontSize: 12),
+                                                    keyboardType: TextInputType.number,
+                                                    decoration: const InputDecoration(
+                                                      isDense: true,
+                                                      hintText: '40',
+                                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: Row(
                                                     children: [
-                                                      Expanded(
-                                                        flex: 4,
-                                                        child: TextFormField(
-                                                          controller: sub.nameCtrl,
-                                                          decoration: const InputDecoration(
-                                                            hintText: 'e.g. Clinical Biochemistry',
-                                                            isDense: true,
-                                                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                          ),
-                                                          validator: (v) {
-                                                            // Optional: If row is completely blank, no error
-                                                            if (sub.codeCtrl.text.trim().isNotEmpty && (v == null || v.trim().isEmpty)) {
-                                                              return 'Required if code entered';
-                                                            }
-                                                            return null;
-                                                          },
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: TextFormField(
-                                                          controller: sub.codeCtrl,
-                                                          decoration: const InputDecoration(
-                                                            hintText: 'e.g. CB101',
-                                                            isDense: true,
-                                                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: TextFormField(
-                                                          controller: sub.maxCtrl,
-                                                          keyboardType: TextInputType.number,
-                                                          decoration: const InputDecoration(
-                                                            isDense: true,
-                                                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                          ),
-                                                          validator: (v) {
-                                                            if (sub.nameCtrl.text.trim().isNotEmpty) {
-                                                              final n = double.tryParse(v ?? '');
-                                                              if (n == null || n <= 0) return 'Invalid';
-                                                            }
-                                                            return null;
-                                                          },
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: TextFormField(
-                                                          controller: sub.passCtrl,
-                                                          keyboardType: TextInputType.number,
-                                                          decoration: const InputDecoration(
-                                                            isDense: true,
-                                                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                                          ),
-                                                          validator: (v) {
-                                                            if (sub.nameCtrl.text.trim().isNotEmpty) {
-                                                              final p = double.tryParse(v ?? '');
-                                                              final m = double.tryParse(sub.maxCtrl.text);
-                                                              if (p == null || p < 0) return 'Invalid';
-                                                              if (m != null && p > m) return '> Max';
-                                                            }
-                                                            return null;
-                                                          },
-                                                        ),
-                                                      ),
-                                                      SizedBox(
-                                                        width: 36,
-                                                        child: IconButton(
-                                                          icon: Icon(LucideIcons.trash2, size: 16, color: AppColors.danger.base),
-                                                          onPressed: () => _removeSubject(i),
-                                                          tooltip: 'Remove Subject',
-                                                        ),
-                                                      ),
+                                                      _buildPresetChip(sub, '100', '40'),
+                                                      const SizedBox(width: 4),
+                                                      _buildPresetChip(sub, '50', '20'),
                                                     ],
                                                   ),
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 4, left: 2, bottom: 2),
-                                                    child: Row(
-                                                      children: [
-                                                        const Text('Presets:', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                                                        const SizedBox(width: 4),
-                                                        _buildPresetChip(sub, '100', '40'),
-                                                        const SizedBox(width: 4),
-                                                        _buildPresetChip(sub, '100', '50'),
-                                                        const SizedBox(width: 4),
-                                                        _buildPresetChip(sub, '50', '20'),
-                                                        const SizedBox(width: 4),
-                                                        _buildPresetChip(sub, '75', '30'),
-                                                      ],
+                                                ),
+                                                if (_selectedTabPeriod == -1) ...[
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    flex: 3,
+                                                    child: OutlinedButton(
+                                                      onPressed: () => _assignUnassignedDialog(sub),
+                                                      style: OutlinedButton.styleFrom(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                      ),
+                                                      child: const Text('Assign', style: TextStyle(fontSize: 11)),
                                                     ),
                                                   ),
                                                 ],
-                                              ),
-                                            );
-                                          },
-                                        ),
+                                                IconButton(
+                                                  icon: const Icon(LucideIcons.trash2, size: 16, color: Color(0xFFEF4444)),
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                  onPressed: () => _removeSubject(sub),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
                                       ),
                           ),
                         ],
@@ -579,7 +911,7 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                 ),
               ),
 
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               const Divider(height: 1),
               const SizedBox(height: AppSpacing.md),
 
@@ -587,7 +919,7 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  OutlinedButton(
                     onPressed: _isSaving ? null : () => Navigator.pop(context),
                     child: const Text('Cancel'),
                   ),
@@ -596,7 +928,7 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                     onPressed: _isSaving ? null : _save,
                     child: _isSaving
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(widget.existingCourse == null ? 'Create Course & Subjects' : 'Save Changes'),
+                        : Text(widget.existingCourse == null ? 'Create Course' : 'Save Changes'),
                   ),
                 ],
               ),

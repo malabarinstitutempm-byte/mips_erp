@@ -151,6 +151,34 @@ class MockPhase9BatchRepository implements BatchRepository {
     DateTime? endDate,
     String? reason,
   ) async => {'success': true};
+
+  @override
+  Future<Map<String, dynamic>> previewYearPromotion(int batchId) async => {
+    'batch_id': batchId,
+    'current_year': 1,
+    'next_year': 2,
+    'max_years': 3,
+    'active_students_count': previewStudents.length,
+    'closing_end_date': '2026-05-31',
+    'new_start_date': '2026-06-01',
+  };
+
+  @override
+  Future<Map<String, dynamic>> promoteYear(
+    int batchId,
+    DateTime closingEndDate,
+    DateTime newStartDate, {
+    String? reason,
+  }) async => {
+    'success': true,
+    'batch_id': batchId,
+    'previous_year': 1,
+    'current_year': 2,
+    'notified_students': previewStudents.length,
+  };
+
+  @override
+  Future<List<Map<String, dynamic>>> getBatchPeriods(int batchId, {String? periodType}) async => [];
 }
 
 void main() {

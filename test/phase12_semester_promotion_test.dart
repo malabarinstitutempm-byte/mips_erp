@@ -109,6 +109,51 @@ class MockSemesterBatchRepository implements BatchRepository {
   ) async {
     return {'success': true};
   }
+
+  @override
+  Future<Map<String, dynamic>> previewYearPromotion(int batchId) async => previewData;
+
+  @override
+  Future<Map<String, dynamic>> promoteYear(
+    int batchId,
+    DateTime closingEndDate,
+    DateTime newStartDate, {
+    String? reason,
+  }) async {
+    lastPromoteCall = {
+      'batchId': batchId,
+      'closingEndDate': closingEndDate,
+      'newStartDate': newStartDate,
+      'reason': reason,
+    };
+    return {
+      'success': true,
+      'batch_name': 'Batch 2024-26',
+      'old_year': 1,
+      'new_year': 2,
+      'promoted_count': 2,
+    };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getBatchPeriods(int batchId, {String? periodType}) async {
+    return [
+      {
+        'period_no': 1,
+        'period_type': periodType ?? 'semester',
+        'start_date': '2025-08-01',
+        'end_date': '2025-12-31',
+        'status': 'closed',
+      },
+      {
+        'period_no': 2,
+        'period_type': periodType ?? 'semester',
+        'start_date': '2026-01-05',
+        'end_date': null,
+        'status': 'active',
+      },
+    ];
+  }
 }
 
 void main() {

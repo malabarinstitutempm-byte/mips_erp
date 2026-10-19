@@ -169,7 +169,26 @@ class ExamsScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CourseChip(courseName: exam['course']?.toString() ?? 'N/A', courseCode: exam['code']?.toString() ?? 'N/A'),
+                        Row(
+                          children: [
+                            CourseChip(courseName: exam['course']?.toString() ?? 'N/A', courseCode: exam['code']?.toString() ?? 'N/A'),
+                            if (exam['period_display'] != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: Text(
+                                  exam['period_display'].toString(),
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
                           exam['name'].toString(),
@@ -179,7 +198,7 @@ class ExamsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          '${exam['batch'] ?? 'Batch'} - $subjectsCount Subjects - $studentsCount Students',
+                          '${exam['batch'] ?? 'Batch'} • ${exam['period_display'] ?? 'General'} • $subjectsCount Subjects • $studentsCount Students',
                           style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

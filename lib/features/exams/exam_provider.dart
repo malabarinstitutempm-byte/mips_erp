@@ -28,7 +28,7 @@ final examDashboardProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
 
     final examsData = await client
         .from('exams')
-        .select('id, name, status, course_id, batch_id, exam_date, courses(id, name, code), batches(id, batch_name)')
+        .select('id, name, status, course_id, batch_id, exam_date, period_type, period_no, semester, courses(id, name, code, structure), batches(id, batch_name)')
         .isFilter('deleted_at', null)
         .order('id', ascending: false);
 
@@ -42,6 +42,15 @@ final examDashboardProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
       final courseName = course?['name']?.toString() ?? 'General Course';
       final courseCode = course?['code']?.toString() ?? 'N/A';
       final batchName = batch?['batch_name']?.toString() ?? 'All Batches';
+
+      final periodType = e['period_type']?.toString();
+      final periodNo = (e['period_no'] as num?)?.toInt();
+      final semester = e['semester']?.toString();
+      final periodDisplay = (periodType == 'year' && periodNo != null)
+          ? 'Year $periodNo'
+          : ((periodType == 'semester' && periodNo != null)
+              ? 'Semester $periodNo'
+              : (semester ?? 'General'));
 
       // Get subjects count for this exam
       int subjectsCount = 0;
@@ -93,6 +102,9 @@ final examDashboardProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
         'course': courseName,
         'code': courseCode,
         'batch': batchName,
+        'period_type': periodType,
+        'period_no': periodNo,
+        'period_display': periodDisplay,
         'students': studentsCount,
         'subjects': subjectsCount,
         'marks_entered': marksCount,
@@ -124,6 +136,9 @@ final examDashboardProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
       'course': c?.name ?? 'Course',
       'code': c?.code ?? 'N/A',
       'batch': bName,
+      'period_type': e.periodType,
+      'period_no': e.periodNo,
+      'period_display': e.periodDisplay,
       'students': 25,
       'subjects': 3,
       'marks_entered': e.status.toLowerCase() == 'published' ? 25 : 0,

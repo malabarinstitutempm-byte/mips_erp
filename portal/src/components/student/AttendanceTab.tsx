@@ -46,6 +46,10 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
   const primaryEnrollment = enrollments.find((e) => e.courseType === 'primary') || enrollments[0];
   const skillEnrollment = enrollments.find((e) => e.courseType === 'skill');
 
+  const isYearWise = primaryEnrollment?.courseStructure === 'year' || primaryEnrollment?.attendanceBasis === 'year';
+  const periodLabel = isYearWise ? 'Year' : 'Semester';
+  const periodShortLabel = isYearWise ? 'Year' : 'Sem';
+
   // Attendance tracking applies exclusively to PRIMARY enrollments per policy
   const selectedEnrollmentId = primaryEnrollment?.enrollmentId;
 
@@ -77,20 +81,22 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
   });
 
   // Determine current active semester and selected semester metadata
-  const activeCurrentSemester = attendanceData?.currentSemester || currentSemester || 1;
+  const activeCurrentSemester = attendanceData?.currentSemester || (isYearWise ? currentYear : currentSemester) || 1;
   const selectedSemester = userSelectedSemester ?? activeCurrentSemester;
 
-  // Calculate Semesters list
+  // Calculate Semesters/Periods list
   const semesters: SemesterSummary[] = useMemo(() => {
     if (attendanceData?.semesters && attendanceData.semesters.length > 0) {
       return attendanceData.semesters;
     }
-    const curr = attendanceData?.currentSemester || currentSemester || 1;
+    const curr = attendanceData?.currentSemester || (isYearWise ? currentYear : currentSemester) || 1;
     const list: SemesterSummary[] = [];
     for (let s = 1; s <= curr; s++) {
       list.push({
         semester_no: s,
-        academic_year: Math.ceil(s / 2),
+        academic_year: isYearWise ? s : Math.ceil(s / 2),
+        period_type: isYearWise ? 'year' : 'semester',
+        period_no: s,
         start_date: '2025-08-01',
         end_date: s < curr ? '2025-12-31' : null,
         is_current: s === curr,
@@ -105,13 +111,13 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       });
     }
     return list;
-  }, [attendanceData, currentSemester]);
+  }, [attendanceData, currentSemester, currentYear, isYearWise]);
 
-  const activeSemesterObj = semesters.find((s) => s.semester_no === selectedSemester) || semesters[0];
+  const activeSemesterObj = semesters.find((s) => (s.period_no ?? s.semester_no) === selectedSemester) || semesters[0];
   const isCurrentSemester = Boolean(
     activeSemesterObj?.is_current || selectedSemester === activeCurrentSemester
   );
-  const selectedSemesterYear = activeSemesterObj?.academic_year || Math.ceil(selectedSemester / 2);
+  const selectedSemesterYear = activeSemesterObj?.academic_year || (isYearWise ? selectedSemester : Math.ceil(selectedSemester / 2));
 
   // Date boundaries for day navigation limited to the selected semester's dates
   const minDate = activeSemesterObj?.start_date;
@@ -306,30 +312,31 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       )}
 
       {/* =========================================================================
-          1. ALL SEMESTERS SHORT LIST AT THE TOP
+          1. ALL PERIODS SHORT LIST AT THE TOP
       ========================================================================= */}
       <div className="bg-white rounded-card-lg border border-cardBorder shadow-card p-5">
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-cardBorder">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-primary" />
             <h3 className="font-sora font-bold text-sm text-navy uppercase tracking-wider">
-              All Semesters Overview
+              {isYearWise ? 'All Academic Years Overview' : 'All Semesters Overview'}
             </h3>
           </div>
           <span className="text-[11px] text-muted font-medium">
-            Click any semester to view details
+            Click any {isYearWise ? 'year' : 'semester'} to view details
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {semesters.map((s) => {
-            const isSelected = s.semester_no === selectedSemester;
+            const periodNum = s.period_no ?? s.semester_no;
+            const isSelected = periodNum === selectedSemester;
             const met = s.percentage >= 75 || s.met_minimum;
             return (
               <button
-                key={s.semester_no}
+                key={periodNum}
                 type="button"
-                onClick={() => setUserSelectedSemester(s.semester_no)}
+                onClick={() => setUserSelectedSemester(periodNum)}
                 className={`p-3 rounded-card border text-left transition-all ${
                   isSelected
                     ? 'border-teal bg-teal/5 ring-2 ring-teal/30 shadow-sm'
@@ -338,11 +345,13 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-sora font-bold text-xs text-navy">
-                    Semester {s.semester_no}
+                    {periodLabel} {periodNum}
                   </span>
-                  <span className="text-[10px] font-semibold text-muted">
-                    Year {s.academic_year || Math.ceil(s.semester_no / 2)}
-                  </span>
+                  {!isYearWise && (
+                    <span className="text-[10px] font-semibold text-muted">
+                      Year {s.academic_year || Math.ceil(s.semester_no / 2)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-baseline justify-between gap-2">
@@ -375,28 +384,29 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       </div>
 
       {/* =========================================================================
-          2. SEMESTER SELECTOR CHIPS & CURRENT CONTEXT HEADER
+          2. PERIOD SELECTOR CHIPS & CURRENT CONTEXT HEADER
       ========================================================================= */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white rounded-card-lg border border-cardBorder p-4 shadow-card">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold text-muted uppercase tracking-wider">
-            Semester:
+            {periodLabel}:
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
             {semesters.map((s) => {
-              const isSelected = s.semester_no === selectedSemester;
+              const periodNum = s.period_no ?? s.semester_no;
+              const isSelected = periodNum === selectedSemester;
               return (
                 <button
-                  key={s.semester_no}
+                  key={periodNum}
                   type="button"
-                  onClick={() => setUserSelectedSemester(s.semester_no)}
+                  onClick={() => setUserSelectedSemester(periodNum)}
                   className={`px-3.5 py-1.5 rounded-btn text-xs font-sora font-bold transition-all min-h-touch min-w-[54px] flex items-center justify-center ${
                     isSelected
                       ? 'bg-navy text-white shadow-sm ring-2 ring-navy/20'
                       : 'bg-surface hover:bg-slate-100 text-slate-700 border border-cardBorder'
                   }`}
                 >
-                  Sem {s.semester_no}
+                  {periodShortLabel} {periodNum}
                 </button>
               );
             })}
@@ -405,15 +415,15 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className="text-xs font-sora font-bold text-navy">
-            Semester {selectedSemester} · Year {selectedSemesterYear}
+            {periodLabel} {selectedSemester} {!isYearWise ? `· Year ${selectedSemesterYear}` : ''}
           </span>
           {isCurrentSemester ? (
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal/15 text-teal border border-teal/30">
-              Current Semester
+              Current {periodLabel}
             </span>
           ) : (
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-              Completed Semester
+              Completed {periodLabel}
             </span>
           )}
         </div>
@@ -444,7 +454,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="font-sora font-bold text-sm">
-                Semester {selectedSemester} Final Attendance
+                {periodLabel} {selectedSemester} Final Attendance
               </h4>
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                 summary.percentage >= 75 || summary.met_minimum
@@ -464,7 +474,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
         </div>
       )}
 
-      {/* 3B. CURRENT SEMESTER ONLY: Shortage and Low Attendance Action Banners */}
+      {/* 3B. CURRENT PERIOD ONLY: Shortage and Low Attendance Action Banners */}
       {isCurrentSemester && !isCompleted && summary.status_band === 'shortage' && (
         <div
           className="p-4 bg-error-bg border border-error-border rounded-card flex items-start gap-3 text-xs text-error-text shadow-sm"
@@ -474,7 +484,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           <div>
             <h4 className="font-sora font-bold text-sm text-error-text">Attendance below minimum</h4>
             <p className="mt-0.5 text-error-accent font-medium leading-relaxed">
-              Your overall attendance is {summary.percentage.toFixed(1)}% (Semester {selectedSemester}), which is below the mandatory 75% threshold.
+              Your overall attendance is {summary.percentage.toFixed(1)}% ({periodLabel} {selectedSemester}), which is below the mandatory 75% threshold.
               {summary.recover_sessions > 0 ? (
                 <> Attend <strong className="font-bold underline">{summary.recover_sessions} sessions in a row</strong> to reach 75%.</>
               ) : null}
@@ -492,7 +502,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           <div>
             <h4 className="font-sora font-bold text-sm text-amber-900">Attendance approaching limit</h4>
             <p className="mt-0.5 text-amber-800 font-medium leading-relaxed">
-              Your overall attendance is {summary.percentage.toFixed(1)}% (Semester {selectedSemester}). You are near the 75% threshold.
+              Your overall attendance is {summary.percentage.toFixed(1)}% ({periodLabel} {selectedSemester}). You are near the 75% threshold.
               {summary.can_miss_more > 0 ? (
                 <> You can miss up to <strong>{summary.can_miss_more} more sessions</strong> without falling below 75%.</>
               ) : (
@@ -504,7 +514,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       )}
 
       {/* =========================================================================
-          4. DAY-WISE ATTENDANCE (LIMITED TO THAT SEMESTER'S DATES)
+          4. DAY-WISE ATTENDANCE (LIMITED TO THAT PERIOD'S DATES)
       ========================================================================= */}
       <div className="bg-white rounded-card-lg border border-cardBorder shadow-card p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-cardBorder">
@@ -533,7 +543,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 )}
               </div>
               <p className="text-xs text-muted mt-0.5 font-medium">
-                {formatDateHeading(selectedDate)} (Semester {selectedSemester})
+                {formatDateHeading(selectedDate)} ({periodLabel} {selectedSemester})
               </p>
             </div>
           </div>
@@ -646,7 +656,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           <div className="mt-6 pt-5 border-t border-cardBorder">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-sora font-bold text-xs text-navy uppercase tracking-wider">
-                Recent Attendance Days in Semester {selectedSemester}
+                Recent Attendance Days in {periodLabel} {selectedSemester}
               </h4>
               <span className="text-[11px] text-muted">Click to inspect day</span>
             </div>
@@ -715,16 +725,16 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       </div>
 
       {/* =========================================================================
-          5. OVERALL ATTENDANCE PERCENTAGE CARD (PER SEMESTER)
+          5. OVERALL ATTENDANCE PERCENTAGE CARD (PER PERIOD)
       ========================================================================= */}
       <div className="bg-white rounded-card-lg border border-cardBorder shadow-card p-6 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-6 border-b border-cardBorder">
           <div>
             <h3 className="font-sora font-bold text-xl text-navy">
-              Semester {selectedSemester} Overall Attendance
+              {periodLabel} {selectedSemester} Overall Attendance
             </h3>
             <p className="text-xs text-muted mt-1">
-              Minimum 75.0% required across sessions held in Semester {selectedSemester}.
+              Minimum 75.0% required across sessions held in {periodLabel} {selectedSemester}.
             </p>
           </div>
 
@@ -859,10 +869,10 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
             Percentage = (Present + Late × 0.5) ÷ (Sessions Held - Leave) × 100
           </p>
           <div className="text-[11px] text-muted leading-relaxed">
-            • Each unexcused absence reduced your Semester {selectedSemester} percentage by approx{' '}
+            • Each unexcused absence reduced your {periodLabel} {selectedSemester} percentage by approx{' '}
             <strong className="text-rose-700">{summary.deduction_absent_pts.toFixed(2)}%</strong>.
             <br />
-            • Each late attendance reduced your Semester {selectedSemester} percentage by approx{' '}
+            • Each late attendance reduced your {periodLabel} {selectedSemester} percentage by approx{' '}
             <strong className="text-amber-700">{summary.deduction_late_pts.toFixed(2)}%</strong>.
             <br />
             • Approved leaves and sessions with no class conducted are excluded from the total denominator.

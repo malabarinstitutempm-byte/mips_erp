@@ -284,35 +284,100 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
                         subjectsAsync.maybeWhen(
                           data: (subs) {
                             if (subs.isEmpty) return const SizedBox();
+
+                            if (_course.isSingle) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: AppSpacing.lg),
+                                  const Divider(height: 1),
+                                  const SizedBox(height: AppSpacing.md),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Curriculum Subjects: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textMuted)),
+                                      Expanded(
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: subs.map((s) => Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surface,
+                                              border: Border.all(color: AppColors.border),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '${s.subjectName} (Max: ${s.maxMarks.toInt()}, Pass: ${s.passMarks.toInt()})',
+                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textStrong),
+                                            ),
+                                          )).toList(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            }
+
+                            final periods = <int?, List<CourseSubject>>{};
+                            for (final s in subs) {
+                              periods.putIfAbsent(s.periodNo, () => []).add(s);
+                            }
+                            final sortedKeys = periods.keys.toList()
+                              ..sort((a, b) => (a ?? 9999).compareTo(b ?? 9999));
+
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: AppSpacing.lg),
                                 const Divider(height: 1),
                                 const SizedBox(height: AppSpacing.md),
-                                Row(
-                                  children: [
-                                    const Text('Subjects: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textMuted)),
-                                    Expanded(
-                                      child: Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        children: subs.map((s) => Container(
+                                for (final p in sortedKeys) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppColors.surface,
-                                            border: Border.all(color: AppColors.border),
+                                            color: p == null ? const Color(0xFFFEF2F2) : AppColors.brandDark.withOpacity(0.08),
                                             borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: p == null ? const Color(0xFFFCA5A5) : AppColors.border),
                                           ),
                                           child: Text(
-                                            '${s.subjectName} (Max: ${s.maxMarks.toInt()}, Pass: ${s.passMarks.toInt()})',
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textStrong),
+                                            p == null ? 'Unassigned:' : '${_course.periodName(p)}:',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              color: p == null ? const Color(0xFFDC2626) : AppColors.brandDark,
+                                            ),
                                           ),
-                                        )).toList(),
-                                      ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            children: periods[p]!.map((s) => Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.surface,
+                                                border: Border.all(color: AppColors.border),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                '${s.subjectName} (${s.maxMarks.toInt()}/${s.passMarks.toInt()})',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textStrong),
+                                              ),
+                                            )).toList(),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ],
                             );
                           },

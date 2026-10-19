@@ -13,7 +13,7 @@ final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>,
     // 1. Get results with exam details
     final results = await client
         .from('results')
-        .select('id, exam_id, total_marks, percentage, grade, status, rank, exams(id, name, exam_date, status)')
+        .select('id, exam_id, total_marks, percentage, grade, status, rank, period_type, period_no, exams(id, name, exam_date, status, period_type, period_no, semester)')
         .eq('student_id', studentId)
         .isFilter('deleted_at', null)
         .order('id', ascending: false);
@@ -23,6 +23,15 @@ final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>,
     for (final r in results as List) {
       final exam = r['exams'] as Map<String, dynamic>?;
       final examId = r['exam_id'] as int;
+
+      final periodType = r['period_type']?.toString() ?? exam?['period_type']?.toString();
+      final periodNo = (r['period_no'] as num?)?.toInt() ?? (exam?['period_no'] as num?)?.toInt();
+      final sem = exam?['semester']?.toString();
+      final periodDisplay = (periodType == 'year' && periodNo != null)
+          ? 'Year $periodNo'
+          : ((periodType == 'semester' && periodNo != null)
+              ? 'Semester $periodNo'
+              : (sem ?? ''));
 
       // 2. Get marks for this student and exam
       final marks = await client
@@ -53,6 +62,9 @@ final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>,
         'result': {
           'exam_name': exam?['name']?.toString() ?? 'Exam #$examId',
           'exam_date': exam?['exam_date']?.toString() ?? 'N/A',
+          'period_type': periodType,
+          'period_no': periodNo,
+          'period_display': periodDisplay,
           'total_marks': r['total_marks'] ?? 0.0,
           'percentage': (r['percentage'] as num?)?.toDouble() ?? 0.0,
           'grade': r['grade']?.toString() ?? 'N/A',
@@ -104,9 +116,11 @@ class StudentResultsTab extends ConsumerWidget {
 
             final isPass = status.toString().toUpperCase() == 'PASS';
             final statusColor = isPass ? AppColors.success.base : AppColors.danger.base;
+            final periodDisplay = r['period_display']?.toString() ?? '';
+            final titleText = periodDisplay.isNotEmpty ? '${r['exam_name']} • $periodDisplay' : r['exam_name'];
 
             return SectionCard(
-              title: r['exam_name'],
+              title: titleText,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

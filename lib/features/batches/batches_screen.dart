@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../core/models/batch.dart';
@@ -16,6 +17,7 @@ import '../courses/course_provider.dart';
 import 'batch_completion_dialog.dart';
 import 'reopen_batch_dialog.dart';
 import 'semester_promotion_dialog.dart';
+import 'year_promotion_dialog.dart';
 import 'semester_dates_dialog.dart';
 import '../students/student_provider.dart';
 
@@ -55,107 +57,240 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
     int selectedCourseId = courses.first.id!;
     int startYear = DateTime.now().year;
     int endYear = DateTime.now().year + 2;
+    int initialPeriod = 1;
+    DateTime periodStartDate = DateTime.now();
+    final dateFormat = DateFormat('yyyy-MM-dd');
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add New Batch'),
-          content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Course *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<int>(
-                  value: selectedCourseId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(border: OutlineInputBorder()),
-                  items: courses.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => selectedCourseId = val);
-                  },
-                ),
-                const SizedBox(height: 14),
-                const Text('Batch Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Batch 2024-26 (A)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
+        builder: (context, setDialogState) {
+          final selectedCourse = courses.firstWhere(
+            (c) => c.id == selectedCourseId,
+            orElse: () => courses.first,
+          );
+
+          final int maxPeriods = selectedCourse.isYearWise
+              ? selectedCourse.durationYears
+              : (selectedCourse.isSemesterWise ? selectedCourse.periodsCount : 1);
+
+          if (initialPeriod > maxPeriods) {
+            initialPeriod = 1;
+          }
+
+          final derivedYear = selectedCourse.isYearWise
+              ? initialPeriod
+              : ((initialPeriod + 1) ~/ 2);
+
+          return AlertDialog(
+            title: const Text('Add New Batch'),
+            content: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Start Year', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<int>(
-                            value: startYear,
-                            decoration: const InputDecoration(border: OutlineInputBorder()),
-                            items: List.generate(10, (i) => 2020 + i).map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
-                            onChanged: (v) {
-                              if (v != null) setDialogState(() => startYear = v);
-                            },
-                          ),
-                        ],
+                    const Text('Course *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<int>(
+                      value: selectedCourseId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(border: OutlineInputBorder()),
+                      items: courses.map((c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text('${c.name} (${c.structure.toUpperCase()})'),
+                      )).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedCourseId = val;
+                            initialPeriod = 1;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Batch Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. Batch 2024-26 (A)',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('End Year', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<int>(
-                            value: endYear,
-                            decoration: const InputDecoration(border: OutlineInputBorder()),
-                            items: List.generate(10, (i) => 2022 + i).map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
-                            onChanged: (v) {
-                              if (v != null) setDialogState(() => endYear = v);
-                            },
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Start Year', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<int>(
+                                value: startYear,
+                                decoration: const InputDecoration(border: OutlineInputBorder()),
+                                items: List.generate(10, (i) => 2020 + i).map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
+                                onChanged: (v) {
+                                  if (v != null) setDialogState(() => startYear = v);
+                                },
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('End Year', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<int>(
+                                value: endYear,
+                                decoration: const InputDecoration(border: OutlineInputBorder()),
+                                items: List.generate(10, (i) => 2022 + i).map((y) => DropdownMenuItem(value: y, child: Text('$y'))).toList(),
+                                onChanged: (v) {
+                                  if (v != null) setDialogState(() => endYear = v);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    // Current Period & Period Start Date
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                selectedCourse.isYearWise
+                                    ? 'Initial Year *'
+                                    : (selectedCourse.isSemesterWise ? 'Initial Semester *' : 'Initial Period *'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(height: 6),
+                              if (selectedCourse.isSingle)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.shade400),
+                                    borderRadius: BorderRadius.circular(4),
+                                    color: Colors.grey.shade100,
+                                  ),
+                                  child: const Text('Single Period (1)', style: TextStyle(fontSize: 13)),
+                                )
+                              else
+                                DropdownButtonFormField<int>(
+                                  value: initialPeriod,
+                                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                                  items: List.generate(maxPeriods, (i) => i + 1).map((p) {
+                                    final label = selectedCourse.isYearWise
+                                        ? 'Year $p'
+                                        : 'Semester $p';
+                                    return DropdownMenuItem(value: p, child: Text(label));
+                                  }).toList(),
+                                  onChanged: (v) {
+                                    if (v != null) setDialogState(() => initialPeriod = v);
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Period Start Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: periodStartDate,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2035),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() => periodStartDate = picked);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.shade400),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(dateFormat.format(periodStartDate), style: const TextStyle(fontSize: 13)),
+                                      const Icon(LucideIcons.calendar, size: 16, color: AppColors.textMuted),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Academic Year: Year $derivedYear (${selectedCourse.structure.toUpperCase()}-wise)',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontStyle: FontStyle.italic),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.brand, foregroundColor: Colors.white),
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                Navigator.pop(ctx);
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.brand, foregroundColor: Colors.white),
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  if (name.isEmpty) return;
+                  Navigator.pop(ctx);
 
-                final newBatch = Batch(
-                  courseId: selectedCourseId,
-                  batchName: name,
-                  startYear: startYear,
-                  endYear: endYear,
-                  startDate: '$startYear-08-01',
-                  endDate: '$endYear-06-30',
-                );
+                  int curSem = 1;
+                  int curYr = 1;
+                  if (selectedCourse.isYearWise) {
+                    curYr = initialPeriod;
+                    curSem = initialPeriod * 2;
+                  } else if (selectedCourse.isSingle) {
+                    curYr = 1;
+                    curSem = 1;
+                  } else {
+                    curSem = initialPeriod;
+                    curYr = (initialPeriod + 1) ~/ 2;
+                  }
 
-                await ref.read(batchRepositoryProvider).createBatch(newBatch);
-                ref.invalidate(batchesListProvider);
-              },
-              child: const Text('Create Batch'),
-            ),
-          ],
-        ),
+                  final newBatch = Batch(
+                    courseId: selectedCourseId,
+                    batchName: name,
+                    startYear: startYear,
+                    endYear: endYear,
+                    currentSemester: curSem,
+                    currentYear: curYr,
+                    startDate: dateFormat.format(periodStartDate),
+                    endDate: '$endYear-06-30',
+                  );
+
+                  await ref.read(batchRepositoryProvider).createBatch(newBatch);
+                  ref.invalidate(batchesListProvider);
+                },
+                child: const Text('Create Batch'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -164,28 +299,48 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
     return b.currentYear;
   }
 
-  String _formatSemesterAndYear(Batch b) {
+  String _formatSemesterAndYear(Batch b, Course? course) {
+    if (course?.isYearWise == true) {
+      return 'Year ${b.currentYear}';
+    } else if (course?.isSingle == true) {
+      return 'Year ${b.currentYear} (Single)';
+    }
     return 'Semester ${b.currentSemester} (Year ${b.currentYear})';
   }
 
-  int _getMaxSemesters(Batch b, List<Course> courses) {
-    final c = courses.where((course) => course.id == b.courseId).toList();
-    if (c.isEmpty || c.first.duration == null) return 4;
-    final match = RegExp(r'\d+').firstMatch(c.first.duration!);
-    final years = match != null ? (int.tryParse(match.group(0)!) ?? 2) : 2;
-    return years * 2;
+  bool _isLastPeriod(Batch b, Course? course) {
+    if (course == null) return false;
+    if (course.isYearWise) {
+      return b.currentYear >= course.durationYears;
+    } else if (course.isSingle) {
+      return true;
+    } else {
+      return b.currentSemester >= course.periodsCount;
+    }
   }
 
-  Future<void> _confirmAndPromoteBatch(Batch b) async {
-    await SemesterPromotionDialog.show(
-      context,
-      batch: b,
-      onPromoted: () {
-        ref.invalidate(batchesListProvider);
-        ref.invalidate(allBatchesProvider);
-        ref.invalidate(batchesMapProvider);
-      },
-    );
+  Future<void> _confirmAndPromoteBatch(Batch b, Course? course) async {
+    if (course?.isYearWise == true) {
+      await YearPromotionDialog.show(
+        context,
+        batch: b,
+        onPromoted: () {
+          ref.invalidate(batchesListProvider);
+          ref.invalidate(allBatchesProvider);
+          ref.invalidate(batchesMapProvider);
+        },
+      );
+    } else {
+      await SemesterPromotionDialog.show(
+        context,
+        batch: b,
+        onPromoted: () {
+          ref.invalidate(batchesListProvider);
+          ref.invalidate(allBatchesProvider);
+          ref.invalidate(batchesMapProvider);
+        },
+      );
+    }
   }
 
   Future<void> _openSemesterDatesDialog(Batch b) async {
@@ -357,7 +512,13 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                         final b = filtered[index];
                         final cName = courseMap[b.courseId] ?? 'Course #${b.courseId}';
                         final isCompleted = b.status == 'completed';
-                        final isLastSem = b.currentSemester >= _getMaxSemesters(b, coursesAsync.valueOrNull ?? []);
+                        final course = (coursesAsync.valueOrNull ?? []).firstWhere(
+                          (c) => c.id == b.courseId,
+                          orElse: () => Course(name: cName, code: '', duration: '2 Years'),
+                        );
+                        final isLastPeriod = _isLastPeriod(b, course);
+                        final isSingleCourse = course.isSingle;
+                        final isYearWise = course.isYearWise;
 
                         return Container(
                           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -386,7 +547,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                       border: Border.all(color: AppColors.brand.withOpacity(0.3)),
                                     ),
                                     child: Text(
-                                      _formatSemesterAndYear(b),
+                                      _formatSemesterAndYear(b, course),
                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brand),
                                     ),
                                   ),
@@ -414,15 +575,18 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                 alignment: WrapAlignment.end,
                                 children: [
                                   if (!isCompleted) ...[
-                                    if (!isLastSem)
+                                    if (!isLastPeriod && !isSingleCourse)
                                       OutlinedButton.icon(
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: const Color(0xFF2563EB),
                                           side: const BorderSide(color: Color(0xFF93C5FD)),
                                         ),
-                                        onPressed: () => _confirmAndPromoteBatch(b),
+                                        onPressed: () => _confirmAndPromoteBatch(b, course),
                                         icon: const Icon(LucideIcons.arrowUpRight, size: 14),
-                                        label: const Text('Promote to Next Semester', style: TextStyle(fontSize: 12)),
+                                        label: Text(
+                                          isYearWise ? 'Promote to Next Year' : 'Promote to Next Semester',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
                                       ),
                                     OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
@@ -435,7 +599,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                     ),
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: isLastSem ? const Color(0xFF2563EB) : Colors.teal[700],
+                                        backgroundColor: isLastPeriod ? const Color(0xFF2563EB) : Colors.teal[700],
                                         foregroundColor: Colors.white,
                                       ),
                                       onPressed: () => BatchCompletionDialog.show(
@@ -444,7 +608,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                         onCompleted: () => ref.invalidate(batchesListProvider),
                                       ),
                                       icon: const Icon(LucideIcons.checkCheck, size: 14),
-                                      label: Text(isLastSem ? 'Mark batch completed' : 'Mark Completed', style: const TextStyle(fontSize: 12)),
+                                      label: Text(isLastPeriod ? 'Mark batch completed' : 'Mark Completed', style: const TextStyle(fontSize: 12)),
                                     ),
                                   ] else
                                     OutlinedButton.icon(
@@ -473,7 +637,13 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                     rowBuilder: (context, b) {
                       final cName = courseMap[b.courseId] ?? 'Course #${b.courseId}';
                       final isCompleted = b.status == 'completed';
-                      final isLastSem = b.currentSemester >= _getMaxSemesters(b, coursesAsync.valueOrNull ?? []);
+                      final course = (coursesAsync.valueOrNull ?? []).firstWhere(
+                        (c) => c.id == b.courseId,
+                        orElse: () => Course(name: cName, code: '', duration: '2 Years'),
+                      );
+                      final isLastPeriod = _isLastPeriod(b, course);
+                      final isSingleCourse = course.isSingle;
+                      final isYearWise = course.isYearWise;
 
                       return Row(
                         children: [
@@ -505,7 +675,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                   border: Border.all(color: AppColors.brand.withOpacity(0.25)),
                                 ),
                                 child: Text(
-                                  _formatSemesterAndYear(b),
+                                  _formatSemesterAndYear(b, course),
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.brand),
                                 ),
                               ),
@@ -538,7 +708,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                 if (!isCompleted) ...[
-                                  if (!isLastSem) ...[
+                                  if (!isLastPeriod && !isSingleCourse) ...[
                                     OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: const Color(0xFF2563EB),
@@ -546,9 +716,12 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                         visualDensity: VisualDensity.compact,
                                       ),
-                                      onPressed: () => _confirmAndPromoteBatch(b),
+                                      onPressed: () => _confirmAndPromoteBatch(b, course),
                                       icon: const Icon(LucideIcons.arrowUpRight, size: 13),
-                                      label: const Text('Promote Semester', style: TextStyle(fontSize: 11.5)),
+                                      label: Text(
+                                        isYearWise ? 'Promote to Year ${b.currentYear + 1}' : 'Promote Semester',
+                                        style: const TextStyle(fontSize: 11.5),
+                                      ),
                                     ),
                                     const SizedBox(width: 6),
                                   ],
@@ -566,7 +739,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                   const SizedBox(width: 6),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: isLastSem ? const Color(0xFF2563EB) : Colors.teal[700],
+                                      backgroundColor: isLastPeriod ? const Color(0xFF2563EB) : Colors.teal[700],
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                       visualDensity: VisualDensity.compact,
@@ -577,7 +750,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                                       onCompleted: () => ref.invalidate(batchesListProvider),
                                     ),
                                     icon: const Icon(LucideIcons.checkCheck, size: 13),
-                                    label: Text(isLastSem ? 'Mark batch completed' : 'Mark Completed', style: const TextStyle(fontSize: 11.5)),
+                                    label: Text(isLastPeriod ? 'Mark batch completed' : 'Mark Completed', style: const TextStyle(fontSize: 11.5)),
                                   ),
                                 ] else
                                   OutlinedButton.icon(

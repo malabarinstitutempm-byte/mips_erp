@@ -1,3 +1,5 @@
+import 'course.dart';
+
 class Batch {
   final int? id;
   final int courseId;
@@ -7,6 +9,7 @@ class Batch {
   final int? startYear;
   final int? endYear;
   final int currentSemester;
+  final int? _currentYear;
   final String status;
   final String? completedOn;
   final String? createdAt;
@@ -23,16 +26,34 @@ class Batch {
     this.startYear,
     this.endYear,
     this.currentSemester = 1,
+    int? currentYear,
     this.status = 'active',
     this.completedOn,
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
     this.isDeleted = false,
-  });
+  }) : _currentYear = currentYear;
 
-  /// Derived academic year: Year = ceil(semester / 2) -> (semester + 1) ~/ 2
-  int get currentYear => (currentSemester <= 0 ? 1 : (currentSemester + 1) ~/ 2);
+  /// Derived or explicit academic year
+  int get currentYear => _currentYear ?? (currentSemester <= 0 ? 1 : (currentSemester + 1) ~/ 2);
+
+  int currentPeriodNo([Course? course]) {
+    if (course != null && course.isYearWise) {
+      return currentYear;
+    }
+    return currentSemester;
+  }
+
+  String currentPeriodLabel([Course? course]) {
+    if (course != null && course.isYearWise) {
+      return 'Year $currentYear';
+    }
+    if (course != null && course.isSingle) {
+      return 'Whole Course';
+    }
+    return 'Semester $currentSemester';
+  }
 
   Batch copyWith({
     int? id,
@@ -43,6 +64,7 @@ class Batch {
     int? startYear,
     int? endYear,
     int? currentSemester,
+    int? currentYear,
     String? status,
     String? completedOn,
     String? createdAt,
@@ -59,6 +81,7 @@ class Batch {
       startYear: startYear ?? this.startYear,
       endYear: endYear ?? this.endYear,
       currentSemester: currentSemester ?? this.currentSemester,
+      currentYear: currentYear ?? _currentYear,
       status: status ?? this.status,
       completedOn: completedOn ?? this.completedOn,
       createdAt: createdAt ?? this.createdAt,
@@ -76,6 +99,7 @@ class Batch {
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       'current_semester': currentSemester,
+      'current_year': currentYear,
       'status': status,
       if (completedOn != null) 'completed_on': completedOn,
       if (createdAt != null) 'created_at': createdAt,
@@ -88,6 +112,7 @@ class Batch {
     final name = (map['name'] ?? map['batch_name'] ?? '').toString();
     final isDel = map['deleted_at'] != null || map['is_deleted'] == 1 || map['is_deleted'] == true;
     final sem = (map['current_semester'] as num?)?.toInt() ?? 1;
+    final yr = (map['current_year'] as num?)?.toInt();
 
     return Batch(
       id: (map['id'] as num?)?.toInt(),
@@ -98,6 +123,7 @@ class Batch {
       startYear: (map['start_year'] as num?)?.toInt(),
       endYear: (map['end_year'] as num?)?.toInt(),
       currentSemester: sem < 1 ? 1 : sem,
+      currentYear: yr,
       status: map['status']?.toString() ?? 'active',
       completedOn: map['completed_on']?.toString(),
       createdAt: map['created_at']?.toString(),

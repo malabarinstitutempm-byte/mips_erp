@@ -96,7 +96,12 @@ export const StudentArea: React.FC = () => {
 
   const currentSemester = studentData?.profile?.current_semester || 1;
   const currentYear = studentData?.profile?.current_year || (currentSemester > 0 ? Math.ceil(currentSemester / 2) : 1);
-  const headerSubtitle = isStudentCompleted ? 'Completed' : `Semester ${currentSemester} · Year ${currentYear}`;
+  const isYearWise = studentData?.profile?.course_structure === 'year';
+  const headerSubtitle = isStudentCompleted
+    ? 'Completed'
+    : isYearWise
+    ? `Year ${currentYear}`
+    : `Semester ${currentSemester} · Year ${currentYear}`;
 
   return (
     <div className="min-h-screen bg-pageBg flex flex-col selection:bg-focusRing selection:text-navy">

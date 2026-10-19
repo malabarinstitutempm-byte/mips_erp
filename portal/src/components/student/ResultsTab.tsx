@@ -77,12 +77,16 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
     results.find((r) => r.examId === selectedExamId) || results[0];
 
   const studentReg = registrationNumber || admissionNumber;
+  const isYearWise = activeResult.courseStructure === 'year' || activeResult.periodType === 'year';
+  const periodLabel = isYearWise ? 'Year' : 'Semester';
+  const periodNo = activeResult.periodNo || 1;
+  const periodHeader = isYearWise ? `Year ${periodNo}` : `Semester ${periodNo}`;
 
   const handleDownloadPdf = async () => {
     if (!resultCardRef.current) return;
     try {
       setIsDownloadingPdf(true);
-      const filename = `MIPS_Result_${studentReg.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const filename = `MIPS_Result_${periodHeader.replace(/\s+/g, '_')}_${studentReg.replace(/[^a-zA-Z0-9]/g, '_')}`;
       await exportElementToPdf(resultCardRef.current, filename, { orientation: 'portrait' });
     } catch (e) {
       console.error('PDF generation error:', e);
@@ -110,20 +114,27 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
           <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
             {primaryResults.length > 0 && (
               <div className="flex gap-2">
-                {primaryResults.map((exam) => (
-                  <button
-                    key={exam.examId}
-                    type="button"
-                    onClick={() => setSelectedExamId(exam.examId)}
-                    className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all whitespace-nowrap min-h-touch ${
-                      activeResult.examId === exam.examId
-                        ? 'bg-primary text-white shadow-primary-btn'
-                        : 'bg-surface text-navy hover:bg-slate-100 border border-cardBorder'
-                    }`}
-                  >
-                    {exam.examName} ({exam.courseName})
-                  </button>
-                ))}
+                {primaryResults.map((exam) => {
+                  const examPeriodLabel = exam.periodDisplay || (
+                    exam.periodType === 'year' || exam.courseStructure === 'year'
+                      ? `Year ${exam.periodNo || 1}`
+                      : `Sem ${exam.periodNo || 1}`
+                  );
+                  return (
+                    <button
+                      key={exam.examId}
+                      type="button"
+                      onClick={() => setSelectedExamId(exam.examId)}
+                      className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all whitespace-nowrap min-h-touch ${
+                        activeResult.examId === exam.examId
+                          ? 'bg-primary text-white shadow-primary-btn'
+                          : 'bg-surface text-navy hover:bg-slate-100 border border-cardBorder'
+                      }`}
+                    >
+                      {examPeriodLabel}: {exam.examName} ({exam.courseName})
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -164,10 +175,13 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
               <h1 className="font-sora font-bold text-lg text-navy">
                 Malabar Institute of Paramedical Science
               </h1>
-              <p className="text-xs text-muted">Official Statement of Examination Marks</p>
+              <p className="text-xs text-muted">
+                Official Statement of Examination Marks — <span className="font-semibold text-navy">{periodHeader}</span>
+              </p>
             </div>
           </div>
           <div className="text-right text-xs text-muted">
+            <p className="font-bold text-navy">{periodHeader}</p>
             <p>Date Published: {formatDate(activeResult.publishedAt)}</p>
           </div>
         </div>
@@ -183,6 +197,9 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
               }`}>
                 {activeResult.courseType === 'skill' ? 'Skill Certification' : 'Primary Program'}
               </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal/15 text-teal border border-teal/30">
+                {periodHeader}
+              </span>
               <span className="text-xs text-muted">•</span>
               <span className="text-xs text-muted flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
@@ -193,7 +210,7 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
               {activeResult.examName}
             </h2>
             <p className="text-xs text-muted">
-              {activeResult.courseName} • {activeResult.batchName}
+              {activeResult.courseName} • {activeResult.batchName} • {periodHeader}
             </p>
           </div>
 
@@ -231,7 +248,7 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
         </div>
 
         {/* Student Meta Details Grid */}
-        <div className="my-6 p-4 bg-surface rounded-card border border-cardBorder grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div className="my-6 p-4 bg-surface rounded-card border border-cardBorder grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 text-xs">
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Student Name</span>
             <span className="font-bold text-navy text-sm">{studentName}</span>
@@ -247,6 +264,10 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Batch / Class</span>
             <span className="font-medium text-navy">{activeResult.batchName}</span>
+          </div>
+          <div>
+            <span className="text-muted block text-[11px] mb-0.5">Academic Period</span>
+            <span className="font-bold text-navy text-sm">{periodHeader}</span>
           </div>
         </div>
 

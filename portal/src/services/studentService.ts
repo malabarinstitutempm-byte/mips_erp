@@ -12,6 +12,10 @@ export interface ExamResultRecord {
   courseId: number;
   courseName: string;
   courseType?: 'primary' | 'skill';
+  courseStructure?: 'semester' | 'year' | 'single';
+  periodType?: 'semester' | 'year' | 'single';
+  periodNo?: number;
+  periodDisplay?: string;
   batchName: string;
   publishedAt: string;
   totalMarks: number;
@@ -77,6 +81,9 @@ export interface StudentEnrollmentInfo {
   courseId: number;
   courseName: string;
   courseType: 'primary' | 'skill';
+  courseStructure?: 'semester' | 'year' | 'single';
+  attendanceBasis?: 'semester' | 'year' | 'none';
+  durationYears?: number;
   batchId: number;
   batchName: string;
   status?: 'active' | 'completed' | 'discontinued' | 'tc_issued' | string;
@@ -126,7 +133,7 @@ export const studentService = {
             kind,
             status,
             completed_on,
-            courses ( id, name, course_type ),
+            courses ( id, name, course_type, structure, attendance_basis, duration_years ),
             batches ( id, batch_name, status, completed_on, current_semester, current_year )
           `)
           .eq('student_id', profileView.id)
@@ -140,6 +147,9 @@ export const studentService = {
             courseId: e.course_id,
             courseName: e.courses?.name || profileView.course_name || 'Course',
             courseType: (e.courses?.course_type || e.kind || 'primary') as 'primary' | 'skill',
+            courseStructure: (e.courses?.structure || 'semester') as 'semester' | 'year' | 'single',
+            attendanceBasis: (e.courses?.attendance_basis || e.courses?.structure || 'semester') as 'semester' | 'year' | 'none',
+            durationYears: Number(e.courses?.duration_years || 1),
             batchId: e.batch_id,
             batchName: e.batches?.batch_name || profileView.batch_name || 'Batch',
             status: e.status || 'active',
@@ -155,6 +165,9 @@ export const studentService = {
             courseId: profileView.course_id,
             courseName: profileView.course_name || 'Primary Course',
             courseType: 'primary',
+            courseStructure: 'semester',
+            attendanceBasis: 'semester',
+            durationYears: 2,
             batchId: profileView.batch_id || 0,
             batchName: profileView.batch_name || 'Main Batch',
             status: profileView.status || 'active',
@@ -192,6 +205,9 @@ export const studentService = {
           skill_batch_name: skillEnrollment?.batchName,
           current_semester: activeSemester,
           current_year: activeYear,
+          course_structure: primaryEnrollment?.courseStructure || 'semester',
+          attendance_basis: primaryEnrollment?.attendanceBasis || 'semester',
+          duration_years: primaryEnrollment?.durationYears || 2,
         };
 
         return { profile, enrollments };
@@ -267,6 +283,8 @@ export const studentService = {
           percentage,
           grade,
           status,
+          period_type,
+          period_no,
           exams (
             id,
             name,
@@ -274,9 +292,12 @@ export const studentService = {
             course_id,
             batch_id,
             status,
+            period_type,
+            period_no,
+            semester,
             published_at,
             created_at,
-            courses ( id, name, course_type ),
+            courses ( id, name, course_type, structure ),
             batches ( id, batch_name )
           )
         `)
@@ -330,15 +351,23 @@ export const studentService = {
 
             const examCode = r.exams?.exam_code || `EX-${r.exam_id}`;
             const resultCode = `${examCode}-S${studentId}`;
+            const courseStructure = (r.exams?.courses?.structure || 'semester') as 'semester' | 'year' | 'single';
+            const periodType = (r.period_type || r.exams?.period_type || (courseStructure === 'year' ? 'year' : 'semester')) as 'semester' | 'year' | 'single';
+            const periodNo = r.period_no ?? r.exams?.period_no ?? 1;
+            const periodDisplay = periodType === 'year' ? `Year ${periodNo}` : `Semester ${periodNo}`;
 
             return {
               id: r.id,
               examId: r.exam_id,
-              examName: r.exams?.name || 'Semester Examination',
+              examName: r.exams?.name || (periodType === 'year' ? `Year ${periodNo} Examination` : `Semester ${periodNo} Examination`),
               examCode,
               courseId: r.exams?.course_id || 0,
               courseName: r.exams?.courses?.name || 'Course',
               courseType: (r.exams?.courses?.course_type || 'primary') as 'primary' | 'skill',
+              courseStructure,
+              periodType,
+              periodNo,
+              periodDisplay,
               batchName: r.exams?.batches?.batch_name || 'Batch',
               publishedAt: r.exams?.published_at || r.exams?.created_at || new Date().toISOString(),
               totalMarks: Number(r.total_marks || 0),
@@ -538,7 +567,7 @@ export const studentService = {
     };
   },
 
-  // 4. Attendance Summary & Calendar Sessions (Semester-wise)
+  // 4. Attendance Summary & Calendar Sessions (Semester-wise or Year-wise)
   async getStudentAttendance(
     studentId: number,
     enrollmentId?: number,
@@ -552,7 +581,34 @@ export const studentService = {
     currentSemester: number;
   }> {
     try {
-      // 4.1. Semesters Summary RPC (lists all semesters for this student)
+      // Check if course has year structure or year attendance basis
+      let isYearBasis = false;
+      let batchId: number | null = null;
+      if (enrollmentId) {
+        const { data: enr } = await supabase
+          .from('student_enrollments')
+          .select('batch_id, courses ( structure, attendance_basis )')
+          .eq('id', enrollmentId)
+          .maybeSingle();
+        batchId = enr?.batch_id || null;
+        const c: any = enr?.courses;
+        if (c?.attendance_basis === 'year' || c?.structure === 'year') {
+          isYearBasis = true;
+        }
+      } else {
+        const { data: stu } = await supabase
+          .from('students')
+          .select('batch_id, courses ( structure, attendance_basis )')
+          .eq('id', studentId)
+          .maybeSingle();
+        batchId = stu?.batch_id || null;
+        const c: any = stu?.courses;
+        if (c?.attendance_basis === 'year' || c?.structure === 'year') {
+          isYearBasis = true;
+        }
+      }
+
+      // 4.1. Semesters Summary RPC (lists all semesters/periods for this student)
       let semesters: SemesterSummary[] = [];
       const { data: semRows } = await supabase.rpc('student_semesters_summary', {
         p_student_id: studentId,
@@ -562,26 +618,58 @@ export const studentService = {
       if (semRows && semRows.length > 0) {
         semesters = semRows.map((s: any) => ({
           semester_no: Number(s.semester_no),
-          academic_year: Number(s.academic_year || Math.ceil(Number(s.semester_no) / 2)),
+          academic_year: Number(s.year_no || s.academic_year || Math.ceil(Number(s.semester_no) / 2)),
+          period_type: isYearBasis ? 'year' : 'semester',
+          period_no: Number(s.semester_no),
           start_date: s.start_date,
           end_date: s.end_date || null,
           is_current: Boolean(s.is_current),
           sessions_held: Number(s.sessions_held || 0),
-          present: Number(s.present || 0),
-          late: Number(s.late || 0),
-          absent: Number(s.absent || 0),
-          leave: Number(s.leave || 0),
+          present: Number(s.present || s.present_count || 0),
+          late: Number(s.late || s.late_count || 0),
+          absent: Number(s.absent || s.absent_count || 0),
+          leave: Number(s.leave || s.leave_count || 0),
           percentage: Number(s.percentage || 0),
           met_minimum: Boolean(s.met_minimum),
-          semester_status: s.semester_status || 'active',
+          semester_status: s.semester_status || s.status || 'active',
         }));
+      }
+
+      // If year-basis course returned empty from legacy student_semesters_summary, fetch from batch_periods
+      if (semesters.length === 0 && batchId) {
+        const { data: periods } = await supabase
+          .from('batch_periods')
+          .select('*')
+          .eq('batch_id', batchId)
+          .eq('period_type', isYearBasis ? 'year' : 'semester')
+          .order('period_no', { ascending: true });
+
+        if (periods && periods.length > 0) {
+          semesters = periods.map((p: any) => ({
+            semester_no: Number(p.period_no),
+            academic_year: isYearBasis ? Number(p.period_no) : Math.ceil(Number(p.period_no) / 2),
+            period_type: p.period_type,
+            period_no: Number(p.period_no),
+            start_date: p.start_date,
+            end_date: p.end_date || null,
+            is_current: p.status === 'active',
+            sessions_held: 0,
+            present: 0,
+            late: 0,
+            absent: 0,
+            leave: 0,
+            percentage: 100,
+            met_minimum: true,
+            semester_status: p.status || 'active',
+          }));
+        }
       }
 
       const currentSemObj = semesters.find((s) => s.is_current);
       const activeCurrentSemester = currentSemObj?.semester_no || (semesters.length > 0 ? semesters[semesters.length - 1].semester_no : 1);
       const requestedSemesterNo = semesterNo || activeCurrentSemester;
 
-      // 4.2. Attendance Summary RPC for the requested semester
+      // 4.2. Attendance Summary RPC for the requested semester/period
       const { data: summaryRows, error: summaryError } = await supabase.rpc(
         'student_attendance_summary',
         {
@@ -605,13 +693,19 @@ export const studentService = {
             slot,
             status,
             batch_id,
-            semester_no
+            semester_no,
+            period_type,
+            period_no
           )
         `)
         .eq('student_id', studentId);
 
       if (requestedSemesterNo) {
-        query = query.eq('attendance_sessions.semester_no', requestedSemesterNo);
+        if (isYearBasis) {
+          query = query.or(`period_no.eq.${requestedSemesterNo},semester_no.eq.${requestedSemesterNo * 2}`);
+        } else {
+          query = query.or(`period_no.eq.${requestedSemesterNo},semester_no.eq.${requestedSemesterNo}`);
+        }
       }
 
       const { data: recordsData } = await query;

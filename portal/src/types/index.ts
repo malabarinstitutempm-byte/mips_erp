@@ -48,6 +48,9 @@ export interface StudentProfile {
   skill_batch_name?: string | null;
   current_semester?: number;
   current_year?: number;
+  course_structure?: 'semester' | 'year' | 'single';
+  attendance_basis?: 'semester' | 'year' | 'none';
+  duration_years?: number;
 }
 
 export interface TeacherProfile {
@@ -85,6 +88,8 @@ export interface NotificationItem {
 export interface SemesterSummary {
   semester_no: number;
   academic_year: number;
+  period_type?: 'semester' | 'year';
+  period_no?: number;
   start_date: string;
   end_date: string | null;
   is_current: boolean;

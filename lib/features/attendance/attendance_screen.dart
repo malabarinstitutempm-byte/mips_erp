@@ -177,22 +177,45 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                 },
               ),
 
-              // Semester Filter
-              DropdownButton<int?>(
-                value: filter.semesterNo,
-                hint: const Text('All Semesters'),
-                underline: const SizedBox(),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('All Semesters')),
-                  DropdownMenuItem(value: 1, child: Text('Semester 1 (Year 1)')),
-                  DropdownMenuItem(value: 2, child: Text('Semester 2 (Year 1)')),
-                  DropdownMenuItem(value: 3, child: Text('Semester 3 (Year 2)')),
-                  DropdownMenuItem(value: 4, child: Text('Semester 4 (Year 2)')),
-                  DropdownMenuItem(value: 5, child: Text('Semester 5 (Year 3)')),
-                  DropdownMenuItem(value: 6, child: Text('Semester 6 (Year 3)')),
-                ],
-                onChanged: (val) {
-                  ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(semesterNo: val, clearSemester: val == null);
+              // Period Filter (Semester or Year depending on selected Course)
+              Builder(
+                builder: (context) {
+                  final courses = coursesAsync.valueOrNull ?? [];
+                  final selectedCourse = filter.courseId != null
+                      ? courses.where((c) => c.id == filter.courseId).firstOrNull
+                      : null;
+                  final isYearWise = selectedCourse?.isYearWise == true;
+                  final isSingle = selectedCourse?.isSingle == true;
+                  final maxPeriods = selectedCourse != null
+                      ? (isYearWise ? selectedCourse.durationYears : (isSingle ? 1 : selectedCourse.periodsCount))
+                      : 6;
+
+                  if (isSingle) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('Single Period Course', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    );
+                  }
+
+                  return DropdownButton<int?>(
+                    value: filter.semesterNo,
+                    hint: Text(isYearWise ? 'All Years' : 'All Semesters'),
+                    underline: const SizedBox(),
+                    items: [
+                      DropdownMenuItem(value: null, child: Text(isYearWise ? 'All Years' : 'All Semesters')),
+                      ...List.generate(maxPeriods, (i) => i + 1).map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(isYearWise ? 'Year $p' : 'Semester $p'),
+                      )),
+                    ],
+                    onChanged: (val) {
+                      ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(semesterNo: val, clearSemester: val == null);
+                    },
+                  );
                 },
               ),
 

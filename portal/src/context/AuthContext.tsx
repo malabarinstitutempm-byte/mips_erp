@@ -290,8 +290,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // 2. Check Supabase auth session
-        const { data: { session } } = await supabase.auth.getSession();
+        // 2. Check Supabase auth session with a 2.5s timeout to guarantee instant login screen rendering
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 2500)
+        );
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+
         if (session?.user && mounted) {
           const prof = await fetchProfileAndRole(session.user.id);
           const authUser: AuthUser = {

@@ -80,8 +80,11 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       title.includes('shortage') ||
       title.includes('promotion') ||
       title.includes('semester') ||
+      title.includes('year') ||
       msg.includes('semester') ||
-      msg.includes('promotion')
+      msg.includes('year') ||
+      msg.includes('promotion') ||
+      item.action_url?.includes('attendance')
     ) {
       onNavigateTab('attendance');
     }

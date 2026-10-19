@@ -22,4 +22,6 @@ abstract class CourseRepository {
   Future<void> saveCourseSubjects(int courseId, List<CourseSubject> subjects);
 
   Future<List<Batch>> getBatchesForCourse(int courseId, {bool includeCompleted = false});
+
+  Future<bool> isCourseStructureLocked(int courseId);
 }
