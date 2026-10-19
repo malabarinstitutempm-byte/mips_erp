@@ -972,6 +972,7 @@ CREATE POLICY p_marks_student_select ON marks
 -- =============================================================================
 
 -- 6.1. students_for_teacher View: Active primary batches and active students only
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
 CREATE OR REPLACE VIEW students_for_teacher
 WITH (security_barrier = true)
 AS
@@ -1647,6 +1648,7 @@ GRANT EXECUTE ON FUNCTION get_dashboard_summary_counts() TO authenticated;
 
 
 -- 8.4. student_profile_view View Update (Include completed_on and access_until)
+DROP VIEW IF EXISTS student_profile_view CASCADE;
 CREATE OR REPLACE VIEW student_profile_view
 WITH (security_barrier = true)
 AS

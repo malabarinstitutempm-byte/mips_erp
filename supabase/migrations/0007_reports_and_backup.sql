@@ -8,6 +8,7 @@
 -- =============================================================================
 
 -- Course financial summary view
+DROP VIEW IF EXISTS view_course_financial_summary CASCADE;
 CREATE OR REPLACE VIEW view_course_financial_summary AS
 SELECT 
     c.id AS course_id,
@@ -27,6 +28,7 @@ WHERE c.deleted_at IS NULL
 GROUP BY c.id, c.name, c.code;
 
 -- Fee defaulters view
+DROP VIEW IF EXISTS view_fee_defaulters CASCADE;
 CREATE OR REPLACE VIEW view_fee_defaulters AS
 SELECT 
     s.id AS student_id,
@@ -50,6 +52,7 @@ WHERE s.deleted_at IS NULL
   AND f.pending_amount_paise > 0;
 
 -- Merit list view
+DROP VIEW IF EXISTS view_merit_list CASCADE;
 CREATE OR REPLACE VIEW view_merit_list AS
 SELECT 
     r.id AS result_id,
@@ -85,6 +88,7 @@ DO $$ BEGIN
 END $$;
 
 -- Daily fee collection view
+DROP VIEW IF EXISTS view_fee_collection_daily CASCADE;
 CREATE OR REPLACE VIEW view_fee_collection_daily AS
 SELECT 
     p.payment_date,

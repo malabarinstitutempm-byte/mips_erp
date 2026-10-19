@@ -598,6 +598,7 @@ GRANT EXECUTE ON FUNCTION attendance_slot_status(date) TO authenticated;
 -- -----------------------------------------------------------------------------
 -- 6. students_for_teacher View: Active Primary Batches Only (Never DOB/phone/fees)
 -- -----------------------------------------------------------------------------
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
 CREATE OR REPLACE VIEW students_for_teacher
 WITH (security_barrier = true)
 AS

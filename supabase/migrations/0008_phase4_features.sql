@@ -557,6 +557,7 @@ FOR EACH ROW EXECUTE FUNCTION sync_legacy_fees_from_items();
 -- =============================================================================
 
 -- 5.1. student_fee_summary View
+DROP VIEW IF EXISTS view_student_fee_summary CASCADE;
 CREATE OR REPLACE VIEW view_student_fee_summary AS
 SELECT 
     s.id AS student_id,
@@ -579,6 +580,7 @@ GROUP BY s.id, s.admission_number, s.name;
 
 
 -- 5.2. Update view_course_financial_summary to support course_type & skill courses
+DROP VIEW IF EXISTS view_course_financial_summary CASCADE;
 CREATE OR REPLACE VIEW view_course_financial_summary AS
 SELECT 
     c.id AS course_id,
@@ -600,6 +602,7 @@ GROUP BY c.id, c.name, c.code, c.course_type;
 
 
 -- 5.3. Update view_fee_defaulters to include skill course balances
+DROP VIEW IF EXISTS view_fee_defaulters CASCADE;
 CREATE OR REPLACE VIEW view_fee_defaulters AS
 SELECT 
     s.id AS student_id,

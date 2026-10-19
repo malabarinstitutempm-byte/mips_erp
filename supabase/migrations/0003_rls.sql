@@ -88,6 +88,7 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 -- 4.1. students_for_teacher View
 -- Teacher can ONLY see assigned batch students: id, name, registration_number, batch
 -- DOB, phone, email, address, and fees are strictly excluded.
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
 CREATE OR REPLACE VIEW students_for_teacher
 WITH (security_barrier = true)
 AS
@@ -119,6 +120,7 @@ GRANT SELECT ON students_for_teacher TO authenticated;
 -- 4.2. student_profile_view View
 -- Student reads their own profile with course & batch details, hiding internal fields
 -- (legacy_id, import_id, deleted_at, deleted_by, audit timestamps)
+DROP VIEW IF EXISTS student_profile_view CASCADE;
 CREATE OR REPLACE VIEW student_profile_view
 WITH (security_barrier = true)
 AS
@@ -160,6 +162,7 @@ GRANT SELECT ON student_profile_view TO authenticated;
 
 -- 4.3. student_payments_view View
 -- Student reads their own payments without administrative free-text remarks or internal fields
+DROP VIEW IF EXISTS student_payments_view CASCADE;
 CREATE OR REPLACE VIEW student_payments_view
 WITH (security_barrier = true)
 AS

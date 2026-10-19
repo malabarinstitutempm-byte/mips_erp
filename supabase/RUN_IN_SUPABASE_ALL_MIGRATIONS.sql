@@ -4,12 +4,23 @@
 -- =============================================================================
 
 -- =============================================================================
--- 0. Pre-Migration Compatibility Checks & Idempotent Table Normalization
+-- 0. Pre-Migration Compatibility Checks, View Cleanup & Idempotent Normalization
 -- =============================================================================
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Drop any existing views with changed column signatures so CREATE VIEW never fails with 42P16
+DROP VIEW IF EXISTS view_course_financial_summary CASCADE;
+DROP VIEW IF EXISTS view_fee_defaulters CASCADE;
+DROP VIEW IF EXISTS view_merit_list CASCADE;
+DROP VIEW IF EXISTS view_fee_collection_daily CASCADE;
+DROP VIEW IF EXISTS view_student_fee_summary CASCADE;
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
+DROP VIEW IF EXISTS student_profile_view CASCADE;
+DROP VIEW IF EXISTS student_payments_view CASCADE;
+DROP VIEW IF EXISTS batch_semesters CASCADE;
 
 -- Ensure payments table has payment_date generated column if table already exists
 DO $$ BEGIN
@@ -1782,6 +1793,7 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 -- 4.1. students_for_teacher View
 -- Teacher can ONLY see assigned batch students: id, name, registration_number, batch
 -- DOB, phone, email, address, and fees are strictly excluded.
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
 CREATE OR REPLACE VIEW students_for_teacher
 WITH (security_barrier = true)
 AS
@@ -1813,6 +1825,7 @@ GRANT SELECT ON students_for_teacher TO authenticated;
 -- 4.2. student_profile_view View
 -- Student reads their own profile with course & batch details, hiding internal fields
 -- (legacy_id, import_id, deleted_at, deleted_by, audit timestamps)
+DROP VIEW IF EXISTS student_profile_view CASCADE;
 CREATE OR REPLACE VIEW student_profile_view
 WITH (security_barrier = true)
 AS
@@ -1854,6 +1867,7 @@ GRANT SELECT ON student_profile_view TO authenticated;
 
 -- 4.3. student_payments_view View
 -- Student reads their own payments without administrative free-text remarks or internal fields
+DROP VIEW IF EXISTS student_payments_view CASCADE;
 CREATE OR REPLACE VIEW student_payments_view
 WITH (security_barrier = true)
 AS
@@ -3148,6 +3162,7 @@ GRANT EXECUTE ON FUNCTION undo_import(text) TO authenticated;
 -- =============================================================================
 
 -- Course financial summary view
+DROP VIEW IF EXISTS view_course_financial_summary CASCADE;
 CREATE OR REPLACE VIEW view_course_financial_summary AS
 SELECT 
     c.id AS course_id,
@@ -3167,6 +3182,7 @@ WHERE c.deleted_at IS NULL
 GROUP BY c.id, c.name, c.code;
 
 -- Fee defaulters view
+DROP VIEW IF EXISTS view_fee_defaulters CASCADE;
 CREATE OR REPLACE VIEW view_fee_defaulters AS
 SELECT 
     s.id AS student_id,
@@ -3190,6 +3206,7 @@ WHERE s.deleted_at IS NULL
   AND f.pending_amount_paise > 0;
 
 -- Merit list view
+DROP VIEW IF EXISTS view_merit_list CASCADE;
 CREATE OR REPLACE VIEW view_merit_list AS
 SELECT 
     r.id AS result_id,
@@ -3225,6 +3242,7 @@ DO $$ BEGIN
 END $$;
 
 -- Daily fee collection view
+DROP VIEW IF EXISTS view_fee_collection_daily CASCADE;
 CREATE OR REPLACE VIEW view_fee_collection_daily AS
 SELECT 
     p.payment_date,
@@ -4138,6 +4156,7 @@ FOR EACH ROW EXECUTE FUNCTION sync_legacy_fees_from_items();
 -- =============================================================================
 
 -- 5.1. student_fee_summary View
+DROP VIEW IF EXISTS view_student_fee_summary CASCADE;
 CREATE OR REPLACE VIEW view_student_fee_summary AS
 SELECT 
     s.id AS student_id,
@@ -4160,6 +4179,7 @@ GROUP BY s.id, s.admission_number, s.name;
 
 
 -- 5.2. Update view_course_financial_summary to support course_type & skill courses
+DROP VIEW IF EXISTS view_course_financial_summary CASCADE;
 CREATE OR REPLACE VIEW view_course_financial_summary AS
 SELECT 
     c.id AS course_id,
@@ -4181,6 +4201,7 @@ GROUP BY c.id, c.name, c.code, c.course_type;
 
 
 -- 5.3. Update view_fee_defaulters to include skill course balances
+DROP VIEW IF EXISTS view_fee_defaulters CASCADE;
 CREATE OR REPLACE VIEW view_fee_defaulters AS
 SELECT 
     s.id AS student_id,
@@ -7211,6 +7232,7 @@ GRANT EXECUTE ON FUNCTION attendance_slot_status(date) TO authenticated;
 -- -----------------------------------------------------------------------------
 -- 6. students_for_teacher View: Active Primary Batches Only (Never DOB/phone/fees)
 -- -----------------------------------------------------------------------------
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
 CREATE OR REPLACE VIEW students_for_teacher
 WITH (security_barrier = true)
 AS
@@ -8550,6 +8572,7 @@ CREATE POLICY p_marks_student_select ON marks
 -- =============================================================================
 
 -- 6.1. students_for_teacher View: Active primary batches and active students only
+DROP VIEW IF EXISTS students_for_teacher CASCADE;
 CREATE OR REPLACE VIEW students_for_teacher
 WITH (security_barrier = true)
 AS
@@ -9225,6 +9248,7 @@ GRANT EXECUTE ON FUNCTION get_dashboard_summary_counts() TO authenticated;
 
 
 -- 8.4. student_profile_view View Update (Include completed_on and access_until)
+DROP VIEW IF EXISTS student_profile_view CASCADE;
 CREATE OR REPLACE VIEW student_profile_view
 WITH (security_barrier = true)
 AS
