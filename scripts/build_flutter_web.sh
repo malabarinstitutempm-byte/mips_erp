@@ -1,12 +1,18 @@
 #!/bin/bash
 set -e
 
-echo "=== Checking Flutter SDK ==="
+FLUTTER_VERSION="3.35.5"
+
+echo "=== Checking Flutter SDK ($FLUTTER_VERSION) ==="
 if [ ! -d "$HOME/flutter" ]; then
-  echo "Cloning Flutter stable SDK..."
-  git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
+  echo "Cloning Flutter $FLUTTER_VERSION SDK..."
+  git clone https://github.com/flutter/flutter.git -b "$FLUTTER_VERSION" --depth 1 "$HOME/flutter"
 else
-  echo "Using cached Flutter SDK."
+  echo "Checking Flutter SDK version..."
+  cd "$HOME/flutter"
+  git fetch --depth 1 origin "$FLUTTER_VERSION" 2>/dev/null || true
+  git checkout "$FLUTTER_VERSION" 2>/dev/null || true
+  cd - > /dev/null
 fi
 
 export PATH="$PATH:$HOME/flutter/bin"
