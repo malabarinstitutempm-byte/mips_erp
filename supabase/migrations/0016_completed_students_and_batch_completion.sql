@@ -13,7 +13,7 @@
 --  10. Phase 9E Access Window helpers: student_access_allowed(), close_login, extend_access
 -- =============================================================================
 
-BEGIN;
+COMMIT;
 
 -- =============================================================================
 -- 1. Enum Types & Columns Evolution
@@ -32,6 +32,10 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+
+COMMIT;
+
+BEGIN;
 
 -- 1.3. Add completed_on to students
 ALTER TABLE students 

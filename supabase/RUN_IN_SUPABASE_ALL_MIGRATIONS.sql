@@ -11,6 +11,20 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Ensure enum values exist and are committed immediately before any transactions
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_status') THEN
+        ALTER TYPE student_status ADD VALUE IF NOT EXISTS 'completed';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enrollment_status') THEN
+        ALTER TYPE enrollment_status ADD VALUE IF NOT EXISTS 'completed';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'attendance_session_status') THEN
+        ALTER TYPE attendance_session_status ADD VALUE IF NOT EXISTS 'no_class';
+    END IF;
+END $$;
+COMMIT;
+
 -- Drop any existing views with changed column signatures so CREATE VIEW never fails with 42P16
 DROP VIEW IF EXISTS view_course_financial_summary CASCADE;
 DROP VIEW IF EXISTS view_fee_defaulters CASCADE;
@@ -106,7 +120,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE student_status AS ENUM ('active', 'passed_out', 'discontinued', 'tc_issued');
+    CREATE TYPE student_status AS ENUM ('active', 'completed', 'passed_out', 'discontinued', 'tc_issued');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -118,7 +132,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE attendance_session_status AS ENUM ('draft', 'submitted', 'locked');
+    CREATE TYPE attendance_session_status AS ENUM ('draft', 'submitted', 'locked', 'no_class');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -3658,7 +3672,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE enrollment_status AS ENUM ('active', 'withdrawn');
+    CREATE TYPE enrollment_status AS ENUM ('active', 'completed', 'withdrawn');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -7649,7 +7663,7 @@ GRANT EXECUTE ON FUNCTION admin_get_accounts_overview() TO authenticated, servic
 --  10. Phase 9E Access Window helpers: student_access_allowed(), close_login, extend_access
 -- =============================================================================
 
-BEGIN;
+COMMIT;
 
 -- =============================================================================
 -- 1. Enum Types & Columns Evolution
@@ -7668,6 +7682,10 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+
+COMMIT;
+
+BEGIN;
 
 -- 1.3. Add completed_on to students
 ALTER TABLE students 

@@ -24,7 +24,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE enrollment_status AS ENUM ('active', 'withdrawn');
+    CREATE TYPE enrollment_status AS ENUM ('active', 'completed', 'withdrawn');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

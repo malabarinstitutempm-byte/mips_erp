@@ -18,7 +18,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE student_status AS ENUM ('active', 'passed_out', 'discontinued', 'tc_issued');
+    CREATE TYPE student_status AS ENUM ('active', 'completed', 'passed_out', 'discontinued', 'tc_issued');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -30,7 +30,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE attendance_session_status AS ENUM ('draft', 'submitted', 'locked');
+    CREATE TYPE attendance_session_status AS ENUM ('draft', 'submitted', 'locked', 'no_class');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
