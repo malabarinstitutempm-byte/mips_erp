@@ -5,6 +5,7 @@
   "description": "MIPS ERP Backend Tooling & Scripts",
   "type": "module",
   "scripts": {
+    "build": "bash scripts/build_flutter_web.sh",
     "create-admin": "tsx scripts/create_admin.ts",
     "test": "tsx scripts/test_auth_suite.ts",
     "test:auth": "tsx scripts/test_auth_suite.ts"

@@ -1,0 +1,8 @@
+[build]
+  command = "bash scripts/build_flutter_web.sh"
+  publish = "build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
