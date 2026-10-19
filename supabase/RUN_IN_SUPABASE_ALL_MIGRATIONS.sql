@@ -22,6 +22,28 @@ DROP VIEW IF EXISTS student_profile_view CASCADE;
 DROP VIEW IF EXISTS student_payments_view CASCADE;
 DROP VIEW IF EXISTS batch_semesters CASCADE;
 
+-- Ensure courses table has course_type and structure
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'courses'
+    ) THEN
+        ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS course_type text NOT NULL DEFAULT 'primary';
+        ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS structure text NOT NULL DEFAULT 'year';
+    END IF;
+END $$;
+
+-- Ensure batches table has status and completed_on
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'batches'
+    ) THEN
+        ALTER TABLE public.batches ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
+        ALTER TABLE public.batches ADD COLUMN IF NOT EXISTS completed_on date;
+    END IF;
+END $$;
+
 -- Ensure payments table has payment_date generated column if table already exists
 DO $$ BEGIN
     IF EXISTS (
@@ -224,11 +246,16 @@ CREATE TABLE IF NOT EXISTS courses (
     total_fee_paise bigint NOT NULL DEFAULT 0 CHECK (total_fee_paise >= 0),
     description text,
     status text NOT NULL DEFAULT 'active',
+    course_type text NOT NULL DEFAULT 'primary',
+    structure text NOT NULL DEFAULT 'year',
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     deleted_at timestamptz,
     deleted_by uuid REFERENCES auth.users(id)
 );
+
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_type text NOT NULL DEFAULT 'primary';
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS structure text NOT NULL DEFAULT 'year';
 
 CREATE TRIGGER trg_courses_updated_at
 BEFORE UPDATE ON courses
@@ -262,11 +289,16 @@ CREATE TABLE IF NOT EXISTS batches (
     batch_name text NOT NULL,
     start_date date,
     end_date date,
+    status text NOT NULL DEFAULT 'active',
+    completed_on date,
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     deleted_at timestamptz,
     deleted_by uuid REFERENCES auth.users(id)
 );
+
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS completed_on date;
 
 CREATE TRIGGER trg_batches_updated_at
 BEFORE UPDATE ON batches
