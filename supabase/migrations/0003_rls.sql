@@ -193,11 +193,13 @@ GRANT SELECT ON student_payments_view TO authenticated;
 -- -----------------------------------------------------------------------------
 -- 5.1. settings
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_settings_admin ON settings;
 CREATE POLICY p_settings_admin ON settings
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_settings_authenticated_select ON settings;
 CREATE POLICY p_settings_authenticated_select ON settings
     FOR SELECT TO authenticated
     USING (true);
@@ -205,11 +207,13 @@ CREATE POLICY p_settings_authenticated_select ON settings
 -- -----------------------------------------------------------------------------
 -- 5.2. academic_years
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_academic_years_admin ON academic_years;
 CREATE POLICY p_academic_years_admin ON academic_years
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_academic_years_select ON academic_years;
 CREATE POLICY p_academic_years_select ON academic_years
     FOR SELECT TO authenticated
     USING (deleted_at IS NULL);
@@ -217,11 +221,13 @@ CREATE POLICY p_academic_years_select ON academic_years
 -- -----------------------------------------------------------------------------
 -- 5.3. universities
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_universities_admin ON universities;
 CREATE POLICY p_universities_admin ON universities
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_universities_select ON universities;
 CREATE POLICY p_universities_select ON universities
     FOR SELECT TO authenticated
     USING (deleted_at IS NULL);
@@ -229,11 +235,13 @@ CREATE POLICY p_universities_select ON universities
 -- -----------------------------------------------------------------------------
 -- 5.4. courses
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_courses_admin ON courses;
 CREATE POLICY p_courses_admin ON courses
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_courses_select ON courses;
 CREATE POLICY p_courses_select ON courses
     FOR SELECT TO authenticated
     USING (deleted_at IS NULL);
@@ -241,11 +249,13 @@ CREATE POLICY p_courses_select ON courses
 -- -----------------------------------------------------------------------------
 -- 5.5. course_subjects
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_course_subjects_admin ON course_subjects;
 CREATE POLICY p_course_subjects_admin ON course_subjects
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_course_subjects_select ON course_subjects;
 CREATE POLICY p_course_subjects_select ON course_subjects
     FOR SELECT TO authenticated
     USING (deleted_at IS NULL);
@@ -253,11 +263,13 @@ CREATE POLICY p_course_subjects_select ON course_subjects
 -- -----------------------------------------------------------------------------
 -- 5.6. batches
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_batches_admin ON batches;
 CREATE POLICY p_batches_admin ON batches
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_batches_select ON batches;
 CREATE POLICY p_batches_select ON batches
     FOR SELECT TO authenticated
     USING (deleted_at IS NULL);
@@ -265,11 +277,13 @@ CREATE POLICY p_batches_select ON batches
 -- -----------------------------------------------------------------------------
 -- 5.7. grading_schemes
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_grading_schemes_admin ON grading_schemes;
 CREATE POLICY p_grading_schemes_admin ON grading_schemes
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_grading_schemes_select ON grading_schemes;
 CREATE POLICY p_grading_schemes_select ON grading_schemes
     FOR SELECT TO authenticated
     USING (true);
@@ -277,11 +291,13 @@ CREATE POLICY p_grading_schemes_select ON grading_schemes
 -- -----------------------------------------------------------------------------
 -- 5.8. teachers
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_teachers_admin ON teachers;
 CREATE POLICY p_teachers_admin ON teachers
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_teachers_teacher_select ON teachers;
 CREATE POLICY p_teachers_teacher_select ON teachers
     FOR SELECT TO authenticated
     USING (is_teacher() AND id = current_teacher_id() AND deleted_at IS NULL);
@@ -289,15 +305,18 @@ CREATE POLICY p_teachers_teacher_select ON teachers
 -- -----------------------------------------------------------------------------
 -- 5.9. profiles
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_profiles_admin ON profiles;
 CREATE POLICY p_profiles_admin ON profiles
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_profiles_self_select ON profiles;
 CREATE POLICY p_profiles_self_select ON profiles
     FOR SELECT TO authenticated
     USING (user_id = auth.uid() AND active = true);
 
+DROP POLICY IF EXISTS p_profiles_self_update ON profiles;
 CREATE POLICY p_profiles_self_update ON profiles
     FOR UPDATE TO authenticated
     USING (user_id = auth.uid())
@@ -306,11 +325,13 @@ CREATE POLICY p_profiles_self_update ON profiles
 -- -----------------------------------------------------------------------------
 -- 5.10. teacher_assignments
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_teacher_assignments_admin ON teacher_assignments;
 CREATE POLICY p_teacher_assignments_admin ON teacher_assignments
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_teacher_assignments_teacher_select ON teacher_assignments;
 CREATE POLICY p_teacher_assignments_teacher_select ON teacher_assignments
     FOR SELECT TO authenticated
     USING (is_teacher() AND teacher_id = current_teacher_id() AND active = true);
@@ -319,11 +340,13 @@ CREATE POLICY p_teacher_assignments_teacher_select ON teacher_assignments
 -- 5.11. students
 -- Note: Teachers query students_for_teacher view. Direct table access is blocked.
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_students_admin ON students;
 CREATE POLICY p_students_admin ON students
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_students_student_select ON students;
 CREATE POLICY p_students_student_select ON students
     FOR SELECT TO authenticated
     USING (is_student() AND id = current_student_id() AND deleted_at IS NULL);
@@ -331,11 +354,13 @@ CREATE POLICY p_students_student_select ON students
 -- -----------------------------------------------------------------------------
 -- 5.12. fees
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_fees_admin ON fees;
 CREATE POLICY p_fees_admin ON fees
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_fees_student_select ON fees;
 CREATE POLICY p_fees_student_select ON fees
     FOR SELECT TO authenticated
     USING (is_student() AND student_id = current_student_id() AND deleted_at IS NULL);
@@ -344,6 +369,7 @@ CREATE POLICY p_fees_student_select ON fees
 -- 5.13. payments
 -- Note: Students read payments through student_payments_view (which excludes remarks).
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_payments_admin ON payments;
 CREATE POLICY p_payments_admin ON payments
     FOR ALL TO authenticated
     USING (is_admin())
@@ -352,11 +378,13 @@ CREATE POLICY p_payments_admin ON payments
 -- -----------------------------------------------------------------------------
 -- 5.14. receipts
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_receipts_admin ON receipts;
 CREATE POLICY p_receipts_admin ON receipts
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_receipts_student_select ON receipts;
 CREATE POLICY p_receipts_student_select ON receipts
     FOR SELECT TO authenticated
     USING (
@@ -373,11 +401,13 @@ CREATE POLICY p_receipts_student_select ON receipts
 -- -----------------------------------------------------------------------------
 -- 5.15. exams
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_exams_admin ON exams;
 CREATE POLICY p_exams_admin ON exams
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_exams_student_select ON exams;
 CREATE POLICY p_exams_student_select ON exams
     FOR SELECT TO authenticated
     USING (
@@ -395,11 +425,13 @@ CREATE POLICY p_exams_student_select ON exams
 -- -----------------------------------------------------------------------------
 -- 5.16. exam_subjects
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_exam_subjects_admin ON exam_subjects;
 CREATE POLICY p_exam_subjects_admin ON exam_subjects
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_exam_subjects_student_select ON exam_subjects;
 CREATE POLICY p_exam_subjects_student_select ON exam_subjects
     FOR SELECT TO authenticated
     USING (
@@ -416,11 +448,13 @@ CREATE POLICY p_exam_subjects_student_select ON exam_subjects
 -- -----------------------------------------------------------------------------
 -- 5.17. marks
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_marks_admin ON marks;
 CREATE POLICY p_marks_admin ON marks
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_marks_student_select ON marks;
 CREATE POLICY p_marks_student_select ON marks
     FOR SELECT TO authenticated
     USING (
@@ -438,11 +472,13 @@ CREATE POLICY p_marks_student_select ON marks
 -- -----------------------------------------------------------------------------
 -- 5.18. results
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_results_admin ON results;
 CREATE POLICY p_results_admin ON results
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_results_student_select ON results;
 CREATE POLICY p_results_student_select ON results
     FOR SELECT TO authenticated
     USING (
@@ -460,11 +496,13 @@ CREATE POLICY p_results_student_select ON results
 -- -----------------------------------------------------------------------------
 -- 5.19. attendance_sessions
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_attendance_sessions_admin ON attendance_sessions;
 CREATE POLICY p_attendance_sessions_admin ON attendance_sessions
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_select ON attendance_sessions;
 CREATE POLICY p_attendance_sessions_teacher_select ON attendance_sessions
     FOR SELECT TO authenticated
     USING (
@@ -475,6 +513,7 @@ CREATE POLICY p_attendance_sessions_teacher_select ON attendance_sessions
         )
     );
 
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_insert ON attendance_sessions;
 CREATE POLICY p_attendance_sessions_teacher_insert ON attendance_sessions
     FOR INSERT TO authenticated
     WITH CHECK (
@@ -484,6 +523,7 @@ CREATE POLICY p_attendance_sessions_teacher_insert ON attendance_sessions
         AND teacher_has_assignment(batch_id, subject_id)
     );
 
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_update ON attendance_sessions;
 CREATE POLICY p_attendance_sessions_teacher_update ON attendance_sessions
     FOR UPDATE TO authenticated
     USING (
@@ -499,6 +539,7 @@ CREATE POLICY p_attendance_sessions_teacher_update ON attendance_sessions
         AND teacher_has_assignment(batch_id, subject_id)
     );
 
+DROP POLICY IF EXISTS p_attendance_sessions_teacher_delete ON attendance_sessions;
 CREATE POLICY p_attendance_sessions_teacher_delete ON attendance_sessions
     FOR DELETE TO authenticated
     USING (
@@ -507,6 +548,7 @@ CREATE POLICY p_attendance_sessions_teacher_delete ON attendance_sessions
         AND status = 'draft'
     );
 
+DROP POLICY IF EXISTS p_attendance_sessions_student_select ON attendance_sessions;
 CREATE POLICY p_attendance_sessions_student_select ON attendance_sessions
     FOR SELECT TO authenticated
     USING (
@@ -522,11 +564,13 @@ CREATE POLICY p_attendance_sessions_student_select ON attendance_sessions
 -- -----------------------------------------------------------------------------
 -- 5.20. attendance_records
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_attendance_records_admin ON attendance_records;
 CREATE POLICY p_attendance_records_admin ON attendance_records
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_attendance_records_teacher_select ON attendance_records;
 CREATE POLICY p_attendance_records_teacher_select ON attendance_records
     FOR SELECT TO authenticated
     USING (
@@ -541,6 +585,7 @@ CREATE POLICY p_attendance_records_teacher_select ON attendance_records
         )
     );
 
+DROP POLICY IF EXISTS p_attendance_records_teacher_insert ON attendance_records;
 CREATE POLICY p_attendance_records_teacher_insert ON attendance_records
     FOR INSERT TO authenticated
     WITH CHECK (
@@ -554,6 +599,7 @@ CREATE POLICY p_attendance_records_teacher_insert ON attendance_records
         )
     );
 
+DROP POLICY IF EXISTS p_attendance_records_teacher_update ON attendance_records;
 CREATE POLICY p_attendance_records_teacher_update ON attendance_records
     FOR UPDATE TO authenticated
     USING (
@@ -577,6 +623,7 @@ CREATE POLICY p_attendance_records_teacher_update ON attendance_records
         )
     );
 
+DROP POLICY IF EXISTS p_attendance_records_teacher_delete ON attendance_records;
 CREATE POLICY p_attendance_records_teacher_delete ON attendance_records
     FOR DELETE TO authenticated
     USING (
@@ -589,6 +636,7 @@ CREATE POLICY p_attendance_records_teacher_delete ON attendance_records
         )
     );
 
+DROP POLICY IF EXISTS p_attendance_records_student_select ON attendance_records;
 CREATE POLICY p_attendance_records_student_select ON attendance_records
     FOR SELECT TO authenticated
     USING (
@@ -604,6 +652,7 @@ CREATE POLICY p_attendance_records_student_select ON attendance_records
 -- -----------------------------------------------------------------------------
 -- 5.21. attendance_changes (INSERT-ONLY via correct_attendance, Admin SELECT)
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_attendance_changes_admin_select ON attendance_changes;
 CREATE POLICY p_attendance_changes_admin_select ON attendance_changes
     FOR SELECT TO authenticated
     USING (is_admin());
@@ -611,6 +660,7 @@ CREATE POLICY p_attendance_changes_admin_select ON attendance_changes
 -- -----------------------------------------------------------------------------
 -- 5.22. audit_log (INSERT-ONLY via audit trigger, Admin SELECT)
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_audit_log_admin_select ON audit_log;
 CREATE POLICY p_audit_log_admin_select ON audit_log
     FOR SELECT TO authenticated
     USING (is_admin());
@@ -618,6 +668,7 @@ CREATE POLICY p_audit_log_admin_select ON audit_log
 -- -----------------------------------------------------------------------------
 -- 5.23. document_templates
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_document_templates_admin ON document_templates;
 CREATE POLICY p_document_templates_admin ON document_templates
     FOR ALL TO authenticated
     USING (is_admin())
@@ -626,11 +677,13 @@ CREATE POLICY p_document_templates_admin ON document_templates
 -- -----------------------------------------------------------------------------
 -- 5.24. generated_documents
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_generated_documents_admin ON generated_documents;
 CREATE POLICY p_generated_documents_admin ON generated_documents
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_generated_documents_student_select ON generated_documents;
 CREATE POLICY p_generated_documents_student_select ON generated_documents
     FOR SELECT TO authenticated
     USING (is_student() AND student_id = current_student_id() AND deleted_at IS NULL);
@@ -638,6 +691,7 @@ CREATE POLICY p_generated_documents_student_select ON generated_documents
 -- -----------------------------------------------------------------------------
 -- 5.25. number_counters (Admin read-only, increments via next_number function)
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_number_counters_admin_select ON number_counters;
 CREATE POLICY p_number_counters_admin_select ON number_counters
     FOR SELECT TO authenticated
     USING (is_admin());
@@ -645,15 +699,18 @@ CREATE POLICY p_number_counters_admin_select ON number_counters
 -- -----------------------------------------------------------------------------
 -- 5.26. notifications
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_notifications_admin ON notifications;
 CREATE POLICY p_notifications_admin ON notifications
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_notifications_user_select ON notifications;
 CREATE POLICY p_notifications_user_select ON notifications
     FOR SELECT TO authenticated
     USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS p_notifications_user_update ON notifications;
 CREATE POLICY p_notifications_user_update ON notifications
     FOR UPDATE TO authenticated
     USING (user_id = auth.uid())
@@ -662,11 +719,13 @@ CREATE POLICY p_notifications_user_update ON notifications
 -- -----------------------------------------------------------------------------
 -- 5.27. push_subscriptions
 -- -----------------------------------------------------------------------------
+DROP POLICY IF EXISTS p_push_subscriptions_admin ON push_subscriptions;
 CREATE POLICY p_push_subscriptions_admin ON push_subscriptions
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_push_subscriptions_user ON push_subscriptions;
 CREATE POLICY p_push_subscriptions_user ON push_subscriptions
     FOR ALL TO authenticated
     USING (user_id = auth.uid())

@@ -11,7 +11,8 @@
     "test:auth": "tsx scripts/test_auth_suite.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.4"
+    "@supabase/supabase-js": "^2.45.4",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "tsx": "^4.19.1",

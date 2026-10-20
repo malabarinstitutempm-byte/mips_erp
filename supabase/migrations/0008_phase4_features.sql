@@ -100,10 +100,11 @@ WHERE slot = 'morning' AND period IS NOT NULL;
 
 -- Add UNIQUE (batch_id, date, slot) constraint
 DO $$ BEGIN
-    ALTER TABLE attendance_sessions
-        ADD CONSTRAINT attendance_sessions_batch_date_slot_key UNIQUE (batch_id, date, slot);
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'attendance_sessions_batch_date_slot_key') THEN
+        ALTER TABLE attendance_sessions ADD CONSTRAINT attendance_sessions_batch_date_slot_key UNIQUE (batch_id, date, slot);
+    END IF;
 EXCEPTION
-    WHEN duplicate_object THEN null;
+    WHEN duplicate_object OR duplicate_table THEN null;
 END $$;
 
 -- 2.3. teacher_assignments: allow batch-level assignments without subject
@@ -889,11 +890,13 @@ ALTER TABLE timetables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE timetable_entries ENABLE ROW LEVEL SECURITY;
 
 -- 6.1. student_enrollments
+DROP POLICY IF EXISTS p_student_enrollments_admin ON student_enrollments;
 CREATE POLICY p_student_enrollments_admin ON student_enrollments
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_student_enrollments_teacher_select ON student_enrollments;
 CREATE POLICY p_student_enrollments_teacher_select ON student_enrollments
     FOR SELECT TO authenticated
     USING (
@@ -907,6 +910,7 @@ CREATE POLICY p_student_enrollments_teacher_select ON student_enrollments
         )
     );
 
+DROP POLICY IF EXISTS p_student_enrollments_student_select ON student_enrollments;
 CREATE POLICY p_student_enrollments_student_select ON student_enrollments
     FOR SELECT TO authenticated
     USING (
@@ -916,11 +920,13 @@ CREATE POLICY p_student_enrollments_student_select ON student_enrollments
     );
 
 -- 6.2. fee_items
+DROP POLICY IF EXISTS p_fee_items_admin ON fee_items;
 CREATE POLICY p_fee_items_admin ON fee_items
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_fee_items_student_select ON fee_items;
 CREATE POLICY p_fee_items_student_select ON fee_items
     FOR SELECT TO authenticated
     USING (
@@ -930,11 +936,13 @@ CREATE POLICY p_fee_items_student_select ON fee_items
     );
 
 -- 6.3. payment_allocations
+DROP POLICY IF EXISTS p_payment_allocations_admin ON payment_allocations;
 CREATE POLICY p_payment_allocations_admin ON payment_allocations
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_payment_allocations_student_select ON payment_allocations;
 CREATE POLICY p_payment_allocations_student_select ON payment_allocations
     FOR SELECT TO authenticated
     USING (
@@ -947,11 +955,13 @@ CREATE POLICY p_payment_allocations_student_select ON payment_allocations
     );
 
 -- 6.4. fee_adjustments
+DROP POLICY IF EXISTS p_fee_adjustments_admin ON fee_adjustments;
 CREATE POLICY p_fee_adjustments_admin ON fee_adjustments
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_fee_adjustments_student_select ON fee_adjustments;
 CREATE POLICY p_fee_adjustments_student_select ON fee_adjustments
     FOR SELECT TO authenticated
     USING (
@@ -960,11 +970,13 @@ CREATE POLICY p_fee_adjustments_student_select ON fee_adjustments
     );
 
 -- 6.5. attendance_alert_state
+DROP POLICY IF EXISTS p_attendance_alert_state_admin ON attendance_alert_state;
 CREATE POLICY p_attendance_alert_state_admin ON attendance_alert_state
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_attendance_alert_state_student_select ON attendance_alert_state;
 CREATE POLICY p_attendance_alert_state_student_select ON attendance_alert_state
     FOR SELECT TO authenticated
     USING (
@@ -973,11 +985,13 @@ CREATE POLICY p_attendance_alert_state_student_select ON attendance_alert_state
     );
 
 -- 6.6. announcements
+DROP POLICY IF EXISTS p_announcements_admin ON announcements;
 CREATE POLICY p_announcements_admin ON announcements
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_announcements_teacher_select ON announcements;
 CREATE POLICY p_announcements_teacher_select ON announcements
     FOR SELECT TO authenticated
     USING (
@@ -986,6 +1000,7 @@ CREATE POLICY p_announcements_teacher_select ON announcements
         AND audience_type = 'teachers'
     );
 
+DROP POLICY IF EXISTS p_announcements_student_select ON announcements;
 CREATE POLICY p_announcements_student_select ON announcements
     FOR SELECT TO authenticated
     USING (
@@ -1002,11 +1017,13 @@ CREATE POLICY p_announcements_student_select ON announcements
     );
 
 -- 6.7. timetables
+DROP POLICY IF EXISTS p_timetables_admin ON timetables;
 CREATE POLICY p_timetables_admin ON timetables
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_timetables_teacher_select ON timetables;
 CREATE POLICY p_timetables_teacher_select ON timetables
     FOR SELECT TO authenticated
     USING (
@@ -1020,6 +1037,7 @@ CREATE POLICY p_timetables_teacher_select ON timetables
         )
     );
 
+DROP POLICY IF EXISTS p_timetables_student_select ON timetables;
 CREATE POLICY p_timetables_student_select ON timetables
     FOR SELECT TO authenticated
     USING (
@@ -1036,11 +1054,13 @@ CREATE POLICY p_timetables_student_select ON timetables
     );
 
 -- 6.8. timetable_entries
+DROP POLICY IF EXISTS p_timetable_entries_admin ON timetable_entries;
 CREATE POLICY p_timetable_entries_admin ON timetable_entries
     FOR ALL TO authenticated
     USING (is_admin())
     WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS p_timetable_entries_teacher_select ON timetable_entries;
 CREATE POLICY p_timetable_entries_teacher_select ON timetable_entries
     FOR SELECT TO authenticated
     USING (
@@ -1057,6 +1077,7 @@ CREATE POLICY p_timetable_entries_teacher_select ON timetable_entries
         )
     );
 
+DROP POLICY IF EXISTS p_timetable_entries_student_select ON timetable_entries;
 CREATE POLICY p_timetable_entries_student_select ON timetable_entries
     FOR SELECT TO authenticated
     USING (
@@ -1077,6 +1098,7 @@ CREATE POLICY p_timetable_entries_student_select ON timetable_entries
 DROP POLICY IF EXISTS p_notifications_user_select ON notifications;
 DROP POLICY IF EXISTS p_notifications_user_update ON notifications;
 
+DROP POLICY IF EXISTS p_notifications_recipient_select ON notifications;
 CREATE POLICY p_notifications_recipient_select ON notifications
     FOR SELECT TO authenticated
     USING (
@@ -1086,6 +1108,7 @@ CREATE POLICY p_notifications_recipient_select ON notifications
         OR is_admin()
     );
 
+DROP POLICY IF EXISTS p_notifications_recipient_update ON notifications;
 CREATE POLICY p_notifications_recipient_update ON notifications
     FOR UPDATE TO authenticated
     USING (

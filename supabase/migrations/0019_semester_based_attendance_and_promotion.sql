@@ -101,7 +101,8 @@ BEGIN
             FOR SELECT TO authenticated
             USING (true);
 
-        CREATE POLICY p_batch_semesters_admin_all ON batch_semesters
+        DROP POLICY IF EXISTS p_batch_semesters_admin_all ON batch_semesters;
+CREATE POLICY p_batch_semesters_admin_all ON batch_semesters
             FOR ALL TO authenticated
             USING (is_admin())
             WITH CHECK (is_admin());

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS import_batches (
 -- Enable RLS on import_batches
 ALTER TABLE import_batches ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "import_batches_admin_all" ON import_batches;
 CREATE POLICY "import_batches_admin_all" ON import_batches
     FOR ALL TO authenticated
     USING (is_admin())

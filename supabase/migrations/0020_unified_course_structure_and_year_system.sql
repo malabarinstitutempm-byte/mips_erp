@@ -187,6 +187,7 @@ CREATE POLICY p_batch_periods_select ON batch_periods
     FOR SELECT TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS p_batch_periods_admin_all ON batch_periods;
 CREATE POLICY p_batch_periods_admin_all ON batch_periods
     FOR ALL TO authenticated
     USING (is_admin())
