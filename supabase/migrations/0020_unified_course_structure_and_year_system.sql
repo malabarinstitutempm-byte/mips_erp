@@ -106,7 +106,10 @@ DO $$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.tables 
-        WHERE table_schema = 'public' AND table_name = 'batch_semesters'
+        WHERE table_schema = 'public' AND table_name = 'batch_semesters' AND table_type = 'BASE TABLE'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'batch_periods'
     ) THEN
         -- Rename table
         ALTER TABLE batch_semesters RENAME TO batch_periods;
