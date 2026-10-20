@@ -65,3 +65,7 @@ rewrite_*.dart
 check_sqlite.py
 add_migration_9.dart
 
+
+# Test artifacts
+test-results/
+.playwright/

@@ -94,37 +94,65 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Bar
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Teachers & Faculty Accounts',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textStrong),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Manage faculty credentials, login locks, and attendance marking permissions.',
-                      style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-                    ),
-                  ],
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Teachers & Faculty Accounts',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textStrong),
                 ),
-              ),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brand,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Manage faculty credentials, login locks, and attendance marking permissions.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
                 ),
-                icon: const Icon(LucideIcons.userPlus, size: 16),
-                label: const Text('Add Teacher', style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () => AddTeacherDialog.show(context),
-              ),
-            ],
-          ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.brand,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
+                  ),
+                  icon: const Icon(LucideIcons.userPlus, size: 16),
+                  label: const Text('Add Teacher', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () => AddTeacherDialog.show(context),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Teachers & Faculty Accounts',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Manage faculty credentials, login locks, and attendance marking permissions.',
+                        style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.brand,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
+                  ),
+                  icon: const Icon(LucideIcons.userPlus, size: 16),
+                  label: const Text('Add Teacher', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () => AddTeacherDialog.show(context),
+                ),
+              ],
+            ),
           const SizedBox(height: 18),
 
           // Filters and Search Row
@@ -194,29 +222,31 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
               data: (teachers) {
                 if (teachers.isEmpty) {
                   return Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.card),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(LucideIcons.users, size: 48, color: AppColors.textMuted),
-                          const SizedBox(height: 12),
-                          const Text('No teachers found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 6),
-                          const Text('Try adjusting your search criteria or add a new teacher.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(backgroundColor: AppColors.brand),
-                            icon: const Icon(LucideIcons.userPlus, size: 16),
-                            label: const Text('Add Teacher'),
-                            onPressed: () => AddTeacherDialog.show(context),
-                          ),
-                        ],
+                    child: SingleChildScrollView(
+                      child: Container(
+                        padding: EdgeInsets.all(isMobile ? 16 : 32),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.card),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(LucideIcons.users, size: 40, color: AppColors.textMuted),
+                            const SizedBox(height: 10),
+                            const Text('No teachers found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 6),
+                            const Text('Try adjusting your search criteria or add a new teacher.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(backgroundColor: AppColors.brand),
+                              icon: const Icon(LucideIcons.userPlus, size: 16),
+                              label: const Text('Add Teacher'),
+                              onPressed: () => AddTeacherDialog.show(context),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -345,7 +375,14 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
               );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Error loading teachers: $err')),
+              error: (err, _) => Center(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Error loading teachers: $err', textAlign: TextAlign.center),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -418,17 +455,17 @@ class _TeachersScreenState extends ConsumerState<TeachersScreen> {
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                Expanded(
-                  child: Text(
-                    'Last Login: ${_formatDateTime(t.lastLoginAt)}',
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Text(
+                  'Last Login: ${_formatDateTime(t.lastLoginAt)}',
+                  style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(4)),

@@ -149,7 +149,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
                   placeholder="e.g. MIPS/2024/001 or staff username"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
                 />
               </div>
             </div>
@@ -170,13 +170,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-11 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
                 />
                 <button
                   type="button"
                   disabled={isLocked}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-2 p-1.5 text-muted hover:text-navy rounded-lg focus:outline-none focus:ring-2 focus:ring-focusRing"
+                  className="absolute right-1 top-1 p-2 text-muted hover:text-navy rounded-lg focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch min-w-touch flex items-center justify-center"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

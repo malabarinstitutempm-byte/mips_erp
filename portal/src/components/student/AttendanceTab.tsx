@@ -549,12 +549,12 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           </div>
 
           {/* Date Selector Navigation Controls (bounded by semester dates) */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={handlePrevDay}
               disabled={Boolean(minDate && selectedDate <= minDate)}
-              className="p-2 rounded-btn border border-cardBorder hover:bg-slate-50 text-navy transition-colors min-h-touch min-w-touch flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-2 rounded-btn border border-cardBorder hover:bg-slate-50 text-navy transition-colors min-h-touch min-w-touch flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               aria-label="Previous day"
               title="Previous Day"
             >
@@ -562,7 +562,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
             </button>
 
             {/* Date Input Field */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <input
                 type="date"
                 value={selectedDate}
@@ -571,7 +571,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 onChange={(e) => {
                   if (e.target.value) setSelectedDate(e.target.value);
                 }}
-                className="py-1.5 px-3 text-xs font-semibold rounded-btn border border-cardBorder text-navy focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch font-mono bg-surface cursor-pointer"
+                className="w-full sm:w-auto py-1.5 px-3 text-base sm:text-xs font-semibold rounded-btn border border-cardBorder text-navy focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch font-mono bg-surface cursor-pointer text-center"
                 aria-label="Choose attendance date"
               />
             </div>
@@ -580,7 +580,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
               type="button"
               onClick={handleNextDay}
               disabled={Boolean(maxDate && selectedDate >= maxDate)}
-              className="p-2 rounded-btn border border-cardBorder hover:bg-slate-50 text-navy transition-colors min-h-touch min-w-touch flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-2 rounded-btn border border-cardBorder hover:bg-slate-50 text-navy transition-colors min-h-touch min-w-touch flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               aria-label="Next day"
               title="Next Day"
             >
@@ -865,7 +865,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
         </div>
 
         <div className="p-4 bg-surface rounded-card border border-cardBorder text-xs text-muted space-y-2">
-          <p className="font-mono text-navy font-semibold text-[11px] sm:text-xs">
+          <p className="font-mono text-navy font-semibold text-[10px] sm:text-xs break-words">
             Percentage = (Present + Late × 0.5) ÷ (Sessions Held - Leave) × 100
           </p>
           <div className="text-[11px] text-muted leading-relaxed">

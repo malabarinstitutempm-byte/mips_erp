@@ -138,32 +138,32 @@ export const TimetableTab: React.FC<TimetableTabProps> = ({ enrollments }) => {
   return (
     <div className="space-y-6">
       {/* Top Controls: Mode Switcher & Download PDF */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         {/* Class vs Exam Switcher */}
-        <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-cardBorder shadow-sm">
+        <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center gap-1.5 p-1.5 bg-white rounded-2xl border border-cardBorder shadow-sm">
           <button
             type="button"
             onClick={() => setScheduleType('class')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-touch ${
+            className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-touch text-center ${
               scheduleType === 'class'
                 ? 'bg-navy text-white shadow-sm'
                 : 'text-muted hover:text-navy hover:bg-slate-50'
             }`}
           >
-            <Clock className="w-4 h-4" />
-            <span>Daily Class Timetable</span>
+            <Clock className="w-4 h-4 shrink-0" />
+            <span className="truncate">Daily Classes</span>
           </button>
           <button
             type="button"
             onClick={() => setScheduleType('exam')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-touch ${
+            className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-touch text-center ${
               scheduleType === 'exam'
                 ? 'bg-navy text-white shadow-sm'
                 : 'text-muted hover:text-navy hover:bg-slate-50'
             }`}
           >
-            <Calendar className="w-4 h-4" />
-            <span>Exam Schedule</span>
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span className="truncate">Exam Schedule</span>
           </button>
         </div>
 
@@ -173,7 +173,7 @@ export const TimetableTab: React.FC<TimetableTabProps> = ({ enrollments }) => {
             type="button"
             onClick={handleDownloadPdf}
             disabled={isExportingPdf || !timetableData?.isPublished || studentEntries.length === 0}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm ${
+            className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm min-h-touch w-full sm:w-auto ${
               !timetableData?.isPublished || studentEntries.length === 0
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                 : 'bg-white hover:bg-slate-50 text-navy border border-cardBorder hover:border-slate-300'
@@ -315,19 +315,19 @@ export const TimetableTab: React.FC<TimetableTabProps> = ({ enrollments }) => {
               {examTimetables.map((exam) => (
                 <div
                   key={exam.id}
-                  className="bg-white rounded-2xl border border-cardBorder p-4 sm:p-5 shadow-sm"
+                  className="bg-white rounded-2xl border border-cardBorder p-4 sm:p-5 shadow-sm space-y-2.5"
                 >
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="font-bold text-navy text-sm sm:text-base">
-                      {exam.examName} ({exam.examCode})
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                    <span className="font-bold text-navy text-sm sm:text-base break-words">
+                      {exam.examName} {exam.examCode && `(${exam.examCode})`}
                     </span>
-                    <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-purple-50 text-purple-700 border border-purple-100">
+                    <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-purple-50 text-purple-700 border border-purple-100 self-start sm:self-auto">
                       {exam.examDate}
                     </span>
                   </div>
-                  <div className="pt-2 text-xs sm:text-sm text-muted flex items-center justify-between">
-                    <span>{exam.subjectName}</span>
-                    <span className="font-medium text-slate-700">
+                  <div className="text-xs sm:text-sm text-muted flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="font-medium text-navy">{exam.subjectName}</span>
+                    <span className="text-slate-600">
                       {exam.startTime} – {exam.endTime} ({exam.hallName})
                     </span>
                   </div>

@@ -348,11 +348,11 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
           </div>
 
           {/* Section Navigation Tabs */}
-          <div className="flex gap-2 bg-slate-100 p-1 rounded-btn self-start sm:self-auto">
+          <div className="flex gap-1.5 bg-slate-100 p-1 rounded-btn overflow-x-auto no-scrollbar w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setActiveSection('mark')}
-              className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center gap-1.5 min-h-touch ${
+              className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center justify-center gap-1.5 min-h-touch whitespace-nowrap shrink-0 flex-1 sm:flex-initial ${
                 activeSection === 'mark'
                   ? 'bg-white text-navy shadow-sm'
                   : 'text-muted hover:text-navy'
@@ -365,7 +365,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
             <button
               type="button"
               onClick={() => setActiveSection('today_board')}
-              className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center gap-1.5 min-h-touch ${
+              className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center justify-center gap-1.5 min-h-touch whitespace-nowrap shrink-0 flex-1 sm:flex-initial ${
                 activeSection === 'today_board'
                   ? 'bg-white text-navy shadow-sm'
                   : 'text-muted hover:text-navy'
@@ -378,7 +378,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
             <button
               type="button"
               onClick={() => setActiveSection('my_sessions')}
-              className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center gap-1.5 min-h-touch ${
+              className={`px-3.5 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center justify-center gap-1.5 min-h-touch whitespace-nowrap shrink-0 flex-1 sm:flex-initial ${
                 activeSection === 'my_sessions'
                   ? 'bg-white text-navy shadow-sm'
                   : 'text-muted hover:text-navy'
@@ -559,7 +559,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
             {selectedBatchId && (
               <div className="pt-4 border-t border-cardBorder flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 {/* Date Picker (Default Today, no future dates) */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between sm:justify-start gap-2">
                   <label className="text-xs font-bold text-navy flex items-center gap-1.5 shrink-0">
                     <Calendar className="w-3.5 h-3.5 text-primary" />
                     <span>Session Date:</span>
@@ -569,36 +569,36 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                     value={selectedDate}
                     max={todayStr}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 rounded-input border border-cardBorder text-xs text-navy font-sora font-medium focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch bg-surface"
+                    className="px-3 py-2 rounded-input border border-cardBorder text-base sm:text-xs text-navy font-sora font-medium focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch bg-surface"
                   />
                 </div>
 
                 {/* Morning / Evening Segmented Control */}
-                <div className="flex gap-2 bg-slate-100 p-1 rounded-btn self-start sm:self-auto">
+                <div className="grid grid-cols-2 sm:flex gap-1.5 bg-slate-100 p-1 rounded-btn w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setSelectedSlot('morning')}
-                    className={`px-4 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center gap-2 min-h-touch ${
+                    className={`px-3 sm:px-4 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center justify-center gap-1.5 min-h-touch ${
                       selectedSlot === 'morning'
                         ? 'bg-white text-navy shadow-sm'
                         : 'text-muted hover:text-navy'
                     }`}
                   >
-                    <Sun className={`w-3.5 h-3.5 ${selectedSlot === 'morning' ? 'text-amber-500' : ''}`} />
-                    <span>Morning Slot (09:00 - 12:30)</span>
+                    <Sun className={`w-3.5 h-3.5 shrink-0 ${selectedSlot === 'morning' ? 'text-amber-500' : ''}`} />
+                    <span className="truncate">Morning (09:00 - 12:30)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setSelectedSlot('evening')}
-                    className={`px-4 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center gap-2 min-h-touch ${
+                    className={`px-3 sm:px-4 py-2 rounded-btn text-xs font-sora font-semibold transition-all flex items-center justify-center gap-1.5 min-h-touch ${
                       selectedSlot === 'evening'
                         ? 'bg-white text-navy shadow-sm'
                         : 'text-muted hover:text-navy'
                     }`}
                   >
-                    <Moon className={`w-3.5 h-3.5 ${selectedSlot === 'evening' ? 'text-indigo-500' : ''}`} />
-                    <span>Evening Slot (13:30 - 16:30)</span>
+                    <Moon className={`w-3.5 h-3.5 shrink-0 ${selectedSlot === 'evening' ? 'text-indigo-500' : ''}`} />
+                    <span className="truncate">Evening (13:30 - 16:30)</span>
                   </button>
                 </div>
               </div>
@@ -634,7 +634,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
             <div className="bg-white rounded-card-lg border border-cardBorder p-5 shadow-sm space-y-4">
               {/* Table Controls Header */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-cardBorder">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
                   <div className="relative flex-1 sm:w-64">
                     <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
@@ -642,7 +642,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                       placeholder="Search student or register no..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-input border border-cardBorder text-xs text-navy focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch bg-surface"
+                      className="w-full pl-9 pr-3 py-2 rounded-input border border-cardBorder text-base sm:text-xs text-navy focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch bg-surface"
                     />
                   </div>
                   <span className="text-xs text-muted">
@@ -655,7 +655,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                   <button
                     type="button"
                     onClick={handleMarkAllPresent}
-                    className="px-3.5 py-2 rounded-btn text-xs font-sora font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 transition-colors flex items-center justify-center gap-1.5 min-h-touch self-start sm:self-auto cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-btn text-xs font-sora font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 transition-colors flex items-center justify-center gap-1.5 min-h-touch w-full sm:w-auto cursor-pointer"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Mark All Present</span>
@@ -682,29 +682,29 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                         className="p-3.5 rounded-xl border border-cardBorder bg-surface hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                       >
                         {/* Student Details */}
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 text-[11px] font-mono text-muted text-right">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-6 text-[11px] font-mono text-muted text-right shrink-0">
                             {idx + 1}.
                           </span>
-                          <div>
-                            <span className="font-sora font-bold text-navy text-sm block">
+                          <div className="min-w-0 flex-1">
+                            <span className="font-sora font-bold text-navy text-sm block truncate">
                               {student.name}
                             </span>
-                            <span className="text-[11px] text-muted">
+                            <span className="text-[11px] text-muted block truncate">
                               Adm: {student.admissionNumber}
-                              {student.registrationNumber && ` &bull; Reg: ${student.registrationNumber}`}
+                              {student.registrationNumber && ` • Reg: ${student.registrationNumber}`}
                             </span>
                           </div>
                         </div>
 
                         {/* Status Button Group */}
-                        <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                        <div className="grid grid-cols-4 gap-1.5 w-full sm:w-auto sm:flex sm:items-center">
                           {/* Present */}
                           <button
                             type="button"
                             disabled={isReadOnly}
                             onClick={() => handleToggleMark(student.id, 'present')}
-                            className={`px-3 py-1.5 rounded-btn font-sora text-xs font-bold transition-all min-h-touch min-w-[70px] ${
+                            className={`px-1.5 sm:px-3 py-2 sm:py-1.5 rounded-btn font-sora text-[11px] sm:text-xs font-bold transition-all min-h-touch flex items-center justify-center w-full sm:w-auto sm:min-w-[70px] ${
                               currentStatus === 'present'
                                 ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300'
                                 : 'bg-white border border-cardBorder text-slate-700 hover:bg-emerald-50'
@@ -718,7 +718,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                             type="button"
                             disabled={isReadOnly}
                             onClick={() => handleToggleMark(student.id, 'late')}
-                            className={`px-3 py-1.5 rounded-btn font-sora text-xs font-bold transition-all min-h-touch min-w-[70px] ${
+                            className={`px-1.5 sm:px-3 py-2 sm:py-1.5 rounded-btn font-sora text-[11px] sm:text-xs font-bold transition-all min-h-touch flex items-center justify-center w-full sm:w-auto sm:min-w-[70px] ${
                               currentStatus === 'late'
                                 ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-300'
                                 : 'bg-white border border-cardBorder text-slate-700 hover:bg-amber-50'
@@ -732,7 +732,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                             type="button"
                             disabled={isReadOnly}
                             onClick={() => handleToggleMark(student.id, 'absent')}
-                            className={`px-3 py-1.5 rounded-btn font-sora text-xs font-bold transition-all min-h-touch min-w-[70px] ${
+                            className={`px-1.5 sm:px-3 py-2 sm:py-1.5 rounded-btn font-sora text-[11px] sm:text-xs font-bold transition-all min-h-touch flex items-center justify-center w-full sm:w-auto sm:min-w-[70px] ${
                               currentStatus === 'absent'
                                 ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-300'
                                 : 'bg-white border border-cardBorder text-slate-700 hover:bg-rose-50'
@@ -746,7 +746,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                             type="button"
                             disabled={isReadOnly}
                             onClick={() => handleToggleMark(student.id, 'leave')}
-                            className={`px-3 py-1.5 rounded-btn font-sora text-xs font-bold transition-all min-h-touch min-w-[70px] ${
+                            className={`px-1.5 sm:px-3 py-2 sm:py-1.5 rounded-btn font-sora text-[11px] sm:text-xs font-bold transition-all min-h-touch flex items-center justify-center w-full sm:w-auto sm:min-w-[70px] ${
                               currentStatus === 'leave'
                                 ? 'bg-slate-600 text-white shadow-sm ring-2 ring-slate-300'
                                 : 'bg-white border border-cardBorder text-slate-700 hover:bg-slate-100'
@@ -787,11 +787,11 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
 
                 {/* Submission Actions */}
                 {!isReadOnly ? (
-                  <div className="flex items-center gap-2.5">
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto">
                     <button
                       type="button"
                       onClick={() => setIsNoClassModalOpen(true)}
-                      className="px-4 py-2.5 rounded-btn text-xs font-sora font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors min-h-touch flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 py-2.5 rounded-btn text-xs font-sora font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors min-h-touch flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto"
                     >
                       <Ban className="w-3.5 h-3.5" />
                       <span>Mark No Class</span>
@@ -801,7 +801,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                       type="button"
                       disabled={students.length === 0 || submitMutation.isPending}
                       onClick={() => setIsSubmitModalOpen(true)}
-                      className="px-5 py-2.5 rounded-btn text-xs font-sora font-bold text-white bg-primary hover:bg-primary-hover shadow-primary-btn transition-all min-h-touch flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2.5 rounded-btn text-xs font-sora font-bold text-white bg-primary hover:bg-primary-hover shadow-primary-btn transition-all min-h-touch flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>Submit Attendance</span>
@@ -1026,7 +1026,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
       {/* CONFIRMATION MODAL: SUBMIT ATTENDANCE */}
       {isSubmitModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-card-lg max-w-md w-full p-6 text-navy shadow-2xl border border-cardBorder animate-in fade-in zoom-in-95 duration-150 space-y-4">
+          <div className="bg-white rounded-card-lg max-w-md w-full p-6 text-navy shadow-2xl border border-cardBorder animate-in fade-in zoom-in-95 duration-150 space-y-4 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center gap-3 text-primary pb-2 border-b border-cardBorder">
               <div className="p-2.5 rounded-full bg-primary/10">
                 <Send className="w-5 h-5 text-primary" />
@@ -1069,12 +1069,12 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
               </span>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 disabled={submitMutation.isPending}
                 onClick={() => setIsSubmitModalOpen(false)}
-                className="px-4 py-2.5 rounded-btn text-xs font-semibold text-muted hover:bg-slate-100 transition-colors min-h-touch"
+                className="px-4 py-2.5 rounded-btn text-xs font-semibold text-muted hover:bg-slate-100 transition-colors min-h-touch flex items-center justify-center w-full sm:w-auto"
               >
                 Cancel
               </button>
@@ -1082,7 +1082,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                 type="button"
                 disabled={submitMutation.isPending}
                 onClick={() => submitMutation.mutate({ noClass: false })}
-                className="px-5 py-2.5 rounded-btn text-xs font-semibold text-white bg-primary hover:bg-primary-hover shadow-md transition-all min-h-touch flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-btn text-xs font-semibold text-white bg-primary hover:bg-primary-hover shadow-md transition-all min-h-touch flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
               >
                 {submitMutation.isPending ? (
                   <span>Submitting...</span>
@@ -1101,7 +1101,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
       {/* CONFIRMATION MODAL: MARK NO CLASS */}
       {isNoClassModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-card-lg max-w-md w-full p-6 text-navy shadow-2xl border border-cardBorder animate-in fade-in zoom-in-95 duration-150 space-y-4">
+          <div className="bg-white rounded-card-lg max-w-md w-full p-6 text-navy shadow-2xl border border-cardBorder animate-in fade-in zoom-in-95 duration-150 space-y-4 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center gap-3 text-slate-800 pb-2 border-b border-cardBorder">
               <div className="p-2.5 rounded-full bg-slate-100">
                 <Ban className="w-5 h-5 text-slate-700" />
@@ -1121,7 +1121,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
               <select
                 value={noClassReason}
                 onChange={(e) => setNoClassReason(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-input border border-cardBorder text-xs text-navy focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch bg-surface"
+                className="w-full px-3 py-2.5 rounded-input border border-cardBorder text-base sm:text-xs text-navy focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch bg-surface"
               >
                 {NO_CLASS_REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -1135,12 +1135,12 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
               No class sessions do not negatively affect student attendance percentages. This slot will be marked as "No Class" across the entire institution.
             </p>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 disabled={submitMutation.isPending}
                 onClick={() => setIsNoClassModalOpen(false)}
-                className="px-4 py-2.5 rounded-btn text-xs font-semibold text-muted hover:bg-slate-100 transition-colors min-h-touch"
+                className="px-4 py-2.5 rounded-btn text-xs font-semibold text-muted hover:bg-slate-100 transition-colors min-h-touch flex items-center justify-center w-full sm:w-auto"
               >
                 Cancel
               </button>
@@ -1148,7 +1148,7 @@ export const TeacherAttendanceTab: React.FC<TeacherAttendanceTabProps> = ({ teac
                 type="button"
                 disabled={submitMutation.isPending}
                 onClick={() => submitMutation.mutate({ noClass: true, reason: noClassReason })}
-                className="px-5 py-2.5 rounded-btn text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 shadow-md transition-all min-h-touch flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-btn text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 shadow-md transition-all min-h-touch flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
               >
                 {submitMutation.isPending ? (
                   <span>Recording...</span>

@@ -37,7 +37,7 @@ class _KpiCardState extends State<KpiCard> {
         curve: Curves.easeOut,
         transform: Matrix4.translationValues(0, _isHovered ? -2.0 : 0, 0),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(AppRadius.card),
@@ -81,12 +81,16 @@ class _KpiCardState extends State<KpiCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                widget.value,
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      fontSize: 24,
-                    ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  widget.value,
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                        fontSize: 22,
+                      ),
+                ),
               ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
             ],
           ),

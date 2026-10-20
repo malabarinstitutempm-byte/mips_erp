@@ -338,8 +338,11 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Text(
                       s.phone != null && s.phone!.isNotEmpty ? '📞 ${s.phone}' : 'No phone',
@@ -485,6 +488,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                       // Course Filter Dropdown
                       Container(
                         height: 40,
+                        width: isMobile ? double.infinity : 200,
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.border),
@@ -492,13 +496,14 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int?>(
+                            isExpanded: true,
                             value: _selectedCourseId,
                             items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('All Courses')),
+                              const DropdownMenuItem<int?>(value: null, child: Text('All Courses', overflow: TextOverflow.ellipsis)),
                               ...coursesAsync.maybeWhen(
                                 data: (courses) => courses.map((c) => DropdownMenuItem<int?>(
                                   value: c.id,
-                                  child: Text(c.name),
+                                  child: Text(c.name, overflow: TextOverflow.ellipsis),
                                 )),
                                 orElse: () => <DropdownMenuItem<int?>>[],
                               ),
@@ -514,6 +519,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                       // Academic Year Filter Dropdown
                       Container(
                         height: 40,
+                        width: isMobile ? double.infinity : 150,
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.border),
@@ -521,6 +527,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int?>(
+                            isExpanded: true,
                             value: _selectedYear,
                             items: const [
                               DropdownMenuItem<int?>(value: null, child: Text('All Years')),
@@ -540,6 +547,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                       // Status / Deleted Filter Dropdown
                       Container(
                         height: 40,
+                        width: isMobile ? double.infinity : 170,
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.border),
@@ -547,14 +555,15 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            isExpanded: true,
                             value: _statusFilter,
                             items: const [
-                              DropdownMenuItem(value: 'active', child: Text('Active Students')),
-                              DropdownMenuItem(value: 'completed', child: Text('Completed Students')),
-                              DropdownMenuItem(value: 'discontinued', child: Text('Discontinued Students')),
-                              DropdownMenuItem(value: 'tc_issued', child: Text('TC Issued Students')),
-                              DropdownMenuItem(value: 'all', child: Text('All Students')),
-                              DropdownMenuItem(value: 'deleted', child: Text('Deleted Students')),
+                              DropdownMenuItem(value: 'active', child: Text('Active Students', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'completed', child: Text('Completed Students', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'discontinued', child: Text('Discontinued Students', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'tc_issued', child: Text('TC Issued Students', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'all', child: Text('All Students', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'deleted', child: Text('Deleted Students', overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (v) {
                               if (v != null) {
@@ -777,14 +786,18 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                       decoration: const BoxDecoration(
                         border: Border(top: BorderSide(color: AppColors.border)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
                           Text(
                             total == 0 ? '0 students' : 'Showing $start - $end of $total students',
                             style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
                           ),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 icon: const Icon(LucideIcons.chevronLeft, size: 18),

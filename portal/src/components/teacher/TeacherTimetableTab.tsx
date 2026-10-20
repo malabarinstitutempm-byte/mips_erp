@@ -172,12 +172,12 @@ export const TeacherTimetableTab: React.FC<TeacherTimetableTabProps> = ({
         </div>
 
         {/* Action Controls: "My Classes Only" switch + PDF Download */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full sm:w-auto">
           {/* "My classes only" toggle */}
           <button
             type="button"
             onClick={() => setMyClassesOnly((prev) => !prev)}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${
+            className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all border min-h-touch w-full sm:w-auto ${
               myClassesOnly
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-cardBorder'
@@ -192,7 +192,7 @@ export const TeacherTimetableTab: React.FC<TeacherTimetableTabProps> = ({
             type="button"
             onClick={handleDownloadPdf}
             disabled={isExportingPdf || !timetableData?.isPublished || displayedEntries.length === 0}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm ${
+            className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm min-h-touch w-full sm:w-auto ${
               !timetableData?.isPublished || displayedEntries.length === 0
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                 : 'bg-white hover:bg-slate-50 text-navy border border-cardBorder hover:border-slate-300'

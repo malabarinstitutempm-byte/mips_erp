@@ -366,9 +366,15 @@ class _QuickActionTile extends StatelessWidget {
           children: [
             Icon(icon, color: AppColors.brand, size: 18),
             const SizedBox(width: AppSpacing.md),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textStrong)),
-            const Spacer(),
-            Icon(LucideIcons.chevronRight, size: 14, color: AppColors.textMuted),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textStrong),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Icon(LucideIcons.chevronRight, size: 14, color: AppColors.textMuted),
           ],
         ),
       ),

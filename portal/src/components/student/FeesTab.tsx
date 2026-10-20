@@ -298,57 +298,116 @@ export const FeesTab: React.FC<FeesTabProps> = ({
         {items.length === 0 ? (
           <p className="text-xs text-muted py-4 text-center">No fee installments scheduled.</p>
         ) : (
-          <div className="overflow-x-auto rounded-card border border-cardBorder">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-surface text-navy font-sora font-bold border-b border-cardBorder">
-                  <th className="py-3 px-4">Installment</th>
-                  <th className="py-3 px-4">Due Date</th>
-                  <th className="py-3 px-4 text-right">Total Amount</th>
-                  <th className="py-3 px-4 text-right">Paid</th>
-                  <th className="py-3 px-4 text-right">Balance</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cardBorder font-medium">
-                {items.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-navy">{item.title}</span>
-                      {item.courseName && (
-                        <span className="block text-[11px] text-muted">{item.courseName}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-muted whitespace-nowrap">
-                      {formatDate(item.dueDate)}
-                    </td>
-                    <td className="py-3 px-4 text-right text-navy">
-                      {formatCurrency(item.amountPaise)}
-                    </td>
-                    <td className="py-3 px-4 text-right text-success-text">
-                      {formatCurrency(item.paidAmountPaise)}
-                    </td>
-                    <td className="py-3 px-4 text-right font-sora font-bold text-navy">
-                      {formatCurrency(item.pendingAmountPaise)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          item.status === 'Paid'
-                            ? 'bg-success-bg text-success-text'
-                            : item.status === 'Overdue'
-                            ? 'bg-error-bg text-error-accent'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
+          <>
+            {/* Desktop / Tablet View: Full Table */}
+            <div className="hidden md:block overflow-x-auto rounded-card border border-cardBorder">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-surface text-navy font-sora font-bold border-b border-cardBorder">
+                    <th className="py-3 px-4">Installment</th>
+                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4 text-right">Total Amount</th>
+                    <th className="py-3 px-4 text-right">Paid</th>
+                    <th className="py-3 px-4 text-right">Balance</th>
+                    <th className="py-3 px-4 text-center">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-cardBorder font-medium">
+                  {items.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4">
+                        <span className="font-semibold text-navy">{item.title}</span>
+                        {item.courseName && (
+                          <span className="block text-[11px] text-muted">{item.courseName}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-muted whitespace-nowrap">
+                        {formatDate(item.dueDate)}
+                      </td>
+                      <td className="py-3 px-4 text-right text-navy">
+                        {formatCurrency(item.amountPaise)}
+                      </td>
+                      <td className="py-3 px-4 text-right text-success-text">
+                        {formatCurrency(item.paidAmountPaise)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-sora font-bold text-navy">
+                        {formatCurrency(item.pendingAmountPaise)}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.status === 'Paid'
+                              ? 'bg-success-bg text-success-text'
+                              : item.status === 'Overdue'
+                              ? 'bg-error-bg text-error-accent'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View: Installment Cards */}
+            <div className="md:hidden space-y-3">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 bg-white rounded-card border border-cardBorder shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-semibold text-navy text-sm break-words">{item.title}</h4>
+                      {item.courseName && (
+                        <span className="text-[11px] text-muted block mt-0.5">{item.courseName}</span>
+                      )}
+                    </div>
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        item.status === 'Paid'
+                          ? 'bg-success-bg text-success-text'
+                          : item.status === 'Overdue'
+                          ? 'bg-error-bg text-error-accent'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs text-muted">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Due Date: <strong className="text-navy">{formatDate(item.dueDate)}</strong></span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+                    <div className="p-2 rounded-lg bg-surface">
+                      <span className="block text-[10px] font-medium text-muted uppercase">Total</span>
+                      <span className="font-sora font-semibold text-xs text-navy">
+                        {formatCurrency(item.amountPaise)}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-success-bg/30">
+                      <span className="block text-[10px] font-medium text-success-text uppercase">Paid</span>
+                      <span className="font-sora font-semibold text-xs text-success-text">
+                        {formatCurrency(item.paidAmountPaise)}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-surface border border-slate-200">
+                      <span className="block text-[10px] font-medium text-muted uppercase">Balance</span>
+                      <span className="font-sora font-bold text-xs text-navy">
+                        {formatCurrency(item.pendingAmountPaise)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -371,8 +430,8 @@ export const FeesTab: React.FC<FeesTabProps> = ({
                 className="p-4 rounded-card border border-cardBorder bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-all"
               >
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-xs text-navy">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono font-bold text-xs text-navy break-all">
                       {p.receiptNumber}
                     </span>
                     <span className="text-xs text-muted">•</span>
@@ -381,7 +440,7 @@ export const FeesTab: React.FC<FeesTabProps> = ({
                   <p className="text-xs text-muted mt-1">
                     Mode: <span className="font-semibold text-navy">{p.paymentMode}</span>
                     {p.referenceNumber && (
-                      <span className="font-mono text-[11px] ml-2 text-slate-500">
+                      <span className="font-mono text-[11px] ml-2 text-slate-500 break-all">
                         (Ref: {p.referenceNumber})
                       </span>
                     )}
@@ -397,7 +456,7 @@ export const FeesTab: React.FC<FeesTabProps> = ({
                     type="button"
                     onClick={() => handleDownloadReceipt(p)}
                     disabled={downloadingReceiptId === p.id}
-                    className="px-3.5 py-2 rounded-btn bg-surface hover:bg-slate-100 border border-cardBorder text-navy font-sora font-semibold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 min-h-touch"
+                    className="px-3.5 py-2 rounded-btn bg-surface hover:bg-slate-100 border border-cardBorder text-navy font-sora font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 min-h-touch"
                     title="Download receipt PDF"
                   >
                     {downloadingReceiptId === p.id ? (

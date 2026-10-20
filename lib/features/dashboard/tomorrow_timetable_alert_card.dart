@@ -36,97 +36,128 @@ class TomorrowTimetableAlertCard extends ConsumerWidget {
 
         final pastCutoff = isPastCutoff();
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEF2F2), // Light alert red/rose background
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: const Color(0xFFF87171), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.red.withOpacity(0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
-                  borderRadius: BorderRadius.circular(AppRadius.control),
-                ),
-                child: const Icon(LucideIcons.alertTriangle, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 600;
+
+            final content = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          "Tomorrow's timetable is not published yet",
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF991B1B),
-                          ),
-                        ),
-                        if (pastCutoff) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFDC2626),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'Past 17:00 IST',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
                     const Text(
-                      'Students and faculty require tomorrow’s class schedule. Please review and publish the timetable.',
+                      "Tomorrow's timetable is not published yet",
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF7F1D1D),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF991B1B),
                       ),
                     ),
+                    if (pastCutoff)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Past 17:00 IST',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFDC2626),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Students and faculty require tomorrow’s class schedule. Please review and publish the timetable.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF7F1D1D),
+                  ),
                 ),
-                onPressed: () {
-                  // Navigate to Timetable screen (index 10)
-                  ref.read(navigationProvider.notifier).state = 10;
-                },
-                icon: const Icon(LucideIcons.calendar, size: 16),
-                label: const Text('Open Timetable', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            );
+
+            final openButton = FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
               ),
-            ],
-          ),
+              onPressed: () {
+                ref.read(navigationProvider.notifier).state = 10;
+              },
+              icon: const Icon(LucideIcons.calendar, size: 16),
+              label: const Text('Open Timetable', style: TextStyle(fontWeight: FontWeight.bold)),
+            );
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                border: Border.all(color: const Color(0xFFF87171), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444),
+                                borderRadius: BorderRadius.circular(AppRadius.control),
+                              ),
+                              child: const Icon(LucideIcons.alertTriangle, color: Colors.white, size: 18),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(child: content),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        openButton,
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(AppRadius.control),
+                          ),
+                          child: const Icon(LucideIcons.alertTriangle, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(child: content),
+                        const SizedBox(width: AppSpacing.md),
+                        openButton,
+                      ],
+                    ),
+            );
+          },
         );
       },
       loading: () => const SizedBox.shrink(),

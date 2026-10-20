@@ -800,41 +800,76 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(LucideIcons.clock, size: 14, color: AppColors.brand),
                                       const SizedBox(width: 6),
-                                      Text('${e.startTime} - ${e.endTime}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      Flexible(
+                                        child: Text(
+                                          '${e.startTime} - ${e.endTime}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(color: AppColors.courses.tint, borderRadius: BorderRadius.circular(4)),
-                                    child: Text('${e.courseName} (${e.year})', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.courses.base)),
+                                    child: Text(
+                                      '${e.courseName} (${e.year})',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.courses.base),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text(e.subjectName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              Text(
+                                e.subjectName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(LucideIcons.user, size: 13, color: AppColors.textMuted),
                                       const SizedBox(width: 4),
-                                      Text(e.teacherName, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                      Flexible(
+                                        child: Text(
+                                          e.teacherName,
+                                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(LucideIcons.mapPin, size: 13, color: AppColors.textMuted),
                                       const SizedBox(width: 4),
-                                      Text(e.classRoom, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textStrong)),
+                                      Flexible(
+                                        child: Text(
+                                          e.classRoom,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textStrong),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ],

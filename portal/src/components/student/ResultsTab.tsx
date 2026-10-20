@@ -189,7 +189,7 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
         {/* Action Controls for Screen View */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-cardBorder no-print">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase ${
                 activeResult.courseType === 'skill'
                   ? 'bg-purple-100 text-purple-800'
@@ -200,7 +200,7 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal/15 text-teal border border-teal/30">
                 {periodHeader}
               </span>
-              <span className="text-xs text-muted">•</span>
+              <span className="text-xs text-muted hidden sm:inline">•</span>
               <span className="text-xs text-muted flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
                 Published {formatDate(activeResult.publishedAt)}
@@ -214,11 +214,11 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto">
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-2.5 rounded-btn border border-cardBorder text-navy font-sora font-semibold text-xs hover:bg-slate-50 transition-colors flex items-center gap-2 min-h-touch"
+              className="px-4 py-2.5 rounded-btn border border-cardBorder text-navy font-sora font-semibold text-xs hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 min-h-touch w-full sm:w-auto"
               title="Print official result statement"
             >
               <Printer className="w-4 h-4 text-muted" />
@@ -229,13 +229,13 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
               type="button"
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              className="px-4 py-2.5 rounded-btn bg-primary hover:bg-primary-hover text-white font-sora font-semibold text-xs shadow-primary-btn transition-all flex items-center gap-2 disabled:opacity-50 min-h-touch"
+              className="px-4 py-2.5 rounded-btn bg-primary hover:bg-primary-hover text-white font-sora font-semibold text-xs shadow-primary-btn transition-all flex items-center justify-center gap-2 disabled:opacity-50 min-h-touch w-full sm:w-auto"
               title="Download result PDF"
             >
               {isDownloadingPdf ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Preparing PDF...</span>
+                  <span>Preparing...</span>
                 </>
               ) : (
                 <>
@@ -251,19 +251,19 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
         <div className="my-6 p-4 bg-surface rounded-card border border-cardBorder grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 text-xs">
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Student Name</span>
-            <span className="font-bold text-navy text-sm">{studentName}</span>
+            <span className="font-bold text-navy text-sm break-words">{studentName}</span>
           </div>
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Register / Admission No.</span>
-            <span className="font-bold text-navy text-sm font-mono">{studentReg}</span>
+            <span className="font-bold text-navy text-sm font-mono break-all">{studentReg}</span>
           </div>
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Course</span>
-            <span className="font-medium text-navy">{activeResult.courseName}</span>
+            <span className="font-medium text-navy break-words">{activeResult.courseName}</span>
           </div>
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Batch / Class</span>
-            <span className="font-medium text-navy">{activeResult.batchName}</span>
+            <span className="font-medium text-navy break-words">{activeResult.batchName}</span>
           </div>
           <div>
             <span className="text-muted block text-[11px] mb-0.5">Academic Period</span>
@@ -274,39 +274,39 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
         {/* Summary Metric Tiles (Total, Percentage, Grade, PASS/FAIL Result) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-8">
           {/* Total Marks */}
-          <div className="p-4 rounded-card border border-cardBorder bg-white text-center">
+          <div className="p-3.5 sm:p-4 rounded-card border border-cardBorder bg-white text-center">
             <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block mb-1">
               Total Score
             </span>
-            <p className="font-sora font-bold text-2xl text-navy">
+            <p className="font-sora font-bold text-xl sm:text-2xl text-navy">
               {activeResult.totalMarks}{' '}
-              <span className="text-sm font-normal text-muted">/ {activeResult.maxMarks}</span>
+              <span className="text-xs sm:text-sm font-normal text-muted">/ {activeResult.maxMarks}</span>
             </p>
           </div>
 
           {/* Percentage */}
-          <div className="p-4 rounded-card border border-cardBorder bg-white text-center">
+          <div className="p-3.5 sm:p-4 rounded-card border border-cardBorder bg-white text-center">
             <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block mb-1">
               Percentage
             </span>
-            <p className="font-sora font-bold text-2xl text-navy">
+            <p className="font-sora font-bold text-xl sm:text-2xl text-navy">
               {activeResult.percentage.toFixed(1)}%
             </p>
           </div>
 
           {/* Grade */}
-          <div className="p-4 rounded-card border border-cardBorder bg-white text-center">
+          <div className="p-3.5 sm:p-4 rounded-card border border-cardBorder bg-white text-center">
             <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block mb-1">
               Grade
             </span>
-            <p className="font-sora font-bold text-2xl text-navy">
+            <p className="font-sora font-bold text-xl sm:text-2xl text-navy">
               {activeResult.grade}
             </p>
           </div>
 
           {/* PASS / FAIL Result Status */}
           <div
-            className={`p-4 rounded-card border text-center ${
+            className={`p-3.5 sm:p-4 rounded-card border text-center ${
               activeResult.status === 'PASS'
                 ? 'bg-success-bg border-success-border text-success-text'
                 : 'bg-error-bg border-error-border text-error-text'
@@ -315,14 +315,14 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
             <span className="text-[11px] font-semibold uppercase tracking-wider block mb-1">
               Final Result
             </span>
-            <p className="font-sora font-bold text-2xl tracking-tight">
+            <p className="font-sora font-bold text-xl sm:text-2xl tracking-tight">
               {activeResult.status}
             </p>
           </div>
         </div>
 
-        {/* Subject-Wise Detailed Marks Table */}
-        <div className="overflow-x-auto rounded-card border border-cardBorder">
+        {/* Subject-Wise Detailed Marks Table (Desktop / Tablet / Print) */}
+        <div className="hidden md:block print:block overflow-x-auto rounded-card border border-cardBorder">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-surface text-navy font-sora font-bold border-b border-cardBorder">
@@ -389,13 +389,90 @@ export const ResultsTab: React.FC<ResultsTabProps> = ({
           </table>
         </div>
 
+        {/* Subject-Wise Stacked Cards (Mobile Phone View) */}
+        <div className="md:hidden print:hidden space-y-3">
+          {activeResult.subjects.map((s) => (
+            <div
+              key={s.subjectId}
+              className="p-4 bg-white rounded-card border border-cardBorder shadow-sm space-y-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-semibold text-navy text-sm leading-snug break-words">
+                    {s.subjectName}
+                  </h4>
+                  {s.subjectCode && (
+                    <span className="font-mono text-[11px] text-muted block mt-0.5">
+                      {s.subjectCode}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  {s.isAbsent ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      Absent
+                    </span>
+                  ) : s.isPass ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-success-bg text-success-text">
+                      Pass
+                    </span>
+                  ) : (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-error-bg text-error-accent">
+                      Fail
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+                <div className="p-2 rounded-lg bg-surface">
+                  <span className="block text-[10px] font-medium text-muted uppercase">Max</span>
+                  <span className="font-sora font-bold text-xs text-navy">{s.maxMarks}</span>
+                </div>
+                <div className="p-2 rounded-lg bg-surface">
+                  <span className="block text-[10px] font-medium text-muted uppercase">Pass Min</span>
+                  <span className="font-sora font-bold text-xs text-navy">{s.passMarks}</span>
+                </div>
+                <div className="p-2 rounded-lg bg-primary/5 border border-primary/15">
+                  <span className="block text-[10px] font-medium text-primary uppercase">Obtained</span>
+                  <span className="font-sora font-bold text-sm text-primary">
+                    {s.isAbsent ? 'AB' : s.obtainedMarks}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Mobile Total Summary Card */}
+          <div className="p-4 bg-surface rounded-card border-2 border-cardBorder shadow-sm flex items-center justify-between gap-3">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
+                Total Score
+              </span>
+              <span className="font-sora font-bold text-lg text-primary">
+                {activeResult.totalMarks}{' '}
+                <span className="text-xs font-normal text-muted">/ {activeResult.maxMarks}</span>
+              </span>
+            </div>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold ${
+                activeResult.status === 'PASS'
+                  ? 'bg-success-bg text-success-text'
+                  : 'bg-error-bg text-error-text'
+              }`}
+            >
+              {activeResult.status}
+            </span>
+          </div>
+        </div>
+
         {/* Security / Verification Disclaimer Note */}
         <div className="mt-8 pt-5 border-t border-cardBorder text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
-          <p className="italic">
+          <p className="italic break-words">
             This is a computer-generated result for information purposes only. Result code:{' '}
-            <span className="font-mono font-bold text-navy not-italic">{activeResult.resultCode}</span>
+            <span className="font-mono font-bold text-navy not-italic break-all">{activeResult.resultCode}</span>
           </p>
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
             <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>Cryptographically Verified</span>
           </div>

@@ -242,13 +242,14 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
 
     final categoryDropdown = DropdownButtonFormField<String>(
       value: _category,
+      isExpanded: true,
       decoration: const InputDecoration(labelText: 'Category'),
       items: const [
-        DropdownMenuItem(value: 'general', child: Text('General Announcement')),
-        DropdownMenuItem(value: 'programme', child: Text('Programme / Event')),
-        DropdownMenuItem(value: 'exam', child: Text('Exam Notice')),
-        DropdownMenuItem(value: 'fee_reminder', child: Text('Fee Reminder')),
-        DropdownMenuItem(value: 'timetable', child: Text('Timetable Update')),
+        DropdownMenuItem(value: 'general', child: Text('General Announcement', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'programme', child: Text('Programme / Event', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'exam', child: Text('Exam Notice', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'fee_reminder', child: Text('Fee Reminder', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'timetable', child: Text('Timetable Update', overflow: TextOverflow.ellipsis)),
       ],
       onChanged: (val) {
         if (val != null) setState(() => _category = val);
@@ -258,13 +259,14 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
 
     final audienceDropdown = DropdownButtonFormField<String>(
       value: _audienceType,
+      isExpanded: true,
       decoration: const InputDecoration(labelText: 'Target Audience'),
       items: const [
-        DropdownMenuItem(value: 'all_students', child: Text('All Students')),
-        DropdownMenuItem(value: 'course', child: Text('Specific Course')),
-        DropdownMenuItem(value: 'batch', child: Text('Specific Batch')),
-        DropdownMenuItem(value: 'teachers', child: Text('All Teachers')),
-        DropdownMenuItem(value: 'fee_defaulters', child: Text('Students with Pending Fees')),
+        DropdownMenuItem(value: 'all_students', child: Text('All Students', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'course', child: Text('Specific Course', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'batch', child: Text('Specific Batch', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'teachers', child: Text('All Teachers', overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'fee_defaulters', child: Text('Students with Pending Fees', overflow: TextOverflow.ellipsis)),
       ],
       onChanged: (val) {
         if (val != null) setState(() => _audienceType = val);
@@ -298,9 +300,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
             if (_audienceType == 'course')
               DropdownButtonFormField<int?>(
                 value: _selectedCourseId,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Select Course'),
                 items: coursesAsync.valueOrNull
-                    ?.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                    ?.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis)))
                     .toList(),
                 onChanged: (val) {
                   setState(() => _selectedCourseId = val);
@@ -311,9 +314,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
             if (_audienceType == 'batch')
               DropdownButtonFormField<int?>(
                 value: _selectedBatchId,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Select Batch'),
                 items: batchesAsync.valueOrNull
-                    ?.map((b) => DropdownMenuItem(value: b['id'] as int, child: Text(b['name'] as String)))
+                    ?.map((b) => DropdownMenuItem(value: b['id'] as int, child: Text(b['name'] as String, overflow: TextOverflow.ellipsis)))
                     .toList(),
                 onChanged: (val) {
                   setState(() => _selectedBatchId = val);

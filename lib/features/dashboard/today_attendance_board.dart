@@ -72,7 +72,48 @@ class TodayAttendanceBoard extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    final isVeryNarrow = constraints.maxWidth < 450;
                     final isNarrow = constraints.maxWidth < 650;
+
+                    if (isVeryNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.brandTint,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(LucideIcons.layers, size: 16, color: AppColors.brandDark),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      b['batch_name'] as String,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    Text(
+                                      b['course_name'] as String,
+                                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          _buildSlotCell(context, ref, 'Morning', morning),
+                          const SizedBox(height: 8),
+                          _buildSlotCell(context, ref, 'Evening', evening),
+                        ],
+                      );
+                    }
 
                     if (isNarrow) {
                       return Column(
@@ -241,8 +282,11 @@ class TodayAttendanceBoard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
             children: [
               Text(
                 slotLabel,
@@ -288,8 +332,8 @@ class TodayAttendanceBoard extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
             children: [
               if (state == 'submitted' || state == 'no_class')
                 InkWell(

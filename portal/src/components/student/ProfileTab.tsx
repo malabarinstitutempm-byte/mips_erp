@@ -131,7 +131,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
           </div>
 
           {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => {
@@ -140,7 +140,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
                 setConfirmPassword('');
                 setIsPasswordModalOpen(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-button text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors min-h-touch focus:outline-none focus:ring-2 focus:ring-focusRing"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-button text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors min-h-touch focus:outline-none focus:ring-2 focus:ring-focusRing w-full sm:w-auto"
             >
               <KeyRound className="w-4 h-4" />
               <span>Change Password</span>
@@ -150,7 +150,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
               <button
                 type="button"
                 onClick={() => setIsPushModalOpen(true)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-button text-xs font-semibold transition-colors min-h-touch focus:outline-none focus:ring-2 focus:ring-focusRing ${
+                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-button text-xs font-semibold transition-colors min-h-touch focus:outline-none focus:ring-2 focus:ring-focusRing w-full sm:w-auto ${
                   pushStatus.isSubscribed
                     ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
                     : 'text-teal bg-teal/10 hover:bg-teal/20'
@@ -164,7 +164,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
             <button
               type="button"
               onClick={logout}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-button text-xs font-semibold text-error-text bg-error-bg hover:bg-error-bg/80 border border-error-border transition-colors min-h-touch focus:outline-none focus:ring-2 focus:ring-focusRing"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-button text-xs font-semibold text-error-text bg-error-bg hover:bg-error-bg/80 border border-error-border transition-colors min-h-touch focus:outline-none focus:ring-2 focus:ring-focusRing w-full sm:w-auto"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
@@ -350,7 +350,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm animate-fade-in"
         >
-          <div className="w-full max-w-md bg-white rounded-card-lg border border-cardBorder shadow-2xl p-6 sm:p-7 relative">
+          <div className="w-full max-w-md bg-white rounded-card-lg border border-cardBorder shadow-2xl p-6 sm:p-7 relative max-h-[90dvh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-cardBorder">
               <div className="flex items-center gap-2.5">
@@ -366,7 +366,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
               <button
                 type="button"
                 onClick={() => setIsPasswordModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors min-h-touch min-w-touch flex items-center justify-center"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -406,12 +406,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter 8+ character password"
                     required
-                    className="w-full px-3.5 py-2.5 pr-10 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing focus:border-primary text-navy"
+                    className="w-full px-3.5 py-2.5 pr-10 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing focus:border-primary text-navy min-h-touch"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-2 min-h-touch min-w-touch flex items-center justify-center"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -429,7 +429,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter your new password"
                   required
-                  className="w-full px-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing focus:border-primary text-navy"
+                  className="w-full px-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing focus:border-primary text-navy min-h-touch"
                 />
                 {confirmPassword && !passwordsMatch && (
                   <p className="text-[11px] text-error-text mt-1">Passwords do not match.</p>
@@ -482,18 +482,18 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ profile, enrollments }) 
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-cardBorder">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-cardBorder">
                 <button
                   type="button"
                   onClick={() => setIsPasswordModalOpen(false)}
-                  className="px-4 py-2.5 rounded-button text-xs font-semibold text-muted hover:text-navy hover:bg-surface transition-colors min-h-touch"
+                  className="px-4 py-2.5 rounded-button text-xs font-semibold text-muted hover:text-navy hover:bg-surface transition-colors min-h-touch flex items-center justify-center w-full sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitDisabled}
-                  className="px-5 py-2.5 rounded-button text-xs font-semibold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 transition-colors shadow-sm min-h-touch flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-button text-xs font-semibold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 transition-colors shadow-sm min-h-touch flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   {isSubmitting ? (
                     <>

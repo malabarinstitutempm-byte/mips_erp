@@ -65,8 +65,9 @@ class _FeesScreenState extends ConsumerState<FeesScreen> {
             );
 
             if (isMobile) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1.0);
               return SizedBox(
-                height: 105,
+                height: (112 * (textScale > 1.0 ? textScale : 1.0)).clamp(112.0, 140.0),
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
@@ -188,8 +189,11 @@ class _FeesScreenState extends ConsumerState<FeesScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 10),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      Wrap(
+                                        alignment: WrapAlignment.spaceBetween,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        spacing: 8,
+                                        runSpacing: 4,
                                         children: [
                                           Text('Paid: ${_currencyFormat.format(s['paid'])}', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
                                           Text('Total: ${_currencyFormat.format(s['total'])}', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),

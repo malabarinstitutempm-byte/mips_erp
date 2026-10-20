@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/utils/responsive.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../students/students_screen.dart';
 import '../courses/courses_screen.dart';
@@ -93,9 +94,8 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(navigationProvider);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 800;
-    final isDesktop = screenWidth >= 1280;
+    final isMobile = Responsive.isPhone(context);
+    final isDesktop = Responsive.isDesktop(context);
     final isCollapsed = !isDesktop || ref.watch(sidebarCollapsedProvider);
     final scaffoldKey = GlobalKey<ScaffoldState>();
 

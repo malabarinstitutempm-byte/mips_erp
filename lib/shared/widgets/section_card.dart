@@ -7,6 +7,7 @@ class SectionCard extends StatelessWidget {
   final Widget? trailing;
   final Widget child;
   final EdgeInsetsGeometry padding;
+  final bool expanded;
 
   SectionCard({
     super.key,
@@ -14,6 +15,7 @@ class SectionCard extends StatelessWidget {
     this.trailing,
     required this.child,
     this.padding = const EdgeInsets.all(AppSpacing.xl),
+    this.expanded = false,
   });
 
   @override
@@ -33,7 +35,7 @@ class SectionCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         children: [
           if (title != null) ...[
             Padding(
@@ -55,10 +57,18 @@ class SectionCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             const Divider(height: 1),
           ],
-          Padding(
-            padding: padding,
-            child: child,
-          ),
+          if (expanded)
+            Expanded(
+              child: Padding(
+                padding: padding,
+                child: child,
+              ),
+            )
+          else
+            Padding(
+              padding: padding,
+              child: child,
+            ),
         ],
       ),
     );

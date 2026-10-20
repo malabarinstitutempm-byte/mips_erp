@@ -206,7 +206,7 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({ isOpen, onClos
                     placeholder="e.g. 2023MLT042 or ADM-2026-0001"
                     value={regNo}
                     onChange={(e) => setRegNo(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
                   />
                 </div>
               </div>
@@ -225,7 +225,7 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({ isOpen, onClos
                     placeholder="DD/MM/YYYY"
                     value={dob}
                     onChange={(e) => setDob(formatDobInput(e.target.value))}
-                    className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch font-mono"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch font-mono"
                   />
                 </div>
               </div>
@@ -246,7 +246,7 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({ isOpen, onClos
                     placeholder="e.g. prof_kumar or fatima_noor"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
                   />
                 </div>
               </div>
@@ -266,7 +266,7 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({ isOpen, onClos
                     placeholder="e.g. 9845001122"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch font-mono"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch font-mono"
                   />
                 </div>
               </div>
@@ -286,12 +286,12 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({ isOpen, onClos
                 placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-11 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
+                className="w-full pl-10 pr-11 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
               />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
-                className="absolute right-2 top-2 p-1.5 text-muted hover:text-navy rounded-lg"
+                className="absolute right-2 top-1.5 p-2 min-h-touch min-w-touch flex items-center justify-center text-muted hover:text-navy rounded-lg"
                 aria-label={showPass ? 'Hide password' : 'Show password'}
               >
                 {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -340,7 +340,7 @@ export const FirstLoginModal: React.FC<FirstLoginModalProps> = ({ isOpen, onClos
                 placeholder="Re-enter password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
+                className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
               />
             </div>
           </div>

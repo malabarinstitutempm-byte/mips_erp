@@ -28,6 +28,18 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
   subtitle,
 }) => {
   const { user, profile, unreadCount, logout } = useAuth();
+  const tabNavRef = React.useRef<HTMLElement>(null);
+  const activeTabRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (activeTabRef.current && tabNavRef.current) {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [activeTab]);
 
   const displayName = profile?.role === 'teacher'
     ? 'Teacher Portal'
@@ -36,37 +48,37 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
   return (
-    <header className="bg-navy pt-4 pb-6 px-4 sm:px-6 relative text-white">
+    <header className="bg-navy pt-[max(1rem,env(safe-area-inset-top))] pb-6 px-4 sm:px-6 relative text-white">
       {/* Top Bar: Brand Logo & User Info */}
       <div className="max-w-[1040px] mx-auto flex items-center justify-between pb-3 relative z-10">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
           <img
             src="/logo.png"
             alt="MIPS Logo"
-            className="w-10 h-10 object-contain rounded-xl bg-white/10 p-1"
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 object-contain rounded-xl bg-white/10 p-1"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
           />
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-sora font-bold text-base sm:text-lg tracking-tight leading-tight">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h1 className="font-sora font-bold text-sm sm:text-lg tracking-tight leading-tight truncate">
                 MIPS {displayName}
               </h1>
               {subtitle && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/15 text-teal border border-teal/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-white/15 text-teal border border-teal/30 shrink-0">
                   {subtitle}
                 </span>
               )}
             </div>
-            <p className="text-xs text-navy-text">
+            <p className="text-[11px] sm:text-xs text-navy-text truncate">
               {user?.email || profile?.role?.toUpperCase()}
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Notification Bell with Badge */}
           <button
             type="button"
@@ -139,10 +151,11 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
         <EcgLine />
       </div>
 
-      {/* Horizontally Scrollable Tab Bar */}
+      {/* Horizontally Scrollable Tab Bar with Snap & Active-Tab Auto-Scroll */}
       <div className="max-w-[1040px] mx-auto mt-2">
         <nav
-          className="flex gap-2 overflow-x-auto no-scrollbar py-1"
+          ref={tabNavRef}
+          className="flex gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth snap-x snap-mandatory"
           role="tablist"
           aria-label="Portal Navigation Tabs"
         >
@@ -151,12 +164,13 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
             return (
               <button
                 key={tab.id}
+                ref={isActive ? activeTabRef : null}
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-btn font-sora font-semibold text-xs sm:text-sm whitespace-nowrap transition-all min-h-touch ${
+                className={`snap-start shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-btn font-sora font-semibold text-xs sm:text-sm whitespace-nowrap transition-all min-h-touch ${
                   isActive
-                    ? 'bg-teal text-navy shadow-md font-bold'
+                    ? 'bg-teal text-navy shadow-md font-bold ring-2 ring-teal/30'
                     : 'bg-white/10 text-white hover:bg-white/20'
                 }`}
               >

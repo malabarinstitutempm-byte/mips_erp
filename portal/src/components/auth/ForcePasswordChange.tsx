@@ -100,12 +100,12 @@ export const ForcePasswordChange: React.FC<ForcePasswordChangeProps> = ({ onSucc
                   placeholder="Enter new password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-11 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
+                  className="w-full pl-10 pr-11 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-2 p-1.5 text-muted hover:text-navy rounded-lg"
+                  className="absolute right-2 top-1.5 p-2 min-h-touch min-w-touch flex items-center justify-center text-muted hover:text-navy rounded-lg"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -139,7 +139,7 @@ export const ForcePasswordChange: React.FC<ForcePasswordChangeProps> = ({ onSucc
                   placeholder="Re-enter password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch"
                 />
               </div>
             </div>

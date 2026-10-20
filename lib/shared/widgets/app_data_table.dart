@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/utils/responsive.dart';
 import 'skeleton_loader.dart';
 
 class AppDataTable<T> extends StatefulWidget {
@@ -8,6 +9,7 @@ class AppDataTable<T> extends StatefulWidget {
   final List<int> flexes;
   final List<T> data;
   final Widget Function(BuildContext context, T item) rowBuilder;
+  final Widget Function(BuildContext context, T item)? cardBuilder;
   final Widget? emptyState;
   final bool isLoading;
   final int skeletonCount;
@@ -26,6 +28,7 @@ class AppDataTable<T> extends StatefulWidget {
     required this.flexes,
     required this.data,
     required this.rowBuilder,
+    this.cardBuilder,
     this.emptyState,
     this.isLoading = false,
     this.skeletonCount = 5,
@@ -190,6 +193,9 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (constraints.maxWidth < Responsive.phoneBreakpoint) {
+          return _buildMobileCardList(context, constraints);
+        }
         if (constraints.maxWidth < 750) {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -202,6 +208,130 @@ class _AppDataTableState<T> extends State<AppDataTable<T>> {
         }
         return tableContent;
       },
+    );
+  }
+
+  Widget _buildMobileCardList(BuildContext context, BoxConstraints constraints) {
+    if (widget.isLoading) {
+      return ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: widget.skeletonCount,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, __) => const Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: SkeletonLoader(width: double.infinity, height: 90, borderRadius: AppRadius.card),
+        ),
+      );
+    }
+
+    if (widget.data.isEmpty && widget.emptyState != null) {
+      return widget.emptyState!;
+    }
+
+    return Column(
+      children: [
+        if (widget.selectable && widget.data.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${widget.selectedItems.length} selected',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                ),
+                TextButton(
+                  onPressed: _toggleAll,
+                  child: Text(
+                    widget.selectedItems.length == widget.data.length ? 'Deselect All' : 'Select All',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: widget.data.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = widget.data[index];
+              final isSelected = widget.selectedItems.contains(item);
+              Widget cardChild;
+              if (widget.cardBuilder != null) {
+                cardChild = widget.cardBuilder!(context, item);
+              } else {
+                cardChild = Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.brandTint : AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    border: Border.all(color: isSelected ? AppColors.brand : AppColors.border),
+                  ),
+                  child: widget.rowBuilder(context, item),
+                );
+              }
+
+              if (widget.selectable) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: isSelected,
+                        onChanged: (_) => _toggleItem(item),
+                        activeColor: AppColors.brand,
+                      ),
+                      Expanded(child: cardChild),
+                    ],
+                  ),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: cardChild,
+              );
+            },
+          ),
+        ),
+        if (widget.totalItems != null && widget.onPageChanged != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Showing ${((widget.currentPage! - 1) * widget.rowsPerPage!) + 1} - ${(widget.currentPage! * widget.rowsPerPage!).clamp(0, widget.totalItems!)} of ${widget.totalItems}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, size: 20, color: AppColors.textMuted),
+                      onPressed: widget.currentPage! > 1 
+                          ? () => widget.onPageChanged!(widget.currentPage! - 1) 
+                          : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
+                      onPressed: (widget.currentPage! * widget.rowsPerPage!) < widget.totalItems!
+                          ? () => widget.onPageChanged!(widget.currentPage! + 1)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

@@ -107,6 +107,14 @@ class ExamsScreen extends ConsumerWidget {
                 );
               }
 
+              if (isMobile) {
+                return ListView.separated(
+                  itemCount: exams.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.lg),
+                  itemBuilder: (context, i) => _buildExamCard(context, ref, exams[i], isMobile),
+                );
+              }
+
               return SingleChildScrollView(
                 child: Wrap(
                   spacing: AppSpacing.xl,
@@ -117,11 +125,17 @@ class ExamsScreen extends ConsumerWidget {
                 ),
               );
             },
-            loading: () => Wrap(
-              spacing: AppSpacing.xl,
-              runSpacing: AppSpacing.xl,
-              children: List.generate(3, (i) => SkeletonLoader(width: isMobile ? double.infinity : 350, height: 250, borderRadius: AppRadius.card)),
-            ),
+            loading: () => isMobile
+                ? ListView.separated(
+                    itemCount: 3,
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.lg),
+                    itemBuilder: (_, __) => const SkeletonLoader(width: double.infinity, height: 200, borderRadius: AppRadius.card),
+                  )
+                : Wrap(
+                    spacing: AppSpacing.xl,
+                    runSpacing: AppSpacing.xl,
+                    children: List.generate(3, (i) => SkeletonLoader(width: isMobile ? double.infinity : 350, height: 250, borderRadius: AppRadius.card)),
+                  ),
             error: (e, st) => EmptyState(title: 'Error', message: e.toString(), icon: LucideIcons.alertCircle),
           ),
         ),
@@ -290,12 +304,15 @@ class ExamsScreen extends ConsumerWidget {
           
           // Progress
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
+            padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     const Text('Mark Entry Progress', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                     Text('${(progress * 100).toInt()}%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.exams.base)),

@@ -397,80 +397,157 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                 borderRadius: BorderRadius.circular(AppRadius.card),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                alignment: WrapAlignment.spaceBetween,
-                children: [
-                  // Search
-                  SizedBox(
-                    width: isMobile ? double.infinity : 280,
-                    child: SearchField(
-                      hint: 'Search batch name...',
-                      onChanged: (v) => ref.read(batchSearchQueryProvider.notifier).state = v.trim(),
-                    ),
-                  ),
-
-                  // Course Dropdown
-                  coursesAsync.maybeWhen(
-                    data: (courses) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.border),
-                        borderRadius: BorderRadius.circular(AppRadius.control),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int?>(
-                          value: selectedCourseId,
-                          hint: const Text('All Courses', style: TextStyle(fontSize: 13)),
-                          items: [
-                            const DropdownMenuItem<int?>(value: null, child: Text('All Courses')),
-                            ...courses.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                          ],
-                          onChanged: (v) => ref.read(selectedCourseFilterProvider.notifier).state = v,
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SearchField(
+                          hint: 'Search batch name...',
+                          onChanged: (v) => ref.read(batchSearchQueryProvider.notifier).state = v.trim(),
                         ),
-                      ),
-                    ),
-                    orElse: () => const SizedBox(),
-                  ),
-
-                  // "Show Completed" Toggle (Hides completed by default!)
-                  InkWell(
-                    onTap: () {
-                      ref.read(showCompletedBatchesProvider.notifier).state = !showCompleted;
-                    },
-                    borderRadius: BorderRadius.circular(AppRadius.control),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: showCompleted ? Colors.blue.withOpacity(0.08) : Colors.transparent,
-                        border: Border.all(color: showCompleted ? Colors.blue : AppColors.border),
-                        borderRadius: BorderRadius.circular(AppRadius.control),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            showCompleted ? LucideIcons.checkSquare : LucideIcons.square,
-                            size: 16,
-                            color: showCompleted ? Colors.blue : AppColors.textMuted,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Show Completed Batches',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: showCompleted ? FontWeight.bold : FontWeight.w500,
-                              color: showCompleted ? Colors.blue[900] : AppColors.textStrong,
+                        const SizedBox(height: 10),
+                        coursesAsync.maybeWhen(
+                          data: (courses) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(AppRadius.control),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int?>(
+                                value: selectedCourseId,
+                                isExpanded: true,
+                                hint: const Text('All Courses', style: TextStyle(fontSize: 13)),
+                                items: [
+                                  const DropdownMenuItem<int?>(value: null, child: Text('All Courses')),
+                                  ...courses.map((c) => DropdownMenuItem<int?>(
+                                    value: c.id,
+                                    child: Text(c.name, overflow: TextOverflow.ellipsis),
+                                  )),
+                                ],
+                                onChanged: (v) => ref.read(selectedCourseFilterProvider.notifier).state = v,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                          orElse: () => const SizedBox(),
+                        ),
+                        const SizedBox(height: 10),
+                        InkWell(
+                          onTap: () {
+                            ref.read(showCompletedBatchesProvider.notifier).state = !showCompleted;
+                          },
+                          borderRadius: BorderRadius.circular(AppRadius.control),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: showCompleted ? Colors.blue.withOpacity(0.08) : Colors.transparent,
+                              border: Border.all(color: showCompleted ? Colors.blue : AppColors.border),
+                              borderRadius: BorderRadius.circular(AppRadius.control),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  showCompleted ? LucideIcons.checkSquare : LucideIcons.square,
+                                  size: 16,
+                                  color: showCompleted ? Colors.blue : AppColors.textMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Show Completed Batches',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: showCompleted ? FontWeight.bold : FontWeight.w500,
+                                      color: showCompleted ? Colors.blue[900] : AppColors.textStrong,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.spaceBetween,
+                      children: [
+                        // Search
+                        SizedBox(
+                          width: 280,
+                          child: SearchField(
+                            hint: 'Search batch name...',
+                            onChanged: (v) => ref.read(batchSearchQueryProvider.notifier).state = v.trim(),
+                          ),
+                        ),
+
+                        // Course Dropdown
+                        coursesAsync.maybeWhen(
+                          data: (courses) => Container(
+                            width: 240,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(AppRadius.control),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int?>(
+                                value: selectedCourseId,
+                                isExpanded: true,
+                                hint: const Text('All Courses', style: TextStyle(fontSize: 13)),
+                                items: [
+                                  const DropdownMenuItem<int?>(value: null, child: Text('All Courses')),
+                                  ...courses.map((c) => DropdownMenuItem<int?>(
+                                    value: c.id,
+                                    child: Text(c.name, overflow: TextOverflow.ellipsis),
+                                  )),
+                                ],
+                                onChanged: (v) => ref.read(selectedCourseFilterProvider.notifier).state = v,
+                              ),
+                            ),
+                          ),
+                          orElse: () => const SizedBox(),
+                        ),
+
+                        // "Show Completed" Toggle (Hides completed by default!)
+                        InkWell(
+                          onTap: () {
+                            ref.read(showCompletedBatchesProvider.notifier).state = !showCompleted;
+                          },
+                          borderRadius: BorderRadius.circular(AppRadius.control),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: showCompleted ? Colors.blue.withOpacity(0.08) : Colors.transparent,
+                              border: Border.all(color: showCompleted ? Colors.blue : AppColors.border),
+                              borderRadius: BorderRadius.circular(AppRadius.control),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  showCompleted ? LucideIcons.checkSquare : LucideIcons.square,
+                                  size: 16,
+                                  color: showCompleted ? Colors.blue : AppColors.textMuted,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Show Completed Batches',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: showCompleted ? FontWeight.bold : FontWeight.w500,
+                                    color: showCompleted ? Colors.blue[900] : AppColors.textStrong,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
 
             const SizedBox(height: AppSpacing.lg),
@@ -530,30 +607,38 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                alignment: WrapAlignment.spaceBetween,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      b.batchName,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                    ),
+                                  Text(
+                                    b.batchName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    margin: const EdgeInsets.only(right: 6),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.brand.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppColors.brand.withOpacity(0.3)),
-                                    ),
-                                    child: Text(
-                                      _formatSemesterAndYear(b, course),
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brand),
-                                    ),
-                                  ),
-                                  StatusBadge(
-                                    text: isCompleted ? 'COMPLETED' : 'ACTIVE',
-                                    status: isCompleted ? BadgeStatus.info : BadgeStatus.success,
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.brand.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: AppColors.brand.withOpacity(0.3)),
+                                        ),
+                                        child: Text(
+                                          _formatSemesterAndYear(b, course),
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brand),
+                                        ),
+                                      ),
+                                      StatusBadge(
+                                        text: isCompleted ? 'COMPLETED' : 'ACTIVE',
+                                        status: isCompleted ? BadgeStatus.info : BadgeStatus.success,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

@@ -154,31 +154,51 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               // Course Filter
-              DropdownButton<int?>(
-                value: filter.courseId,
-                hint: const Text('All Courses'),
-                underline: const SizedBox(),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('All Courses')),
-                  ...?coursesAsync.valueOrNull?.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
-                ],
-                onChanged: (val) {
-                  ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(courseId: val, clearCourse: val == null);
-                },
+              Container(
+                width: isMobile ? double.infinity : 200,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
+                    isExpanded: true,
+                    value: filter.courseId,
+                    hint: const Text('All Courses'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All Courses', overflow: TextOverflow.ellipsis)),
+                      ...?coursesAsync.valueOrNull?.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (val) {
+                      ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(courseId: val, clearCourse: val == null);
+                    },
+                  ),
+                ),
               ),
 
               // Batch Filter
-              DropdownButton<int?>(
-                value: filter.batchId,
-                hint: const Text('All Batches'),
-                underline: const SizedBox(),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('All Batches')),
-                  ...?batchesAsync.valueOrNull?.map((b) => DropdownMenuItem(value: b['id'] as int, child: Text(b['name'] as String))),
-                ],
-                onChanged: (val) {
-                  ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(batchId: val, clearBatch: val == null);
-                },
+              Container(
+                width: isMobile ? double.infinity : 180,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
+                    isExpanded: true,
+                    value: filter.batchId,
+                    hint: const Text('All Batches'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('All Batches', overflow: TextOverflow.ellipsis)),
+                      ...?batchesAsync.valueOrNull?.map((b) => DropdownMenuItem(value: b['id'] as int, child: Text(b['name'] as String, overflow: TextOverflow.ellipsis))),
+                    ],
+                    onChanged: (val) {
+                      ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(batchId: val, clearBatch: val == null);
+                    },
+                  ),
+                ),
               ),
 
               // Period Filter (Semester or Year depending on selected Course)
@@ -205,20 +225,30 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                     );
                   }
 
-                  return DropdownButton<int?>(
-                    value: filter.semesterNo,
-                    hint: Text(isYearWise ? 'All Years' : 'All Semesters'),
-                    underline: const SizedBox(),
-                    items: [
-                      DropdownMenuItem(value: null, child: Text(isYearWise ? 'All Years' : 'All Semesters')),
-                      ...List.generate(maxPeriods, (i) => i + 1).map((p) => DropdownMenuItem(
-                        value: p,
-                        child: Text(isYearWise ? 'Year $p' : 'Semester $p'),
-                      )),
-                    ],
-                    onChanged: (val) {
-                      ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(semesterNo: val, clearSemester: val == null);
-                    },
+                  return Container(
+                    width: isMobile ? double.infinity : 160,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int?>(
+                        isExpanded: true,
+                        value: filter.semesterNo,
+                        hint: Text(isYearWise ? 'All Years' : 'All Semesters'),
+                        items: [
+                          DropdownMenuItem(value: null, child: Text(isYearWise ? 'All Years' : 'All Semesters', overflow: TextOverflow.ellipsis)),
+                          ...List.generate(maxPeriods, (i) => i + 1).map((p) => DropdownMenuItem(
+                            value: p,
+                            child: Text(isYearWise ? 'Year $p' : 'Semester $p', overflow: TextOverflow.ellipsis),
+                          )),
+                        ],
+                        onChanged: (val) {
+                          ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(semesterNo: val, clearSemester: val == null);
+                        },
+                      ),
+                    ),
                   );
                 },
               ),
@@ -273,26 +303,18 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                 ),
 
               // Export Actions
-              if (isMobile)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
-                        label: const Text('Export Excel'),
-                        onPressed: () => _exportReport(asPdf: false),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(LucideIcons.fileText, size: 16),
-                        label: const Text('Export PDF'),
-                        onPressed: () => _exportReport(asPdf: true),
-                      ),
-                    ),
-                  ],
-                )
+              if (isMobile) ...[
+                OutlinedButton.icon(
+                  icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
+                  label: const Text('Export Excel'),
+                  onPressed: () => _exportReport(asPdf: false),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(LucideIcons.fileText, size: 16),
+                  label: const Text('Export PDF'),
+                  onPressed: () => _exportReport(asPdf: true),
+                ),
+              ]
               else ...[
                 OutlinedButton.icon(
                   icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
@@ -314,6 +336,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
         Expanded(
           child: SectionCard(
             title: 'Student Attendance Summary',
+            expanded: true,
             child: reportAsync.when(
               data: (data) {
                 if (data.isEmpty) {
@@ -416,12 +439,11 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                                   border: Border.all(color: AppColors.border),
                                 ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                                   children: [
-                                    _buildStatPill('Held', '${row['sessions_held'] ?? 0}', AppColors.textStrong),
-                                    _buildStatPill('Present', '${row['present_count'] ?? 0}', Colors.green),
-                                    _buildStatPill('Late', '${row['late_count'] ?? 0}', Colors.orange),
-                                    _buildStatPill('Absent', '${row['absent_count'] ?? 0}', Colors.red),
+                                    Expanded(child: _buildStatPill('Held', '${row['sessions_held'] ?? 0}', AppColors.textStrong)),
+                                    Expanded(child: _buildStatPill('Present', '${row['present_count'] ?? 0}', Colors.green)),
+                                    Expanded(child: _buildStatPill('Late', '${row['late_count'] ?? 0}', Colors.orange)),
+                                    Expanded(child: _buildStatPill('Absent', '${row['absent_count'] ?? 0}', Colors.red)),
                                   ],
                                 ),
                               ),
