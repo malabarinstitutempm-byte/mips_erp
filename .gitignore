@@ -54,6 +54,7 @@ dist/
 # Archives
 *.zip
 *.tar.gz
+*.db
 
 # Scratch scripts in root
 check_*.dart

@@ -250,7 +250,7 @@ class DashboardScreen extends ConsumerWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
-                  childAspectRatio: 1.35,
+                  childAspectRatio: 1.22,
                   children: kpiCards,
                 ),
                 const SizedBox(height: AppSpacing.lg),

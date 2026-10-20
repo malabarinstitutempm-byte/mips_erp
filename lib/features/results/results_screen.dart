@@ -272,34 +272,44 @@ class ResultsScreen extends ConsumerWidget {
     final resultsAsync = ref.watch(examResultsProvider(examId));
     final resultsList = resultsAsync.valueOrNull ?? [];
     final isLoading = resultsAsync.isLoading;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 700;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: Text(examName, style: const TextStyle(fontSize: 16)),
+        title: Text(examName, style: TextStyle(fontSize: isMobile ? 15 : 16)),
         backgroundColor: AppColors.surface,
         centerTitle: false,
         elevation: 0,
         shape: const Border(bottom: BorderSide(color: AppColors.border)),
         actions: [
-          ElevatedButton.icon(
-            onPressed: isLoading ? null : () => _printMasterSheet(context, resultsList),
-            icon: const Icon(LucideIcons.printer, size: 16),
-            label: Text(isLoading ? 'Loading...' : 'Print Master Sheet'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.exams.base,
-              foregroundColor: Colors.white,
+          if (isMobile) ...[
+            IconButton(
+              tooltip: 'Print Master Sheet',
+              onPressed: isLoading ? null : () => _printMasterSheet(context, resultsList),
+              icon: const Icon(LucideIcons.printer, size: 18),
             ),
-          ),
-          const SizedBox(width: AppSpacing.lg),
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.xl),
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(LucideIcons.arrowLeft, size: 16),
-              label: const Text('Back to Exams'),
+          ] else ...[
+            ElevatedButton.icon(
+              onPressed: isLoading ? null : () => _printMasterSheet(context, resultsList),
+              icon: const Icon(LucideIcons.printer, size: 16),
+              label: Text(isLoading ? 'Loading...' : 'Print Master Sheet'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.exams.base,
+                foregroundColor: Colors.white,
+              ),
             ),
-          ),
+            const SizedBox(width: AppSpacing.lg),
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xl),
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(LucideIcons.arrowLeft, size: 16),
+                label: const Text('Back to Exams'),
+              ),
+            ),
+          ],
         ],
       ),
       body: resultsAsync.when(
@@ -310,50 +320,135 @@ class ResultsScreen extends ConsumerWidget {
           final passPct = total > 0 ? (passed / total) * 100 : 0.0;
           
           return Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
+            padding: EdgeInsets.all(isMobile ? 12 : AppSpacing.xl),
             child: Column(
               children: [
                 Row(
                   children: [
                     Expanded(child: KpiCard(title: 'Passed', value: passed.toString(), icon: LucideIcons.checkCircle, baseColor: AppColors.success.base, tintColor: AppColors.success.tint)),
-                    const SizedBox(width: AppSpacing.lg),
+                    SizedBox(width: isMobile ? 8 : AppSpacing.lg),
                     Expanded(child: KpiCard(title: 'Failed', value: failed.toString(), icon: LucideIcons.alertCircle, baseColor: AppColors.danger.base, tintColor: AppColors.danger.tint)),
-                    const SizedBox(width: AppSpacing.lg),
+                    SizedBox(width: isMobile ? 8 : AppSpacing.lg),
                     Expanded(child: KpiCard(title: 'Pass Rate', value: '${passPct.toStringAsFixed(1)}%', icon: LucideIcons.trendingUp, baseColor: AppColors.info.base, tintColor: AppColors.info.tint)),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.xl),
+                SizedBox(height: isMobile ? 12 : AppSpacing.xl),
                 
                 Expanded(
                   child: SectionCard(
                     title: 'Student Results Board',
                     padding: EdgeInsets.zero,
-                    trailing: SizedBox(
-                      width: 300,
-                      child: SearchField(hint: 'Search by Name / Rank / Adm No...'),
-                    ),
+                    trailing: isMobile
+                        ? null
+                        : const SizedBox(
+                            width: 300,
+                            child: SearchField(hint: 'Search by Name / Rank / Adm No...'),
+                          ),
                     child: Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
-                          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border)), color: AppColors.bg),
-                          child: Row(
-                            children: const [
-                              Expanded(flex: 1, child: Text('RANK', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
-                              Expanded(flex: 3, child: Text('STUDENT', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
-                              Expanded(flex: 2, child: Text('TOTAL MARKS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
-                              Expanded(flex: 1, child: Text('PERCENTAGE', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
-                              Expanded(flex: 1, child: Text('GRADE', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
-                              Expanded(flex: 1, child: Text('STATUS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
-                            ],
+                        if (isMobile)
+                          const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SearchField(hint: 'Search Name / Rank / Adm No...'),
                           ),
-                        ),
+                        if (!isMobile)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+                            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border)), color: AppColors.bg),
+                            child: const Row(
+                              children: [
+                                Expanded(flex: 1, child: Text('RANK', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
+                                Expanded(flex: 3, child: Text('STUDENT', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
+                                Expanded(flex: 2, child: Text('TOTAL MARKS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
+                                Expanded(flex: 1, child: Text('PERCENTAGE', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
+                                Expanded(flex: 1, child: Text('GRADE', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
+                                Expanded(flex: 1, child: Text('STATUS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textMuted))),
+                              ],
+                            ),
+                          ),
                         Expanded(
                           child: ListView.builder(
                             itemCount: results.length,
                             itemBuilder: (context, index) {
                               final r = results[index];
                               final isPass = r['status'] == 'Pass';
+                              
+                              if (isMobile) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: const BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.brandTint,
+                                              borderRadius: BorderRadius.circular(AppRadius.control),
+                                            ),
+                                            child: Text(
+                                              '#${r['rank'] ?? '-'}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.brandDark),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          AppAvatar(name: r['student_name'] ?? 'Unknown', radius: 14),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  r['student_name'] ?? 'Unknown',
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textStrong),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  r['admission_number'] ?? 'N/A',
+                                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          StatusBadge(
+                                            text: r['status'] ?? 'Pending',
+                                            status: isPass ? BadgeStatus.success : (r['status'] == 'Fail' ? BadgeStatus.danger : BadgeStatus.warning),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.bg,
+                                          borderRadius: BorderRadius.circular(AppRadius.control),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'Marks: ${r['total_marks'] != null ? (r['total_marks'] as num).toStringAsFixed(1) : '0'}',
+                                              style: const TextStyle(fontSize: 12, color: AppColors.textStrong),
+                                            ),
+                                            Text(
+                                              '${r['percentage'] != null ? (r['percentage'] as num).toStringAsFixed(1) : '0.0'}%',
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textStrong),
+                                            ),
+                                            Text(
+                                              'Grade: ${r['grade'] ?? '-'}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.brand),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
                               
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
@@ -385,8 +480,8 @@ class ResultsScreen extends ConsumerWidget {
                                         ],
                                       )
                                     ),
-                                    Expanded(flex: 2, child: Text('${r['total_marks']?.toStringAsFixed(1) ?? '0'}')),
-                                    Expanded(flex: 1, child: Text('${r['percentage']?.toStringAsFixed(1) ?? '0.0'}%')),
+                                    Expanded(flex: 2, child: Text(r['total_marks'] != null ? (r['total_marks'] as num).toStringAsFixed(1) : '0')),
+                                    Expanded(flex: 1, child: Text('${r['percentage'] != null ? (r['percentage'] as num).toStringAsFixed(1) : '0.0'}%')),
                                     Expanded(flex: 1, child: Text(r['grade'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
                                     Expanded(
                                       flex: 1, 

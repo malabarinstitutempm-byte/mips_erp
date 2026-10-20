@@ -300,47 +300,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Widget _buildMobileCategoryChip(int index, String title, IconData icon) {
+    final isSelected = _selectedIndex == index;
+    return ChoiceChip(
+      selected: isSelected,
+      onSelected: (_) => setState(() => _selectedIndex = index),
+      avatar: Icon(
+        icon,
+        size: 15,
+        color: isSelected ? Colors.white : AppColors.brand,
+      ),
+      label: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? Colors.white : AppColors.textStrong,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          fontSize: 12,
+        ),
+      ),
+      selectedColor: AppColors.brand,
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: isSelected ? AppColors.brand : AppColors.border),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentSettings = ref.watch(settingsProvider);
     _syncControllersWithSettings(currentSettings);
+    final isMobile = MediaQuery.of(context).size.width < 800;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final contentSection = Stack(
       children: [
-        const PageHeader(
-          title: 'Settings',
-          subtitle: 'Manage institution profile, academic years, database backups, and system preferences',
-        ),
-        
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left Navigation
-              SizedBox(
-                width: 260,
-                child: Column(
-                  children: [
-                    _buildNavTile(0, 'Institution Profile', LucideIcons.building, AppColors.students),
-                    _buildNavTile(1, 'Academic Years', LucideIcons.calendar, AppColors.courses),
-                    _buildNavTile(2, 'Fee & Receipts', LucideIcons.receipt, AppColors.fees),
-                    _buildNavTile(3, 'Administrator Users', LucideIcons.shieldCheck, AppColors.courses),
-                    _buildNavTile(4, 'Data Management', LucideIcons.database, AppColors.settings),
-                    _buildNavTile(5, 'Student Record Types', LucideIcons.files, AppColors.documents),
-                    _buildNavTile(6, 'Grading System', LucideIcons.award, AppColors.exams),
-                    _buildNavTile(7, 'System Info', LucideIcons.info, AppColors.reports),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: AppSpacing.xxl),
-              
-              // Right Content
-              Expanded(
-                child: Stack(
-                  children: [
-                    SingleChildScrollView(
+        SingleChildScrollView(
                       padding: const EdgeInsets.only(bottom: 100),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -695,11 +690,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                   ],
-                ),
-              ),
-            ],
-          ),
+                );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PageHeader(
+          title: 'Settings',
+          subtitle: 'Manage institution profile, academic years, database backups, and system preferences',
         ),
+        if (isMobile) ...[
+          SizedBox(
+            height: 42,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildMobileCategoryChip(0, 'Profile', LucideIcons.building),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(1, 'Academic Years', LucideIcons.calendar),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(2, 'Fees & Receipts', LucideIcons.receipt),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(3, 'Admin Users', LucideIcons.shieldCheck),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(4, 'Data Backup', LucideIcons.database),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(5, 'Record Types', LucideIcons.files),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(6, 'Grading', LucideIcons.award),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(7, 'System Info', LucideIcons.info),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(child: contentSection),
+        ] else ...[
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 260,
+                  child: Column(
+                    children: [
+                      _buildNavTile(0, 'Institution Profile', LucideIcons.building, AppColors.students),
+                      _buildNavTile(1, 'Academic Years', LucideIcons.calendar, AppColors.courses),
+                      _buildNavTile(2, 'Fee & Receipts', LucideIcons.receipt, AppColors.fees),
+                      _buildNavTile(3, 'Administrator Users', LucideIcons.shieldCheck, AppColors.courses),
+                      _buildNavTile(4, 'Data Management', LucideIcons.database, AppColors.settings),
+                      _buildNavTile(5, 'Student Record Types', LucideIcons.files, AppColors.documents),
+                      _buildNavTile(6, 'Grading System', LucideIcons.award, AppColors.exams),
+                      _buildNavTile(7, 'System Info', LucideIcons.info, AppColors.reports),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xxl),
+                Expanded(child: contentSection),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

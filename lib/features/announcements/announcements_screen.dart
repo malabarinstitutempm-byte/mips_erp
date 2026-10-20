@@ -171,11 +171,14 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 750;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -214,12 +217,12 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
               const SizedBox(height: AppSpacing.lg),
 
               SizedBox(
-                height: 700,
+                height: isMobile ? 850 : 700,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildComposerTab(),
-                    _buildHistoryTab(),
+                    _buildComposerTab(isMobile),
+                    _buildHistoryTab(isMobile),
                   ],
                 ),
               ),
@@ -233,9 +236,41 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
   // ===========================================================================
   // Tab 1: Composer
   // ===========================================================================
-  Widget _buildComposerTab() {
+  Widget _buildComposerTab(bool isMobile) {
     final coursesAsync = ref.watch(coursesProvider);
     final batchesAsync = ref.watch(allBatchesProvider);
+
+    final categoryDropdown = DropdownButtonFormField<String>(
+      value: _category,
+      decoration: const InputDecoration(labelText: 'Category'),
+      items: const [
+        DropdownMenuItem(value: 'general', child: Text('General Announcement')),
+        DropdownMenuItem(value: 'programme', child: Text('Programme / Event')),
+        DropdownMenuItem(value: 'exam', child: Text('Exam Notice')),
+        DropdownMenuItem(value: 'fee_reminder', child: Text('Fee Reminder')),
+        DropdownMenuItem(value: 'timetable', child: Text('Timetable Update')),
+      ],
+      onChanged: (val) {
+        if (val != null) setState(() => _category = val);
+        _calculatePreview();
+      },
+    );
+
+    final audienceDropdown = DropdownButtonFormField<String>(
+      value: _audienceType,
+      decoration: const InputDecoration(labelText: 'Target Audience'),
+      items: const [
+        DropdownMenuItem(value: 'all_students', child: Text('All Students')),
+        DropdownMenuItem(value: 'course', child: Text('Specific Course')),
+        DropdownMenuItem(value: 'batch', child: Text('Specific Batch')),
+        DropdownMenuItem(value: 'teachers', child: Text('All Teachers')),
+        DropdownMenuItem(value: 'fee_defaulters', child: Text('Students with Pending Fees')),
+      ],
+      onChanged: (val) {
+        if (val != null) setState(() => _audienceType = val);
+        _calculatePreview();
+      },
+    );
 
     return SingleChildScrollView(
       child: SectionCard(
@@ -244,45 +279,19 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Row 1: Category & Audience
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _category,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: const [
-                      DropdownMenuItem(value: 'general', child: Text('General Announcement')),
-                      DropdownMenuItem(value: 'programme', child: Text('Programme / Event')),
-                      DropdownMenuItem(value: 'exam', child: Text('Exam Notice')),
-                      DropdownMenuItem(value: 'fee_reminder', child: Text('Fee Reminder')),
-                      DropdownMenuItem(value: 'timetable', child: Text('Timetable Update')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _category = val);
-                      _calculatePreview();
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _audienceType,
-                    decoration: const InputDecoration(labelText: 'Target Audience'),
-                    items: const [
-                      DropdownMenuItem(value: 'all_students', child: Text('All Students')),
-                      DropdownMenuItem(value: 'course', child: Text('Specific Course')),
-                      DropdownMenuItem(value: 'batch', child: Text('Specific Batch')),
-                      DropdownMenuItem(value: 'teachers', child: Text('All Teachers')),
-                      DropdownMenuItem(value: 'fee_defaulters', child: Text('Students with Pending Fees')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _audienceType = val);
-                      _calculatePreview();
-                    },
-                  ),
-                ),
-              ],
-            ),
+            if (isMobile) ...[
+              categoryDropdown,
+              const SizedBox(height: AppSpacing.md),
+              audienceDropdown,
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(child: categoryDropdown),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: audienceDropdown),
+                ],
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
 
             // Conditional filters based on audience
@@ -424,7 +433,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
   // ===========================================================================
   // Tab 2: History & Retract
   // ===========================================================================
-  Widget _buildHistoryTab() {
+  Widget _buildHistoryTab(bool isMobile) {
     final listAsync = ref.watch(announcementsListProvider);
 
     return SectionCard(
@@ -452,22 +461,24 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: _getCategoryColor(a.category).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(_getCategoryIcon(a.category), color: _getCategoryColor(a.category), size: 22),
+                      child: Icon(_getCategoryIcon(a.category), color: _getCategoryColor(a.category), size: 20),
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(a.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                              const SizedBox(width: 8),
+                              Text(a.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
@@ -476,8 +487,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
                                 ),
                                 child: Text(a.category.toUpperCase(), style: TextStyle(fontSize: 10, color: _getCategoryColor(a.category), fontWeight: FontWeight.bold)),
                               ),
-                              if (a.isRetracted) ...[
-                                const SizedBox(width: 6),
+                              if (a.isRetracted)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
@@ -486,27 +496,42 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
                                   ),
                                   child: const Text('RETRACTED', style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold)),
                                 ),
-                              ],
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(a.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
                           const SizedBox(height: 6),
-                          Row(
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
                             children: [
-                              Text('Target: ${a.audienceType}', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                              const SizedBox(width: 12),
-                              Text('Dispatched: ${a.recipientCount}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 12),
-                              Text('Read: ${a.readCount}', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 12),
-                              Text(a.createdAt != null ? a.createdAt!.split('T')[0] : '', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                              Text('Target: ${a.audienceType}', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                              Text('Dispatched: ${a.recipientCount}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                              Text('Read: ${a.readCount}', style: const TextStyle(fontSize: 11.5, color: Colors.green, fontWeight: FontWeight.w600)),
+                              if (a.createdAt != null)
+                                Text(a.createdAt!.split('T')[0], style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
                             ],
                           ),
+                          if (isMobile && !a.isRetracted) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                  side: const BorderSide(color: Color(0xFFFECACA)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                ),
+                                icon: const Icon(LucideIcons.undo2, size: 14, color: Colors.red),
+                                label: const Text('Retract', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                onPressed: () => _confirmRetract(a.id, a.title),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    if (!a.isRetracted)
+                    if (!isMobile && !a.isRetracted)
                       OutlinedButton.icon(
                         icon: const Icon(LucideIcons.undo2, size: 14, color: Colors.red),
                         label: const Text('Retract', style: TextStyle(color: Colors.red)),

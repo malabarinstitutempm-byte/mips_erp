@@ -24,6 +24,8 @@ class ExamsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final examsAsync = ref.watch(examDashboardProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 750;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +41,10 @@ class ExamsScreen extends ConsumerWidget {
                   builder: (context) => Dialog(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
+                      constraints: BoxConstraints(
+                        maxWidth: screenWidth < 850 ? screenWidth - 32 : 820,
+                        maxHeight: MediaQuery.of(context).size.height - 64,
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
@@ -107,14 +112,15 @@ class ExamsScreen extends ConsumerWidget {
                   spacing: AppSpacing.xl,
                   runSpacing: AppSpacing.xl,
                   children: [
-                    ...exams.map((exam) => _buildExamCard(context, ref, exam)),
+                    ...exams.map((exam) => _buildExamCard(context, ref, exam, isMobile)),
                   ],
                 ),
               );
             },
             loading: () => Wrap(
               spacing: AppSpacing.xl,
-              children: List.generate(3, (i) => const SkeletonLoader(width: 350, height: 250, borderRadius: AppRadius.card)),
+              runSpacing: AppSpacing.xl,
+              children: List.generate(3, (i) => SkeletonLoader(width: isMobile ? double.infinity : 350, height: 250, borderRadius: AppRadius.card)),
             ),
             error: (e, st) => EmptyState(title: 'Error', message: e.toString(), icon: LucideIcons.alertCircle),
           ),
@@ -123,7 +129,7 @@ class ExamsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildExamCard(BuildContext context, WidgetRef ref, Map<String, dynamic> exam) {
+  Widget _buildExamCard(BuildContext context, WidgetRef ref, Map<String, dynamic> exam, bool isMobile) {
     final isPublished = exam['status'] == 'Published';
     final int subjectsCount = exam['subjects'] as int? ?? 0;
     final int studentsCount = exam['students'] as int? ?? 0;
@@ -134,7 +140,7 @@ class ExamsScreen extends ConsumerWidget {
     final String? syncStatus = exam['sync_status'] as String?;
     
     return Container(
-      width: 400,
+      width: isMobile ? double.infinity : 400,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.card),

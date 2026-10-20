@@ -190,6 +190,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(coursesProvider);
     final batchesAsync = ref.watch(allBatchesProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 750;
 
     return Stack(
       children: [
@@ -202,7 +204,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.xl),
+                padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
                 child: Column(
                   children: [
                     // Global Filters
@@ -284,12 +286,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     
                     // Reports Grid
                     GridView.count(
-                      crossAxisCount: 2,
+                      crossAxisCount: isMobile ? 1 : 2,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: AppSpacing.xl,
-                      mainAxisSpacing: AppSpacing.xl,
-                      childAspectRatio: 2.5,
+                      crossAxisSpacing: isMobile ? AppSpacing.md : AppSpacing.xl,
+                      mainAxisSpacing: isMobile ? AppSpacing.md : AppSpacing.xl,
+                      childAspectRatio: isMobile ? 2.1 : 2.5,
                       children: [
                         _ReportCard(
                           title: 'Fee Collection',

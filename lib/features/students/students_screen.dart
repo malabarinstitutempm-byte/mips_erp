@@ -7,7 +7,6 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/models/student.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../shared/widgets/page_header.dart';
@@ -253,6 +252,148 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     );
   }
 
+  Widget _buildMobileStudentCard(
+    BuildContext context, {
+    required Student s,
+    required String courseName,
+    required dynamic batch,
+    required bool isDeleted,
+    required String badgeText,
+    required BadgeStatus badgeStatus,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const [
+          BoxShadow(color: Color(0x060F172A), offset: Offset(0, 1), blurRadius: 2),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: InkWell(
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (c) => StudentProfileScreen(student: s)));
+          },
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppAvatar(name: s.name, radius: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textStrong),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Adm: ${s.admissionNumber ?? "—"} • Reg: ${s.registrationNumber ?? "—"}',
+                            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    StatusBadge(text: badgeText, status: badgeStatus),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        courseName,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textStrong),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (batch != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.brand.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.brand.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          'Sem ${batch.currentSemester} (Yr ${batch.currentYear})',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.brand),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      s.phone != null && s.phone!.isNotEmpty ? '📞 ${s.phone}' : 'No phone',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isDeleted)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.success.base,
+                              side: BorderSide(color: AppColors.success.base.withOpacity(0.5)),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => _confirmRestoreStudent(context, s),
+                            icon: const Icon(LucideIcons.rotateCcw, size: 12),
+                            label: const Text('Restore', style: TextStyle(fontSize: 11)),
+                          )
+                        else ...[
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (c) => StudentProfileScreen(student: s)));
+                            },
+                            child: const Text('View Profile →', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: Icon(LucideIcons.trash2, size: 15, color: AppColors.danger.base),
+                            tooltip: 'Delete',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _confirmDeleteStudent(context, s),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filter = StudentFilter(
@@ -273,6 +414,8 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
       data: (courses) => {for (var c in courses) if (c.id != null) c.id!: c.name},
       orElse: () => <int, String>{},
     );
+
+    final isMobile = MediaQuery.of(context).size.width < 750;
 
     return Column(
       children: [
@@ -323,14 +466,14 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
               children: [
                 // Toolbar
                 Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
                   child: Wrap(
                     spacing: 12,
                     runSpacing: 10,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       SizedBox(
-                        width: 280,
+                        width: isMobile ? double.infinity : 280,
                         child: SearchField(
                           hint: 'Search by name, admission no, or reg no...',
                           onChanged: (v) => setState(() {
@@ -429,10 +572,59 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                   ),
                 ),
                 
-                // Table
+                // Content (Mobile Cards or Desktop Table)
                 Expanded(
                   child: studentsAsync.when(
                     data: (students) {
+                      if (students.isEmpty) {
+                        return EmptyState(
+                          title: _statusFilter == 'deleted' ? 'No Deleted Students' : 'No Students Found',
+                          message: _statusFilter == 'deleted' 
+                              ? 'There are no deleted or archived students.' 
+                              : 'There are no students matching your criteria.',
+                          icon: LucideIcons.users,
+                        );
+                      }
+
+                      // Mobile Card View: Zero horizontal scrolling!
+                      if (isMobile) {
+                        return ListView.separated(
+                          itemCount: students.length,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final s = students[index];
+                            final courseName = courseMap[s.courseId] ?? (s.courseId != null ? 'Course #${s.courseId}' : 'N/A');
+                            final batch = s.batchId != null ? batchesMap[s.batchId] : null;
+                            final isDeleted = s.deletedAt != null || _statusFilter == 'deleted';
+
+                            BadgeStatus badgeStatus = BadgeStatus.success;
+                            String badgeText = s.status.toUpperCase();
+                            if (isDeleted) {
+                              badgeStatus = BadgeStatus.danger;
+                              badgeText = 'DELETED';
+                            } else if (s.status == 'completed') {
+                              badgeStatus = BadgeStatus.info;
+                            } else if (s.status == 'discontinued') {
+                              badgeStatus = BadgeStatus.neutral;
+                            } else if (s.status == 'tc_issued') {
+                              badgeStatus = BadgeStatus.warning;
+                            }
+
+                            return _buildMobileStudentCard(
+                              context,
+                              s: s,
+                              courseName: courseName,
+                              batch: batch,
+                              isDeleted: isDeleted,
+                              badgeText: badgeText,
+                              badgeStatus: badgeStatus,
+                            );
+                          },
+                        );
+                      }
+
+                      // Desktop Table View
                       return AppDataTable<Student>(
                         columns: const ['Adm. No', 'Student', 'Course', 'Batch / Semester', 'Status', 'Actions'],
                         flexes: const [2, 4, 3, 3, 2, 3],

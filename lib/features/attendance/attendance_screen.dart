@@ -46,12 +46,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
   Widget build(BuildContext context) {
     final unmarkedAsync = ref.watch(unmarkedSessionsTodayProvider);
     final unmarkedCount = unmarkedAsync.valueOrNull?.length ?? 0;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -81,6 +83,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                 ),
                 child: TabBar(
                   controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   labelColor: AppColors.brand,
                   unselectedLabelColor: AppColors.textMuted,
                   indicatorColor: AppColors.brand,
@@ -113,14 +117,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
 
               // Tab Views
               SizedBox(
-                height: 680,
+                height: isMobile ? 850 : 680,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildShortageReportTab(),
-                    _buildUnmarkedSessionsTab(),
-                    _buildSessionReviewTab(),
-                    _buildSettingsTab(),
+                    _buildShortageReportTab(isMobile),
+                    _buildUnmarkedSessionsTab(isMobile),
+                    _buildSessionReviewTab(isMobile),
+                    _buildSettingsTab(isMobile),
                   ],
                 ),
               ),
@@ -134,7 +138,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
   // ===========================================================================
   // Tab 1: Shortage & Low Attendance Report
   // ===========================================================================
-  Widget _buildShortageReportTab() {
+  Widget _buildShortageReportTab(bool isMobile) {
     final filter = ref.watch(attendanceFilterProvider);
     final reportAsync = ref.watch(shortageReportProvider);
     final coursesAsync = ref.watch(coursesProvider);
@@ -249,7 +253,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
         ),
         const SizedBox(height: AppSpacing.md),
 
-        // Data Table
+        // Data Table / Mobile Cards
         Expanded(
           child: SectionCard(
             title: 'Student Attendance Summary',
@@ -261,6 +265,127 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                       padding: EdgeInsets.all(AppSpacing.xl),
                       child: Text('No attendance records found for selected filters.', style: TextStyle(color: AppColors.textMuted)),
                     ),
+                  );
+                }
+
+                if (isMobile) {
+                  return ListView.separated(
+                    itemCount: data.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final row = data[index];
+                      final band = row['status_band']?.toString() ?? 'ok';
+                      final pct = (row['percentage'] as num?)?.toDouble() ?? 100.0;
+                      final miss = row['can_miss_more'] ?? 0;
+                      final rec = row['recover_sessions'] ?? 0;
+                      final sem = (row['semester_no'] as num?)?.toInt() ?? 1;
+                      final yr = (sem + 1) ~/ 2;
+
+                      Color bandColor;
+                      String bandLabel;
+                      String actionText;
+
+                      if (band == 'shortage') {
+                        bandColor = Colors.red;
+                        bandLabel = 'Shortage';
+                        actionText = 'Attend $rec consecutive sessions';
+                      } else if (band == 'low') {
+                        bandColor = Colors.orange;
+                        bandLabel = 'Low Attendance';
+                        actionText = miss > 0 ? 'Can miss $miss more' : 'Cannot miss any sessions';
+                      } else {
+                        bandColor = Colors.green;
+                        bandLabel = 'Safe';
+                        actionText = 'Can miss $miss more';
+                      }
+
+                      return Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.card),
+                          side: BorderSide(color: bandColor.withOpacity(0.3)),
+                        ),
+                        color: AppColors.surface,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(row['student_name'] ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                        const SizedBox(height: 2),
+                                        Text(row['registration_number'] ?? row['admission_number'] ?? '', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: bandColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: bandColor.withOpacity(0.3)),
+                                    ),
+                                    child: Text(
+                                      '${pct.toStringAsFixed(1)}% • $bandLabel',
+                                      style: TextStyle(color: bandColor, fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: Text(
+                                  '${row['batch_name'] ?? "Batch"} • Sem $sem (Yr $yr)',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  children: [
+                                    _buildStatPill('Held', '${row['sessions_held'] ?? 0}', AppColors.textStrong),
+                                    _buildStatPill('Present', '${row['present_count'] ?? 0}', Colors.green),
+                                    _buildStatPill('Late', '${row['late_count'] ?? 0}', Colors.orange),
+                                    _buildStatPill('Absent', '${row['absent_count'] ?? 0}', Colors.red),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(LucideIcons.info, size: 14, color: bandColor),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Action: $actionText',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: bandColor),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   );
                 }
 
@@ -366,6 +491,17 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
     );
   }
 
+  Widget _buildStatPill(String label, String value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+      ],
+    );
+  }
+
   Future<void> _exportReport({required bool asPdf}) async {
     final report = await ref.read(shortageReportProvider.future);
     if (report.isEmpty) {
@@ -401,7 +537,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
   // ===========================================================================
   // Tab 2: Unmarked Sessions Today
   // ===========================================================================
-  Widget _buildUnmarkedSessionsTab() {
+  Widget _buildUnmarkedSessionsTab(bool isMobile) {
     final unmarkedAsync = ref.watch(unmarkedSessionsTodayProvider);
 
     return SingleChildScrollView(
@@ -441,13 +577,72 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: sessions.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final s = sessions[index];
                     final batchName = s['batch_name'] ?? 'Batch #${s['batch_id']}';
                     final courseName = s['course_name'] ?? 'N/A';
                     final slot = s['slot']?.toString().toLowerCase() ?? 'morning';
                     final isMorning = slot == 'morning';
+
+                    if (isMobile) {
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.card),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: (isMorning ? Colors.orange : Colors.indigo).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    isMorning ? LucideIcons.sun : LucideIcons.moon,
+                                    color: isMorning ? Colors.orange : Colors.indigo,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('$batchName - ${isMorning ? "Morning Slot" : "Evening Slot"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      Text(courseName, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.bg,
+                                  foregroundColor: AppColors.textStrong,
+                                ),
+                                icon: const Icon(LucideIcons.calendarX, size: 16),
+                                label: const Text('Confirm No Class'),
+                                onPressed: () => _confirmNoClassDialog(
+                                  batchId: s['batch_id'] as int,
+                                  batchName: batchName,
+                                  slot: slot,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -563,7 +758,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
   // ===========================================================================
   // Tab 3: Attendance Settings
   // ===========================================================================
-  Widget _buildSettingsTab() {
+  Widget _buildSettingsTab(bool isMobile) {
     final settingsAsync = ref.watch(attendanceSettingsProvider);
 
     return settingsAsync.when(
@@ -573,25 +768,25 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
         _lateWeight = (settings['late_weight'] as num?)?.toDouble() ?? _lateWeight;
         _leaveHandling = settings['leave_handling']?.toString() ?? _leaveHandling;
 
-        return SectionCard(
-          title: 'Institutional Attendance Thresholds',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(bottom: AppSpacing.md),
-                child: Text(
-                  'Define percentage bands and calculation behavior across all courses and batches',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+        return SingleChildScrollView(
+          child: SectionCard(
+            title: 'Institutional Attendance Thresholds',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Text(
+                    'Define percentage bands and calculation behavior across all courses and batches',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
                 ),
-              ),
-              // Minimum Attendance Percentage
-              ListTile(
-                title: Text('Minimum Required Attendance: ${_minPercent.toInt()}%'),
-                subtitle: const Text('Falling below this threshold triggers the mandatory Shortage Warning'),
-                trailing: SizedBox(
-                  width: 200,
-                  child: Slider(
+                // Minimum Attendance Percentage
+                if (isMobile) ...[
+                  Text('Minimum Required Attendance: ${_minPercent.toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  const Text('Falling below this threshold triggers the mandatory Shortage Warning', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  Slider(
                     value: _minPercent,
                     min: 50,
                     max: 90,
@@ -599,17 +794,31 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                     label: '${_minPercent.toInt()}%',
                     onChanged: (val) => setState(() => _minPercent = val),
                   ),
-                ),
-              ),
-              const Divider(),
+                ] else ...[
+                  ListTile(
+                    title: Text('Minimum Required Attendance: ${_minPercent.toInt()}%'),
+                    subtitle: const Text('Falling below this threshold triggers the mandatory Shortage Warning'),
+                    trailing: SizedBox(
+                      width: 200,
+                      child: Slider(
+                        value: _minPercent,
+                        min: 50,
+                        max: 90,
+                        divisions: 40,
+                        label: '${_minPercent.toInt()}%',
+                        onChanged: (val) => setState(() => _minPercent = val),
+                      ),
+                    ),
+                  ),
+                ],
+                const Divider(),
 
-              // Reminder Threshold
-              ListTile(
-                title: Text('Low Attendance Reminder: ${_reminderPercent.toInt()}%'),
-                subtitle: const Text('Students at or below this percentage receive the Low Attendance Reminder'),
-                trailing: SizedBox(
-                  width: 200,
-                  child: Slider(
+                // Reminder Threshold
+                if (isMobile) ...[
+                  Text('Low Attendance Reminder: ${_reminderPercent.toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  const Text('Students at or below this percentage receive the Low Attendance Reminder', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  Slider(
                     value: _reminderPercent,
                     min: _minPercent,
                     max: 95,
@@ -617,17 +826,31 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                     label: '${_reminderPercent.toInt()}%',
                     onChanged: (val) => setState(() => _reminderPercent = val),
                   ),
-                ),
-              ),
-              const Divider(),
+                ] else ...[
+                  ListTile(
+                    title: Text('Low Attendance Reminder: ${_reminderPercent.toInt()}%'),
+                    subtitle: const Text('Students at or below this percentage receive the Low Attendance Reminder'),
+                    trailing: SizedBox(
+                      width: 200,
+                      child: Slider(
+                        value: _reminderPercent,
+                        min: _minPercent,
+                        max: 95,
+                        divisions: (95 - _minPercent).toInt(),
+                        label: '${_reminderPercent.toInt()}%',
+                        onChanged: (val) => setState(() => _reminderPercent = val),
+                      ),
+                    ),
+                  ),
+                ],
+                const Divider(),
 
-              // Late Attendance Weight
-              ListTile(
-                title: Text('Late Weight: $_lateWeight'),
-                subtitle: const Text('Weight assigned to Late presence (0.5 = counts as half a present)'),
-                trailing: SizedBox(
-                  width: 200,
-                  child: Slider(
+                // Late Attendance Weight
+                if (isMobile) ...[
+                  Text('Late Weight: $_lateWeight', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  const Text('Weight assigned to Late presence (0.5 = counts as half a present)', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  Slider(
                     value: _lateWeight,
                     min: 0.0,
                     max: 1.0,
@@ -635,41 +858,79 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                     label: '$_lateWeight',
                     onChanged: (val) => setState(() => _lateWeight = val),
                   ),
-                ),
-              ),
-              const Divider(),
+                ] else ...[
+                  ListTile(
+                    title: Text('Late Weight: $_lateWeight'),
+                    subtitle: const Text('Weight assigned to Late presence (0.5 = counts as half a present)'),
+                    trailing: SizedBox(
+                      width: 200,
+                      child: Slider(
+                        value: _lateWeight,
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 10,
+                        label: '$_lateWeight',
+                        onChanged: (val) => setState(() => _lateWeight = val),
+                      ),
+                    ),
+                  ),
+                ],
+                const Divider(),
 
-              // Approved Leave Handling
-              ListTile(
-                title: const Text('Approved Leave Handling'),
-                subtitle: const Text('How approved leaves affect the total class count'),
-                trailing: DropdownButton<String>(
-                  value: _leaveHandling,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(value: 'excluded', child: Text('Excluded (Counts neither for nor against)')),
-                    DropdownMenuItem(value: 'absent', child: Text('Counts as Absent')),
-                    DropdownMenuItem(value: 'present', child: Text('Counts as Present')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _leaveHandling = val);
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
+                // Approved Leave Handling
+                if (isMobile) ...[
+                  const Text('Approved Leave Handling', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  const Text('How approved leaves affect the total class count', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: _leaveHandling,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'excluded', child: Text('Excluded (Neither for/against)')),
+                      DropdownMenuItem(value: 'absent', child: Text('Counts as Absent')),
+                      DropdownMenuItem(value: 'present', child: Text('Counts as Present')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _leaveHandling = val);
+                    },
+                  ),
+                ] else ...[
+                  ListTile(
+                    title: const Text('Approved Leave Handling'),
+                    subtitle: const Text('How approved leaves affect the total class count'),
+                    trailing: DropdownButton<String>(
+                      value: _leaveHandling,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: 'excluded', child: Text('Excluded (Counts neither for nor against)')),
+                        DropdownMenuItem(value: 'absent', child: Text('Counts as Absent')),
+                        DropdownMenuItem(value: 'present', child: Text('Counts as Present')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _leaveHandling = val);
+                      },
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.xl),
 
-              // Save Button
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  icon: _isSavingSettings
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(LucideIcons.save, size: 16),
-                  label: const Text('Save Attendance Settings'),
-                  onPressed: _isSavingSettings ? null : _saveAttendanceSettings,
+                // Save Button
+                Align(
+                  alignment: isMobile ? Alignment.center : Alignment.centerRight,
+                  child: SizedBox(
+                    width: isMobile ? double.infinity : null,
+                    child: FilledButton.icon(
+                      icon: _isSavingSettings
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(LucideIcons.save, size: 16),
+                      label: const Text('Save Attendance Settings'),
+                      onPressed: _isSavingSettings ? null : _saveAttendanceSettings,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -708,7 +969,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
   // ===========================================================================
   // Tab 3: Session Review & Corrections
   // ===========================================================================
-  Widget _buildSessionReviewTab() {
+  Widget _buildSessionReviewTab(bool isMobile) {
     final selectedDate = ref.watch(reviewSessionsDateProvider);
     final sessionsAsync = ref.watch(attendanceReviewSessionsProvider);
 
@@ -742,6 +1003,85 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                   style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                 ),
               ),
+            );
+          }
+
+          if (isMobile) {
+            return ListView.separated(
+              itemCount: sessions.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final s = sessions[index];
+                final date = s['date']?.toString() ?? 'N/A';
+                final batchName = s['batches']?['batch_name']?.toString() ?? 'Batch #${s['batch_id']}';
+                final slot = (s['slot']?.toString() ?? 'morning').toUpperCase();
+                final status = s['status']?.toString() ?? 'submitted';
+                final markedBy = s['teachers']?['name']?.toString() ?? 'Administrator';
+
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    side: const BorderSide(color: AppColors.border),
+                  ),
+                  color: AppColors.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text('$batchName • $slot', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: status == 'submitted' ? const Color(0xFFE3F6EC) : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                status == 'submitted' ? 'Submitted' : 'No Class',
+                                style: TextStyle(
+                                  color: status == 'submitted' ? const Color(0xFF0B5D3B) : const Color(0xFF475569),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.userCheck, size: 13, color: AppColors.brand),
+                            const SizedBox(width: 5),
+                            Text('Marked by: $markedBy', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                            icon: const Icon(LucideIcons.edit2, size: 14),
+                            label: const Text('Review & Correct Records', style: TextStyle(fontSize: 12)),
+                            onPressed: () => _openCorrectionDialog(
+                              s['id'] as int,
+                              batchName,
+                              slot,
+                              date,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             );
           }
 

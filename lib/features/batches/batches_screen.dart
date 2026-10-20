@@ -369,7 +369,7 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxl),
+        padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xxl),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
