@@ -87,7 +87,8 @@ ALTER TABLE attendance_sessions
 
 -- Add slot column
 ALTER TABLE attendance_sessions
-    ADD COLUMN IF NOT EXISTS slot attendance_slot NOT NULL DEFAULT 'morning';
+    ADD COLUMN IF NOT EXISTS slot attendance_slot NOT NULL DEFAULT 'morning',
+    ADD COLUMN IF NOT EXISTS no_class_reason text;
 
 -- Safe migration of existing sessions: map period 1-5 -> morning, 6-10 -> evening
 UPDATE attendance_sessions
@@ -544,12 +545,76 @@ BEGIN
 
     RETURN coalesce(NEW, OLD);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_sync_legacy_fees ON fee_items;
 DROP TRIGGER IF EXISTS trg_sync_legacy_fees ON fee_items;
 CREATE OR REPLACE TRIGGER trg_sync_legacy_fees AFTER INSERT OR UPDATE OR DELETE ON fee_items
 FOR EACH ROW EXECUTE FUNCTION sync_legacy_fees_from_items();
+
+-- 4.4. Auto-create Primary Enrollment and Initial Fee Item on Student Admission/Import
+CREATE OR REPLACE FUNCTION trg_student_auto_enroll_and_fee()
+RETURNS trigger AS $$
+DECLARE
+    v_course courses%ROWTYPE;
+    v_enr_id bigint;
+    v_fee_amount bigint;
+BEGIN
+    SELECT * INTO v_course FROM courses WHERE id = NEW.course_id;
+    v_fee_amount := coalesce(v_course.total_fee_paise, 0);
+
+    -- 1. Ensure primary enrollment in student_enrollments
+    IF NEW.batch_id IS NOT NULL AND NEW.course_id IS NOT NULL THEN
+        INSERT INTO student_enrollments (
+            student_id, course_id, batch_id, kind, status, enrolled_on, created_at, updated_at
+        ) VALUES (
+            NEW.id, NEW.course_id, NEW.batch_id, 'primary', 'active', coalesce(NEW.admission_date, CURRENT_DATE), clock_timestamp(), clock_timestamp()
+        )
+        ON CONFLICT DO NOTHING
+        RETURNING id INTO v_enr_id;
+
+        IF v_enr_id IS NULL THEN
+            SELECT id INTO v_enr_id FROM student_enrollments
+            WHERE student_id = NEW.id AND batch_id = NEW.batch_id AND kind = 'primary'
+            LIMIT 1;
+        END IF;
+    END IF;
+
+    -- 2. Ensure initial fees record exists
+    INSERT INTO fees (
+        student_id, total_fee_paise, paid_amount_paise, pending_amount_paise, created_at, updated_at
+    ) VALUES (
+        NEW.id, v_fee_amount, 0, v_fee_amount, clock_timestamp(), clock_timestamp()
+    )
+    ON CONFLICT (student_id) DO UPDATE SET
+        total_fee_paise = GREATEST(fees.total_fee_paise, EXCLUDED.total_fee_paise),
+        pending_amount_paise = GREATEST(fees.total_fee_paise, EXCLUDED.total_fee_paise) - fees.paid_amount_paise,
+        updated_at = clock_timestamp();
+
+    -- 3. If course has a fee, create initial fee_items entry if none exists
+    IF v_fee_amount > 0 THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM fee_items WHERE student_id = NEW.id AND deleted_at IS NULL
+        ) THEN
+            INSERT INTO fee_items (
+                student_id, enrollment_id, label, amount_paise, paid_amount_paise, status, due_date, created_at, updated_at
+            ) VALUES (
+                NEW.id, v_enr_id, coalesce(v_course.name, 'Course Fee') || ' - Admission Fee',
+                v_fee_amount, 0, 'unpaid', coalesce(NEW.admission_date, CURRENT_DATE) + 30, clock_timestamp(), clock_timestamp()
+            );
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_student_auto_enroll_and_fee ON students;
+CREATE TRIGGER trg_student_auto_enroll_and_fee
+AFTER INSERT ON students
+FOR EACH ROW EXECUTE FUNCTION trg_student_auto_enroll_and_fee();
 
 
 -- =============================================================================
@@ -913,9 +978,28 @@ CREATE POLICY p_announcements_admin ON announcements
     USING (is_admin())
     WITH CHECK (is_admin());
 
-CREATE POLICY p_announcements_user_select ON announcements
+CREATE POLICY p_announcements_teacher_select ON announcements
     FOR SELECT TO authenticated
-    USING (retracted_at IS NULL);
+    USING (
+        is_teacher()
+        AND retracted_at IS NULL
+        AND audience_type = 'teachers'
+    );
+
+CREATE POLICY p_announcements_student_select ON announcements
+    FOR SELECT TO authenticated
+    USING (
+        is_student()
+        AND retracted_at IS NULL
+        AND EXISTS (
+            SELECT 1 FROM notifications n
+            WHERE n.announcement_id = announcements.id
+              AND (
+                  (n.recipient_type = 'student' AND n.recipient_id = current_student_id())
+                  OR n.user_id = auth.uid()
+              )
+        )
+    );
 
 -- 6.7. timetables
 CREATE POLICY p_timetables_admin ON timetables

@@ -79,15 +79,18 @@ CREATE TRIGGER trg_check_batch_semester_dates
 
 ALTER TABLE batch_semesters ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY p_batch_semesters_all ON batch_semesters
+DROP POLICY IF EXISTS p_batch_semesters_all ON batch_semesters;
+DROP POLICY IF EXISTS p_batch_semesters_select ON batch_semesters;
+DROP POLICY IF EXISTS p_batch_semesters_admin_all ON batch_semesters;
+
+CREATE POLICY p_batch_semesters_select ON batch_semesters
+    FOR SELECT TO authenticated
+    USING (true);
+
+CREATE POLICY p_batch_semesters_admin_all ON batch_semesters
     FOR ALL TO authenticated
-    USING (true)
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
-        )
-    );
+    USING (is_admin())
+    WITH CHECK (is_admin());
 
 -- =============================================================================
 -- 4. attendance_sessions: Add semester_no & Auto-Assignment Trigger
@@ -162,6 +165,10 @@ RETURNS TABLE (
     inconsistent_session_count int
 ) AS $$
 BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can audit batch semester dates.';
+    END IF;
+
     RETURN QUERY
     SELECT 
         b.id,
@@ -291,9 +298,9 @@ BEGIN
     END IF;
 
     -- Get semester date boundaries
-    SELECT start_date, end_date INTO v_sem_start, v_sem_end
-    FROM batch_semesters
-    WHERE batch_id = v_batch_id AND semester_no = v_target_sem;
+    SELECT bs.start_date, bs.end_date INTO v_sem_start, v_sem_end
+    FROM batch_semesters bs
+    WHERE bs.batch_id = v_batch_id AND bs.semester_no = v_target_sem;
 
     IF v_sem_start IS NULL THEN
         v_sem_start := v_enrolled_on;
@@ -564,7 +571,8 @@ BEGIN
 
     RETURN jsonb_build_object('success', true, 'alerts_sent', v_alerts_sent);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- =============================================================================
 -- 10. preview_semester_promotion(batch_id) & promote_semester(...)
@@ -579,6 +587,10 @@ DECLARE
     v_below_count int := 0;
     v_total_count int := 0;
 BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Administrator privilege required to preview semester promotion.';
+    END IF;
+
     SELECT b.*, c.name AS course_name, c.id AS c_id
     INTO v_b
     FROM batches b
@@ -639,7 +651,8 @@ BEGIN
         'students', v_students
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION promote_semester(
     p_batch_id bigint,
@@ -662,7 +675,7 @@ BEGIN
     -- Admin guard
     IF NOT EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
+        WHERE profiles.user_id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
     ) THEN
         RAISE EXCEPTION 'Access denied. Only administrators can execute semester promotions.';
     END IF;
@@ -777,7 +790,8 @@ BEGIN
         'students_notified', v_promoted_count
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- =============================================================================
 -- 11. Admin function: Edit Semester Dates with Audit Log & Session Validation
@@ -796,7 +810,7 @@ DECLARE
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
+        WHERE profiles.user_id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
     ) THEN
         RAISE EXCEPTION 'Access denied. Only administrators can modify semester dates.';
     END IF;
@@ -843,7 +857,8 @@ BEGIN
 
     RETURN jsonb_build_object('success', true, 'affected_sessions', v_sessions_outside);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- =============================================================================
 -- 12. Admin function: Modify Session Semester with Audit Log
@@ -859,7 +874,7 @@ DECLARE
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
+        WHERE profiles.user_id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
     ) THEN
         RAISE EXCEPTION 'Access denied. Only administrators can alter session semester mappings.';
     END IF;
@@ -890,7 +905,8 @@ BEGIN
 
     RETURN jsonb_build_object('success', true, 'session_id', p_session_id, 'new_semester', p_new_semester_no);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- =============================================================================
 -- 13. Reports and Views with Semester Parameter
@@ -923,6 +939,10 @@ RETURNS TABLE (
     recover_sessions int
 ) AS $$
 BEGIN
+    IF NOT is_admin() AND NOT is_teacher() THEN
+        RAISE EXCEPTION 'Access denied. Administrator or teacher privilege required to view shortage reports.';
+    END IF;
+
     RETURN QUERY
     WITH active_studs AS (
         SELECT 
@@ -972,7 +992,8 @@ BEGIN
     ) att ON true
     WHERE p_band = 'all' OR coalesce(att.status_band, 'ok') = p_band;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+SET search_path = public, pg_temp;
 
 -- =============================================================================
 -- 14. Grants
@@ -980,7 +1001,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 GRANT EXECUTE ON FUNCTION course_duration_years(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION student_attendance_summary(bigint, bigint, int) TO authenticated;
 GRANT EXECUTE ON FUNCTION student_semesters_summary(bigint, bigint) TO authenticated;
-GRANT EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) TO authenticated;
+REVOKE EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) TO service_role;
 GRANT EXECUTE ON FUNCTION preview_semester_promotion(bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION promote_semester(bigint, date, date) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_update_batch_semester_dates(bigint, int, date, date, text) TO authenticated;

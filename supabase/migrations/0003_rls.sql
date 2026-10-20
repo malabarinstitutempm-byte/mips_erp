@@ -513,9 +513,9 @@ CREATE POLICY p_attendance_sessions_student_select ON attendance_sessions
         is_student()
         AND status IN ('submitted', 'locked')
         AND EXISTS (
-            SELECT 1 FROM attendance_records ar
-            WHERE ar.session_id = attendance_sessions.id
-              AND ar.student_id = current_student_id()
+            SELECT 1 FROM students st
+            WHERE st.id = current_student_id()
+              AND st.batch_id = attendance_sessions.batch_id
         )
     );
 

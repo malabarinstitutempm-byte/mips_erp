@@ -60,89 +60,14 @@ CREATE OR REPLACE FUNCTION confirm_no_class(
     p_reason text DEFAULT 'Confirmed no class'
 )
 RETURNS jsonb AS $$
-DECLARE
-    v_session_id bigint;
-    v_existing attendance_sessions%ROWTYPE;
 BEGIN
-    IF NOT is_admin() AND NOT is_teacher() THEN
-        RAISE EXCEPTION 'Access denied. Administrator or assigned teacher privilege required.';
-    END IF;
-
-    -- Verify batch exists
-    IF NOT EXISTS (SELECT 1 FROM batches WHERE id = p_batch_id AND deleted_at IS NULL) THEN
-        RAISE EXCEPTION 'Active batch ID % not found.', p_batch_id;
-    END IF;
-
-    -- Enforce teacher assignment validation
-    IF is_teacher() AND NOT is_admin() THEN
-        IF NOT EXISTS (
-            SELECT 1 FROM teacher_assignments
-            WHERE teacher_id = current_teacher_id()
-              AND batch_id = p_batch_id
-              AND active = true
-        ) THEN
-            RAISE EXCEPTION 'Access denied: You are not assigned to Batch ID %.', p_batch_id;
-        END IF;
-    END IF;
-
-    -- Check if session already exists and is submitted/locked
-    SELECT * INTO v_existing
-    FROM attendance_sessions
-    WHERE batch_id = p_batch_id AND date = p_date AND slot = p_slot;
-
-    IF FOUND THEN
-        IF is_teacher() AND NOT is_admin() AND v_existing.status IN ('submitted', 'locked') THEN
-            RAISE EXCEPTION 'Cannot declare no-class: Session for % slot % is already % and locked.', p_date, p_slot, v_existing.status;
-        END IF;
-    END IF;
-
-    INSERT INTO attendance_sessions (
-        batch_id,
-        date,
-        slot,
-        status,
-        marked_by,
-        submitted_at,
-        created_at,
-        updated_at
-    ) VALUES (
+    RETURN submit_attendance(
         p_batch_id,
         p_date,
         p_slot,
-        'no_class',
-        current_teacher_id(),
-        clock_timestamp(),
-        clock_timestamp(),
-        clock_timestamp()
-    )
-    ON CONFLICT (batch_id, date, slot)
-    DO UPDATE SET
-        status = 'no_class',
-        submitted_at = clock_timestamp(),
-        updated_at = clock_timestamp()
-    RETURNING id INTO v_session_id;
-
-    -- Delete any individual records attached so they are not counted
-    DELETE FROM attendance_records WHERE session_id = v_session_id;
-
-    -- Structured Audit Logging
-    INSERT INTO audit_log (table_name, record_id, action, new_data, actor, created_at)
-    VALUES (
-        'attendance_sessions',
-        v_session_id::text,
-        'UPDATE',
-        jsonb_build_object('batch_id', p_batch_id, 'date', p_date, 'slot', p_slot, 'status', 'no_class', 'reason', p_reason),
-        auth.uid(),
-        clock_timestamp()
-    );
-
-    RETURN jsonb_build_object(
-        'success', true,
-        'session_id', v_session_id,
-        'batch_id', p_batch_id,
-        'date', p_date,
-        'slot', p_slot,
-        'status', 'no_class'
+        '[]'::jsonb,
+        true,
+        p_reason
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
@@ -161,6 +86,7 @@ DECLARE
     v_anon_policies text[];
     v_definer_without_searchpath text[];
     v_audit_update_delete_count int;
+    v_anon_public_functions text[];
     v_result jsonb;
 BEGIN
     -- 1. Check all public user tables have row security enabled
@@ -199,6 +125,17 @@ BEGIN
       AND privilege_type IN ('UPDATE', 'DELETE')
       AND grantee IN ('anon', 'authenticated', 'PUBLIC');
 
+    -- 5. Check no functions in schema public are executable by anon or PUBLIC
+    SELECT array_agg(DISTINCT p.proname::text)
+    INTO v_anon_public_functions
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND (
+          has_function_privilege('anon', p.oid, 'EXECUTE')
+          OR has_function_privilege('public', p.oid, 'EXECUTE')
+      );
+
     v_result := jsonb_build_object(
         'timestamp', clock_timestamp(),
         'rls_coverage', jsonb_build_object(
@@ -216,6 +153,10 @@ BEGIN
         'audit_immutability', jsonb_build_object(
             'status', CASE WHEN v_audit_update_delete_count = 0 THEN 'PASS' ELSE 'FAIL' END,
             'violations_count', v_audit_update_delete_count
+        ),
+        'anon_public_functions', jsonb_build_object(
+            'status', CASE WHEN v_anon_public_functions IS NULL THEN 'PASS' ELSE 'FAIL' END,
+            'violating_functions', coalesce(v_anon_public_functions, ARRAY[]::text[])
         )
     );
 

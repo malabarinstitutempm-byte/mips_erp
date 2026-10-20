@@ -795,10 +795,12 @@ CREATE OR REPLACE FUNCTION soft_delete(
 )
 RETURNS jsonb AS $$
 DECLARE
+    v_forbidden_tables text[] := ARRAY[
+        'payments', 'receipts', 'fees', 'marks', 'results', 'exam_subjects'
+    ];
     v_allowed_tables text[] := ARRAY[
-        'courses', 'course_subjects', 'batches', 'students', 'fees',
-        'payments', 'receipts', 'exams', 'exam_subjects', 'marks',
-        'results', 'teachers', 'academic_years', 'universities',
+        'courses', 'course_subjects', 'batches', 'students',
+        'exams', 'teachers', 'academic_years', 'universities',
         'document_templates', 'generated_documents'
     ];
     v_table text;
@@ -809,6 +811,10 @@ BEGIN
     END IF;
 
     v_table := lower(trim(p_table));
+
+    IF v_table = ANY(v_forbidden_tables) THEN
+        RAISE EXCEPTION 'Table "%" cannot be soft deleted. Direct soft deletion of financial and academic records is forbidden.', v_table;
+    END IF;
 
     IF NOT (v_table = ANY(v_allowed_tables)) THEN
         RAISE EXCEPTION 'Invalid table "%" specified for soft delete.', p_table;
@@ -842,10 +848,12 @@ CREATE OR REPLACE FUNCTION restore_soft_delete(
 )
 RETURNS jsonb AS $$
 DECLARE
+    v_forbidden_tables text[] := ARRAY[
+        'payments', 'receipts', 'fees', 'marks', 'results', 'exam_subjects'
+    ];
     v_allowed_tables text[] := ARRAY[
-        'courses', 'course_subjects', 'batches', 'students', 'fees',
-        'payments', 'receipts', 'exams', 'exam_subjects', 'marks',
-        'results', 'teachers', 'academic_years', 'universities',
+        'courses', 'course_subjects', 'batches', 'students',
+        'exams', 'teachers', 'academic_years', 'universities',
         'document_templates', 'generated_documents'
     ];
     v_table text;
@@ -856,6 +864,10 @@ BEGIN
     END IF;
 
     v_table := lower(trim(p_table));
+
+    IF v_table = ANY(v_forbidden_tables) THEN
+        RAISE EXCEPTION 'Table "%" cannot be restored via generic soft restore.', v_table;
+    END IF;
 
     IF NOT (v_table = ANY(v_allowed_tables)) THEN
         RAISE EXCEPTION 'Invalid table "%" specified for restore.', p_table;

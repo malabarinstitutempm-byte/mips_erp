@@ -17,17 +17,17 @@ ALTER TABLE courses
     ADD COLUMN IF NOT EXISTS attendance_basis text NOT NULL DEFAULT 'semester' 
     CHECK (attendance_basis IN ('semester', 'year', 'none'));
 
--- Data migration: skill courses become 'single' with 'none' attendance; others become 'semester'
+-- Data migration: skill courses become 'single' with 'none' attendance; others default to 'semester'
+-- Done BEFORE batch sync triggers run
 UPDATE courses
 SET structure = CASE 
         WHEN course_type = 'skill' THEN 'single'
-        ELSE 'semester'
+        ELSE coalesce(structure, 'semester')
     END,
     attendance_basis = CASE 
         WHEN course_type = 'skill' THEN 'none'
-        ELSE 'semester'
-    END
-WHERE structure IS NULL OR structure = 'semester';
+        ELSE coalesce(attendance_basis, 'semester')
+    END;
 
 -- Helper: total period count for a course
 CREATE OR REPLACE FUNCTION course_periods_count(p_course_id bigint)
@@ -51,7 +51,8 @@ BEGIN
         RETURN GREATEST(1, v_dur_years * 2);
     END IF;
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE
+SET search_path = public, pg_temp;
 
 -- Trigger: Course structure cannot be changed once exams, marks or attendance sessions exist
 CREATE OR REPLACE FUNCTION check_course_structure_locked()
@@ -77,7 +78,8 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_check_course_structure_locked ON courses;
 CREATE TRIGGER trg_check_course_structure_locked
@@ -89,8 +91,16 @@ CREATE TRIGGER trg_check_course_structure_locked
 -- 2. GENERALIZE BATCH SEMESTERS -> BATCH PERIODS
 -- -----------------------------------------------------------------------------
 
--- Drop dependent view if exists from earlier attempts
-DROP VIEW IF EXISTS batch_semesters CASCADE;
+-- Drop dependent view if exists from earlier attempts (only if it is a view, not a base table)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views 
+        WHERE table_schema = 'public' AND table_name = 'batch_semesters'
+    ) THEN
+        EXECUTE 'DROP VIEW batch_semesters CASCADE';
+    END IF;
+END $$;
 
 DO $$
 BEGIN
@@ -154,8 +164,10 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
+DROP TRIGGER IF EXISTS trg_check_batch_semester_dates ON batch_periods;
 DROP TRIGGER IF EXISTS trg_check_batch_period_dates ON batch_periods;
 CREATE TRIGGER trg_check_batch_period_dates
     BEFORE INSERT OR UPDATE OF start_date, end_date ON batch_periods
@@ -163,16 +175,19 @@ CREATE TRIGGER trg_check_batch_period_dates
 
 ALTER TABLE batch_periods ENABLE ROW LEVEL SECURITY;
 
+-- Section C Security Requirement: SELECT for authenticated, writes for admin only
 DROP POLICY IF EXISTS p_batch_periods_all ON batch_periods;
-CREATE POLICY p_batch_periods_all ON batch_periods
+DROP POLICY IF EXISTS p_batch_periods_select ON batch_periods;
+DROP POLICY IF EXISTS p_batch_periods_admin_all ON batch_periods;
+
+CREATE POLICY p_batch_periods_select ON batch_periods
+    FOR SELECT TO authenticated
+    USING (true);
+
+CREATE POLICY p_batch_periods_admin_all ON batch_periods
     FOR ALL TO authenticated
-    USING (true)
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() AND profiles.role = 'admin' AND profiles.active = true
-        )
-    );
+    USING (is_admin())
+    WITH CHECK (is_admin());
 
 -- Backward-compatible temporary view with security_invoker = true
 CREATE OR REPLACE VIEW batch_semesters
@@ -213,7 +228,8 @@ BEGIN
     END IF;
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_batch_semesters_io ON batch_semesters;
 CREATE TRIGGER trg_batch_semesters_io
@@ -225,7 +241,8 @@ CREATE TRIGGER trg_batch_semesters_io
 -- 3. BATCHES: Synchronize current_semester & current_year Derivation
 -- -----------------------------------------------------------------------------
 
--- Drop generated column restriction on current_year so it supports both semester and year workflows
+-- Compute batches.current_year from current_semester before dropping the generated column;
+-- no data may change meaning.
 DO $$
 BEGIN
     IF EXISTS (
@@ -234,7 +251,11 @@ BEGIN
           AND column_name = 'current_year' AND is_generated = 'ALWAYS'
     ) THEN
         ALTER TABLE batches DROP COLUMN current_year;
-        ALTER TABLE batches ADD COLUMN current_year int NOT NULL DEFAULT 1 CHECK (current_year >= 1);
+        ALTER TABLE batches ADD COLUMN current_year int;
+        UPDATE batches SET current_year = GREATEST(1, ceil(coalesce(current_semester, 1)::numeric / 2.0)::int);
+        ALTER TABLE batches ALTER COLUMN current_year SET NOT NULL;
+        ALTER TABLE batches ALTER COLUMN current_year SET DEFAULT 1;
+        ALTER TABLE batches ADD CONSTRAINT chk_batches_current_year CHECK (current_year >= 1);
     END IF;
 END $$;
 
@@ -247,7 +268,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_structure text;
 BEGIN
-    SELECT structure INTO v_structure FROM courses WHERE id = NEW.course_id;
+    SELECT coalesce(structure, 'semester') INTO v_structure FROM courses WHERE id = NEW.course_id;
     
     IF v_structure = 'year' THEN
         -- For year-wise courses: current_year is primary
@@ -261,7 +282,8 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS trg_sync_batch_periods ON batches;
 CREATE TRIGGER trg_sync_batch_periods
@@ -270,6 +292,35 @@ CREATE TRIGGER trg_sync_batch_periods
 
 -- Sync existing batches
 UPDATE batches SET current_semester = current_semester;
+
+-- Automatically create the first batch_periods row when a batch is created
+CREATE OR REPLACE FUNCTION trg_batch_create_first_period()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_structure text;
+    v_pt text;
+BEGIN
+    SELECT coalesce(structure, 'semester') INTO v_structure FROM courses WHERE id = NEW.course_id;
+    
+    IF v_structure = 'year' THEN
+        v_pt := 'year';
+    ELSE
+        v_pt := 'semester';
+    END IF;
+
+    INSERT INTO batch_periods (batch_id, period_type, period_no, start_date, end_date, status)
+    VALUES (NEW.id, v_pt, 1, coalesce(NEW.start_date, CURRENT_DATE), NULL, 'active')
+    ON CONFLICT (batch_id, period_type, period_no) DO NOTHING;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_batch_create_first_period ON batches;
+CREATE TRIGGER trg_batch_create_first_period
+    AFTER INSERT ON batches
+    FOR EACH ROW EXECUTE FUNCTION trg_batch_create_first_period();
 
 
 -- -----------------------------------------------------------------------------
@@ -299,9 +350,7 @@ CREATE INDEX IF NOT EXISTS idx_exams_period
 UPDATE exams
 SET period_type = 'semester',
     period_no = CASE
-        -- Direct digits '1', '2', etc.
         WHEN trim(semester) ~ '^[0-9]+$' THEN trim(semester)::int
-        -- Words: Semester 1, Sem 2, S1
         WHEN trim(semester) ~* '^(sem(ester)?|s)[\s\-_]*1$' THEN 1
         WHEN trim(semester) ~* '^(sem(ester)?|s)[\s\-_]*2$' THEN 2
         WHEN trim(semester) ~* '^(sem(ester)?|s)[\s\-_]*3$' THEN 3
@@ -310,7 +359,6 @@ SET period_type = 'semester',
         WHEN trim(semester) ~* '^(sem(ester)?|s)[\s\-_]*6$' THEN 6
         WHEN trim(semester) ~* '^(sem(ester)?|s)[\s\-_]*7$' THEN 7
         WHEN trim(semester) ~* '^(sem(ester)?|s)[\s\-_]*8$' THEN 8
-        -- Roman Numerals: I, II, III, IV, V, VI, VII, VIII
         WHEN trim(semester) ~* '^(sem(ester)?[\s\-_]*)?i$' THEN 1
         WHEN trim(semester) ~* '^(sem(ester)?[\s\-_]*)?ii$' THEN 2
         WHEN trim(semester) ~* '^(sem(ester)?[\s\-_]*)?iii$' THEN 3
@@ -402,7 +450,7 @@ BEGIN
         LIMIT 1;
     END IF;
 
-    -- 3. Batch current period fallback
+    -- 3. Fallback to current batch counter
     IF v_period_no IS NULL THEN
         IF v_period_type = 'year' THEN
             SELECT current_year INTO v_period_no FROM batches WHERE id = NEW.batch_id;
@@ -421,8 +469,10 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
+DROP TRIGGER IF EXISTS trg_attendance_sessions_assign_semester ON attendance_sessions;
 DROP TRIGGER IF EXISTS trg_assign_attendance_semester ON attendance_sessions;
 DROP TRIGGER IF EXISTS trg_assign_attendance_period ON attendance_sessions;
 CREATE TRIGGER trg_assign_attendance_period
@@ -438,166 +488,403 @@ UPDATE attendance_alert_state
 SET period_no = semester_no
 WHERE period_no IS NULL;
 
--- Update primary key on attendance_alert_state
+-- Update primary key on attendance_alert_state to match (student_id, enrollment_id, period_type, period_no)
 DO $$
 BEGIN
     ALTER TABLE attendance_alert_state DROP CONSTRAINT IF EXISTS attendance_alert_state_pkey;
     ALTER TABLE attendance_alert_state ADD PRIMARY KEY (student_id, enrollment_id, period_type, period_no);
 EXCEPTION WHEN OTHERS THEN
-    -- In case of existing duplicates, handle gracefully
     NULL;
 END $$;
 
 
 -- -----------------------------------------------------------------------------
--- 8. ATTENDANCE SUMMARY FUNCTION (PERIOD AWARE)
+-- 8. REWRITE student_attendance_summary ONCE (PERIOD-AWARE, SEMESTER OR YEAR)
 -- -----------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint);
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint);
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int);
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int, text);
+DROP FUNCTION IF EXISTS student_attendance_summary(bigint, bigint, int, text, int);
 
 CREATE OR REPLACE FUNCTION student_attendance_summary(
     p_student_id bigint,
-    p_enrollment_id bigint,
+    p_enrollment_id bigint DEFAULT NULL,
     p_period_no int DEFAULT NULL,
-    p_period_type text DEFAULT NULL
+    p_period_type text DEFAULT NULL,
+    p_semester_no int DEFAULT NULL
 )
 RETURNS TABLE (
     student_id bigint,
     enrollment_id bigint,
-    batch_id bigint,
     period_type text,
     period_no int,
     semester_no int,
     year_no int,
-    total_sessions int,
-    attended_sessions int,
-    late_sessions int,
-    absent_sessions int,
+    sessions_held int,
+    present_count int,
+    late_count int,
+    absent_count int,
+    leave_count int,
+    weighted_present numeric(10,2),
     percentage numeric(5,2),
-    band text,
-    is_shortage boolean
+    status_band text,
+    can_miss_more int,
+    recover_sessions int,
+    absent_impact_pct numeric(5,2),
+    late_impact_pct numeric(5,2)
 ) AS $$
 DECLARE
+    v_enr_id bigint;
     v_batch_id bigint;
+    v_enrolled_on date;
     v_course_id bigint;
+    v_b_curr_sem int;
+    v_b_curr_year int;
     v_att_basis text;
+    v_course_type text;
     v_type text;
     v_target_period int;
-    v_curr_period int;
+    v_sem_no int;
+    v_year_no int;
     v_period_start date;
     v_period_end date;
-    v_total int := 0;
+
+    v_min_pct numeric := 75.0;
+    v_rem_pct numeric := 80.0;
+    v_late_wt numeric := 0.5;
+    v_leave_mode text := 'excluded';
+    v_setting text;
+
+    v_total_held int := 0;
     v_present int := 0;
     v_late int := 0;
     v_absent int := 0;
+    v_leave int := 0;
+    v_effective_held int := 0;
+    v_weighted numeric(10,2) := 0.0;
     v_pct numeric(5,2) := 100.0;
-    v_band text := 'green';
+    v_band text := 'ok';
+    v_miss int := 0;
+    v_recover int := 0;
+    v_absent_impact numeric(5,2) := 0.0;
+    v_late_impact numeric(5,2) := 0.0;
 BEGIN
-    SELECT e.batch_id, b.course_id, b.current_semester, b.current_year, coalesce(c.attendance_basis, 'semester')
-    INTO v_batch_id, v_course_id, v_curr_period, v_curr_period, v_att_basis
-    FROM enrollments e
-    JOIN batches b ON b.id = e.batch_id
-    JOIN courses c ON c.id = b.course_id
-    WHERE e.id = p_enrollment_id AND e.student_id = p_student_id;
+    IF is_student() AND p_student_id != current_student_id() THEN
+        RAISE EXCEPTION 'Access denied. You can only view your own attendance summary.';
+    END IF;
 
-    IF NOT FOUND THEN RETURN; END IF;
+    -- Resolve student enrollment
+    IF p_enrollment_id IS NOT NULL THEN
+        SELECT se.id, se.batch_id, se.enrolled_on, b.course_id, b.current_semester, b.current_year,
+               coalesce(c.attendance_basis, c.structure, 'semester') AS att_basis,
+               c.course_type
+        INTO v_enr_id, v_batch_id, v_enrolled_on, v_course_id, v_b_curr_sem, v_b_curr_year, v_att_basis, v_course_type
+        FROM student_enrollments se
+        JOIN batches b ON b.id = se.batch_id
+        JOIN courses c ON c.id = b.course_id
+        WHERE se.id = p_enrollment_id AND se.student_id = p_student_id;
+    END IF;
 
+    IF v_batch_id IS NULL THEN
+        SELECT se.id, se.batch_id, se.enrolled_on, b.course_id, b.current_semester, b.current_year,
+               coalesce(c.attendance_basis, c.structure, 'semester') AS att_basis,
+               c.course_type
+        INTO v_enr_id, v_batch_id, v_enrolled_on, v_course_id, v_b_curr_sem, v_b_curr_year, v_att_basis, v_course_type
+        FROM student_enrollments se
+        JOIN batches b ON b.id = se.batch_id
+        JOIN courses c ON c.id = b.course_id
+        WHERE se.student_id = p_student_id
+          AND (se.kind = 'primary' OR c.course_type = 'primary')
+          AND se.status = 'active'
+          AND se.deleted_at IS NULL
+        ORDER BY se.id DESC LIMIT 1;
+    END IF;
+
+    IF v_batch_id IS NULL THEN
+        SELECT NULL::bigint, s.batch_id, coalesce(s.admission_date, CURRENT_DATE), b.course_id, b.current_semester, b.current_year,
+               coalesce(c.attendance_basis, c.structure, 'semester') AS att_basis,
+               c.course_type
+        INTO v_enr_id, v_batch_id, v_enrolled_on, v_course_id, v_b_curr_sem, v_b_curr_year, v_att_basis, v_course_type
+        FROM students s
+        JOIN batches b ON b.id = s.batch_id
+        JOIN courses c ON c.id = b.course_id
+        WHERE s.id = p_student_id;
+    END IF;
+
+    IF v_batch_id IS NULL THEN RETURN; END IF;
+
+    -- Determine period type & number
     v_type := coalesce(p_period_type, v_att_basis, 'semester');
     IF v_type NOT IN ('semester', 'year') THEN v_type := 'semester'; END IF;
 
-    IF p_period_no IS NOT NULL THEN
-        v_target_period := p_period_no;
-    ELSE
+    v_target_period := coalesce(p_period_no, p_semester_no);
+    IF v_target_period IS NULL THEN
         IF v_type = 'year' THEN
-            SELECT current_year INTO v_target_period FROM batches WHERE id = v_batch_id;
+            v_target_period := coalesce(v_b_curr_year, 1);
         ELSE
-            SELECT current_semester INTO v_target_period FROM batches WHERE id = v_batch_id;
+            v_target_period := coalesce(v_b_curr_sem, 1);
         END IF;
     END IF;
-    v_target_period := coalesce(v_target_period, 1);
 
-    -- Get period date window
-    SELECT start_date, end_date INTO v_period_start, v_period_end
-    FROM batch_periods
-    WHERE batch_id = v_batch_id AND period_type = v_type AND period_no = v_target_period;
-
-    -- Aggregate sessions
-    SELECT count(DISTINCT s.id) INTO v_total
-    FROM attendance_sessions s
-    WHERE s.batch_id = v_batch_id
-      AND s.period_type = v_type
-      AND (s.period_no = v_target_period OR (v_period_start IS NOT NULL AND s.date >= v_period_start AND (v_period_end IS NULL OR s.date <= v_period_end)));
-
-    IF v_total > 0 THEN
-        -- Present count
-        SELECT count(*) INTO v_present
-        FROM attendance a
-        JOIN attendance_sessions s ON s.id = a.session_id
-        WHERE a.student_id = p_student_id
-          AND s.batch_id = v_batch_id
-          AND s.period_type = v_type
-          AND (s.period_no = v_target_period OR (v_period_start IS NOT NULL AND s.date >= v_period_start AND (v_period_end IS NULL OR s.date <= v_period_end)))
-          AND a.status = 'present';
-
-        -- Late count
-        SELECT count(*) INTO v_late
-        FROM attendance a
-        JOIN attendance_sessions s ON s.id = a.session_id
-        WHERE a.student_id = p_student_id
-          AND s.batch_id = v_batch_id
-          AND s.period_type = v_type
-          AND (s.period_no = v_target_period OR (v_period_start IS NOT NULL AND s.date >= v_period_start AND (v_period_end IS NULL OR s.date <= v_period_end)))
-          AND a.status = 'late';
-
-        -- Absent count
-        SELECT count(*) INTO v_absent
-        FROM attendance a
-        JOIN attendance_sessions s ON s.id = a.session_id
-        WHERE a.student_id = p_student_id
-          AND s.batch_id = v_batch_id
-          AND s.period_type = v_type
-          AND (s.period_no = v_target_period OR (v_period_start IS NOT NULL AND s.date >= v_period_start AND (v_period_end IS NULL OR s.date <= v_period_end)))
-          AND a.status = 'absent';
-
-        -- Late weight = 0.5 present
-        v_pct := round((((v_present::numeric + (v_late::numeric * 0.5)) / v_total::numeric) * 100.0), 2);
-        IF v_pct > 100.0 THEN v_pct := 100.0; END IF;
+    IF v_type = 'year' THEN
+        v_year_no := v_target_period;
+        v_sem_no := v_target_period * 2;
+    ELSE
+        v_sem_no := v_target_period;
+        v_year_no := ceil(v_target_period::numeric / 2.0)::int;
     END IF;
 
-    -- Band computation
-    IF v_pct >= 80.0 THEN
-        v_band := 'green';
-    ELSIF v_pct >= 75.0 THEN
-        v_band := 'amber';
+    -- Read configured settings
+    SELECT value INTO v_setting FROM settings WHERE key = 'min_attendance_percent';
+    IF v_setting IS NOT NULL AND v_setting ~ '^[0-9]+(\.[0-9]+)?$' THEN v_min_pct := v_setting::numeric; END IF;
+
+    SELECT value INTO v_setting FROM settings WHERE key = 'reminder_attendance_percent';
+    IF v_setting IS NOT NULL AND v_setting ~ '^[0-9]+(\.[0-9]+)?$' THEN v_rem_pct := v_setting::numeric; END IF;
+
+    SELECT value INTO v_setting FROM settings WHERE key = 'late_weight';
+    IF v_setting IS NOT NULL AND v_setting ~ '^[0-9]+(\.[0-9]+)?$' THEN v_late_wt := v_setting::numeric; END IF;
+
+    SELECT value INTO v_setting FROM settings WHERE key = 'leave_handling';
+    IF v_setting IS NOT NULL THEN v_leave_mode := lower(trim(v_setting)); END IF;
+
+    -- Get period date boundaries
+    SELECT bp.start_date, bp.end_date INTO v_period_start, v_period_end
+    FROM batch_periods bp
+    WHERE bp.batch_id = v_batch_id AND bp.period_type = v_type AND bp.period_no = v_target_period;
+
+    IF v_period_start IS NULL THEN
+        v_period_start := v_enrolled_on;
+    END IF;
+
+    -- Aggregate total held sessions
+    SELECT count(*)::int INTO v_total_held
+    FROM attendance_sessions s
+    WHERE s.batch_id = v_batch_id
+      AND s.status IN ('submitted', 'locked')
+      AND s.date >= coalesce(v_enrolled_on, '1970-01-01'::date)
+      AND (
+          (s.period_type = v_type AND s.period_no = v_target_period)
+          OR (s.date >= v_period_start AND (v_period_end IS NULL OR s.date <= v_period_end))
+          OR (v_type = 'semester' AND s.semester_no = v_sem_no)
+      );
+
+    -- Tally student attendance records
+    SELECT 
+        count(*) FILTER (WHERE ar.status = 'present')::int,
+        count(*) FILTER (WHERE ar.status = 'late')::int,
+        count(*) FILTER (WHERE ar.status = 'absent')::int,
+        count(*) FILTER (WHERE ar.status = 'leave')::int
+    INTO v_present, v_late, v_absent, v_leave
+    FROM attendance_records ar
+    JOIN attendance_sessions s ON s.id = ar.session_id
+    WHERE ar.student_id = p_student_id
+      AND s.batch_id = v_batch_id
+      AND s.status IN ('submitted', 'locked')
+      AND s.date >= coalesce(v_enrolled_on, '1970-01-01'::date)
+      AND (
+          (s.period_type = v_type AND s.period_no = v_target_period)
+          OR (s.date >= v_period_start AND (v_period_end IS NULL OR s.date <= v_period_end))
+          OR (v_type = 'semester' AND s.semester_no = v_sem_no)
+      );
+
+    -- Compute effective sessions & weighted percentage
+    IF v_leave_mode = 'counted_present' THEN
+        v_effective_held := v_total_held;
+        v_weighted := v_present + v_leave + (v_late * v_late_wt);
+    ELSIF v_leave_mode = 'counted_absent' THEN
+        v_effective_held := v_total_held;
+        v_weighted := v_present + (v_late * v_late_wt);
     ELSE
-        v_band := 'red';
+        -- Default: excluded from total
+        v_effective_held := GREATEST(0, v_total_held - v_leave);
+        v_weighted := v_present + (v_late * v_late_wt);
+    END IF;
+
+    IF v_effective_held > 0 THEN
+        v_pct := round((v_weighted / v_effective_held::numeric) * 100.0, 2);
+        IF v_pct > 100.0 THEN v_pct := 100.0; END IF;
+    ELSE
+        v_pct := 100.0;
+    END IF;
+
+    -- Band classification
+    IF v_pct < v_min_pct THEN
+        v_band := 'shortage';
+    ELSIF v_pct < v_rem_pct THEN
+        v_band := 'low';
+    ELSE
+        v_band := 'ok';
+    END IF;
+
+    -- Calculate can_miss_more & recover_sessions
+    IF v_effective_held > 0 THEN
+        IF v_pct >= v_min_pct THEN
+            v_miss := floor((v_weighted - (v_min_pct / 100.0) * v_effective_held) / (v_min_pct / 100.0))::int;
+            v_miss := GREATEST(0, v_miss);
+            v_recover := 0;
+        ELSE
+            v_miss := 0;
+            v_recover := ceil(((v_min_pct / 100.0) * v_effective_held - v_weighted) / (1.0 - (v_min_pct / 100.0)))::int;
+            v_recover := GREATEST(1, v_recover);
+        END IF;
+
+        v_absent_impact := round((1.0 / (v_effective_held + 1)::numeric) * 100.0, 2);
+        v_late_impact := round(((1.0 - v_late_wt) / (v_effective_held + 1)::numeric) * 100.0, 2);
     END IF;
 
     RETURN QUERY SELECT
         p_student_id,
-        p_enrollment_id,
-        v_batch_id,
+        v_enr_id,
         v_type,
         v_target_period,
-        CASE WHEN v_type = 'semester' THEN v_target_period ELSE v_target_period * 2 END,
-        CASE WHEN v_type = 'year' THEN v_target_period ELSE ceil(v_target_period::numeric / 2.0)::int END,
-        v_total,
+        v_sem_no,
+        v_year_no,
+        v_effective_held,
         v_present,
         v_late,
         v_absent,
+        v_leave,
+        v_weighted,
         v_pct,
         v_band,
-        (v_pct < 75.0);
+        v_miss,
+        v_recover,
+        v_absent_impact,
+        v_late_impact;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+SET search_path = public, pg_temp;
 
 
 -- -----------------------------------------------------------------------------
--- 9. YEAR-WISE PROMOTION FUNCTION: promote_year
+-- 9. PERIOD-AWARE evaluate_attendance_bands
 -- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION evaluate_attendance_bands(
+    p_student_id bigint DEFAULT NULL,
+    p_batch_id bigint DEFAULT NULL
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_target_students bigint[];
+    v_sid bigint;
+    v_summary RECORD;
+    v_last_band text;
+    v_alerts_sent int := 0;
+    v_student_name text;
+    v_adm_no text;
+    v_enr_id bigint;
+    v_admin_user_id uuid;
+    v_period_type text;
+    v_period_no int;
+BEGIN
+    IF p_student_id IS NOT NULL THEN
+        SELECT ARRAY[id] INTO v_target_students
+        FROM students
+        WHERE id = p_student_id AND status = 'active' AND deleted_at IS NULL;
+        IF v_target_students IS NULL THEN
+            RETURN jsonb_build_object('success', true, 'alerts_sent', 0, 'message', 'Student is not active.');
+        END IF;
+    ELSIF p_batch_id IS NOT NULL THEN
+        SELECT coalesce(array_agg(s.id), ARRAY[]::bigint[])
+        INTO v_target_students
+        FROM students s
+        JOIN student_enrollments se ON se.student_id = s.id AND se.batch_id = p_batch_id AND se.status = 'active'
+        WHERE s.status = 'active' AND s.deleted_at IS NULL;
+    ELSE
+        RETURN jsonb_build_object('success', false, 'message', 'Either student_id or batch_id must be provided.');
+    END IF;
+
+    FOREACH v_sid IN ARRAY v_target_students
+    LOOP
+        SELECT * INTO v_summary FROM student_attendance_summary(v_sid) LIMIT 1;
+
+        IF v_summary.student_id IS NOT NULL THEN
+            v_enr_id := coalesce(v_summary.enrollment_id, 0);
+            v_period_type := coalesce(v_summary.period_type, 'semester');
+            v_period_no := coalesce(v_summary.period_no, 1);
+
+            SELECT last_band INTO v_last_band
+            FROM attendance_alert_state
+            WHERE student_id = v_sid AND enrollment_id = v_enr_id AND period_type = v_period_type AND period_no = v_period_no;
+
+            IF v_last_band IS NULL THEN
+                v_last_band := 'ok';
+            END IF;
+
+            IF v_summary.status_band != v_last_band THEN
+                SELECT name, admission_number INTO v_student_name, v_adm_no
+                FROM students WHERE id = v_sid;
+
+                IF v_summary.status_band = 'low' THEN
+                    INSERT INTO notifications (
+                        recipient_type, recipient_id, type, title, body, created_at
+                    ) VALUES (
+                        'student', v_sid, 'attendance_warning', 'Low attendance',
+                        format('Your %s %s attendance is currently %s%%. You can miss at most %s more session(s) before facing a shortage below 75%%.', 
+                               initcap(v_period_type), v_period_no, v_summary.percentage, v_summary.can_miss_more),
+                        clock_timestamp()
+                    );
+                    v_alerts_sent := v_alerts_sent + 1;
+
+                ELSIF v_summary.status_band = 'shortage' THEN
+                    INSERT INTO notifications (
+                        recipient_type, recipient_id, type, title, body, created_at
+                    ) VALUES (
+                        'student', v_sid, 'attendance_shortage', 'Attendance shortage',
+                        format('Your %s %s attendance is currently %s%% (below 75%%). You must attend the next %s consecutive session(s) to regain eligibility.', 
+                               initcap(v_period_type), v_period_no, v_summary.percentage, v_summary.recover_sessions),
+                        clock_timestamp()
+                    );
+
+                    SELECT user_id INTO v_admin_user_id FROM profiles WHERE role = 'admin' AND active = true LIMIT 1;
+                    IF v_admin_user_id IS NOT NULL THEN
+                        INSERT INTO notifications (
+                            user_id, recipient_type, recipient_id, type, title, body, created_at
+                        ) VALUES (
+                            v_admin_user_id, 'admin', NULL, 'student_attendance_shortage',
+                            format('Attendance shortage: %s', v_student_name),
+                            format('%s (%s) has an attendance shortage of %s%% in %s %s.', v_student_name, v_adm_no, v_summary.percentage, initcap(v_period_type), v_period_no),
+                            clock_timestamp()
+                        );
+                    END IF;
+                    v_alerts_sent := v_alerts_sent + 1;
+                END IF;
+
+                INSERT INTO attendance_alert_state (
+                    student_id, enrollment_id, period_type, period_no, semester_no, last_band, updated_at
+                ) VALUES (
+                    v_sid, v_enr_id, v_period_type, v_period_no, v_summary.semester_no, v_summary.status_band, clock_timestamp()
+                )
+                ON CONFLICT (student_id, enrollment_id, period_type, period_no)
+                DO UPDATE SET
+                    last_band = EXCLUDED.last_band,
+                    semester_no = EXCLUDED.semester_no,
+                    updated_at = EXCLUDED.updated_at;
+            END IF;
+        END IF;
+    END LOOP;
+
+    RETURN jsonb_build_object('success', true, 'alerts_sent', v_alerts_sent);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+
+-- -----------------------------------------------------------------------------
+-- 10. YEAR & SEMESTER PROMOTION FUNCTIONS (ONE SIGNATURE EACH)
+-- -----------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS preview_promote_year(bigint);
+DROP FUNCTION IF EXISTS preview_promote_year(bigint, date, date);
+DROP FUNCTION IF EXISTS preview_year_promotion(bigint);
 
 CREATE OR REPLACE FUNCTION preview_promote_year(
     p_batch_id bigint,
-    p_closing_end_date date,
-    p_new_start_date date
+    p_closing_end_date date DEFAULT NULL,
+    p_new_start_date date DEFAULT NULL
 )
 RETURNS jsonb AS $$
 DECLARE
@@ -608,7 +895,13 @@ DECLARE
     v_next_year int;
     v_max_years int;
     v_student_count int;
+    v_closing_date date := coalesce(p_closing_end_date, CURRENT_DATE);
+    v_new_start date := coalesce(p_new_start_date, CURRENT_DATE + interval '1 day');
 BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Administrator privilege required to preview promotion.';
+    END IF;
+
     SELECT * INTO v_b FROM batches WHERE id = p_batch_id AND deleted_at IS NULL;
     IF NOT FOUND THEN RAISE EXCEPTION 'Batch ID % does not exist.', p_batch_id; END IF;
 
@@ -623,11 +916,11 @@ BEGIN
     v_max_years := course_duration_years(v_c.id);
 
     IF v_curr_year >= v_max_years THEN
-        RAISE EXCEPTION 'Batch % is already in its final Year (% of %). Cannot promote further. Use complete_batch to graduate.',
-            v_b.name, v_curr_year, v_max_years;
+        RAISE EXCEPTION 'Batch "%" is already in its final Year (% of %). Cannot promote further. Use complete_batch to graduate.',
+            v_b.batch_name, v_curr_year, v_max_years;
     END IF;
 
-    IF p_closing_end_date >= p_new_start_date THEN
+    IF p_closing_end_date IS NOT NULL AND p_new_start_date IS NOT NULL AND p_closing_end_date >= p_new_start_date THEN
         RAISE EXCEPTION 'New Year start date (%) must be strictly after closing end date (%).',
             p_new_start_date, p_closing_end_date;
     END IF;
@@ -636,29 +929,42 @@ BEGIN
     FROM batch_periods 
     WHERE batch_id = p_batch_id AND period_type = 'year' AND period_no = v_curr_year;
 
-    IF FOUND AND p_closing_end_date < v_active_period.start_date THEN
+    IF FOUND AND p_closing_end_date IS NOT NULL AND p_closing_end_date < v_active_period.start_date THEN
         RAISE EXCEPTION 'Closing end date (%) cannot be earlier than current Year start date (%).',
             p_closing_end_date, v_active_period.start_date;
     END IF;
 
     SELECT count(*) INTO v_student_count
-    FROM enrollments
-    WHERE batch_id = p_batch_id AND status = 'active';
+    FROM student_enrollments
+    WHERE batch_id = p_batch_id AND status = 'active' AND deleted_at IS NULL;
 
     RETURN jsonb_build_object(
         'batch_id', p_batch_id,
-        'batch_name', v_b.name,
+        'batch_name', v_b.batch_name,
         'course_name', v_c.name,
         'current_year', v_curr_year,
         'next_year', v_next_year,
         'max_years', v_max_years,
         'active_students_count', v_student_count,
-        'closing_end_date', p_closing_end_date,
-        'new_start_date', p_new_start_date
+        'closing_end_date', v_closing_date,
+        'new_start_date', v_new_start
     );
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
 
+-- Alias for backward compatibility
+CREATE OR REPLACE FUNCTION preview_year_promotion(p_batch_id bigint)
+RETURNS jsonb AS $$
+BEGIN
+    RETURN preview_promote_year(p_batch_id, NULL, NULL);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+
+DROP FUNCTION IF EXISTS promote_year(bigint, date, date);
+DROP FUNCTION IF EXISTS promote_year(bigint, date, date, text);
 
 CREATE OR REPLACE FUNCTION promote_year(
     p_batch_id bigint,
@@ -714,33 +1020,49 @@ BEGIN
     WHERE id = p_batch_id;
 
     -- 4. Audit Log
-    INSERT INTO audit_logs (
-        table_name, record_id, action, old_data, new_data, performed_by, reason, created_at
+    INSERT INTO audit_log (
+        table_name, record_id, action, old_data, new_data, actor, created_at
     ) VALUES (
         'batches',
-        p_batch_id,
+        p_batch_id::text,
         'PROMOTE_YEAR',
         jsonb_build_object('year_no', v_curr_year, 'end_date', p_closing_end_date),
-        jsonb_build_object('year_no', v_next_year, 'start_date', p_new_start_date),
+        jsonb_build_object('year_no', v_next_year, 'start_date', p_new_start_date, 'reason', coalesce(p_override_reason, 'Promoted to next academic year')),
         auth.uid(),
-        coalesce(p_override_reason, 'Promoted to next academic year'),
         clock_timestamp()
     );
 
-    -- 5. Notify active students
-    INSERT INTO notifications (user_id, type, title, body, link, created_at)
+    -- 5. Notify active students by recipient
+    INSERT INTO notifications (user_id, recipient_type, recipient_id, type, title, body, link, created_at)
     SELECT 
         p.user_id,
+        'student'::recipient_type,
+        s.id,
         'promotion',
         'Academic Year Promotion',
         'Congratulations! You have been promoted to Year ' || v_next_year || ' for ' || v_c.name || '.',
         '/attendance',
         clock_timestamp()
-    FROM enrollments e
-    JOIN profiles p ON p.student_id = e.student_id AND p.role = 'student' AND p.active = true
-    WHERE e.batch_id = p_batch_id AND e.status = 'active';
+    FROM student_enrollments se
+    JOIN students s ON s.id = se.student_id
+    LEFT JOIN profiles p ON p.student_id = s.id AND p.role = 'student' AND p.active = true
+    WHERE se.batch_id = p_batch_id AND se.status = 'active' AND s.deleted_at IS NULL;
 
     GET DIAGNOSTICS v_notif_count = ROW_COUNT;
+
+    -- 6. Insert teacher announcement with valid enum category
+    INSERT INTO announcements (
+        category, title, body, audience_type, audience_ids, created_by, created_at
+    ) VALUES (
+        'programme',
+        format('Batch %s Promoted to Year %s', v_b.batch_name, v_next_year),
+        format('Batch %s has successfully completed Year %s and has advanced to Year %s.',
+               v_b.batch_name, v_curr_year, v_next_year),
+        'teachers',
+        '[]'::jsonb,
+        auth.uid(),
+        clock_timestamp()
+    );
 
     RETURN jsonb_build_object(
         'success', true,
@@ -750,17 +1072,18 @@ BEGIN
         'notified_students', v_notif_count
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 
--- -----------------------------------------------------------------------------
--- 10. REVISE promote_semester: REJECT NON-SEMESTER COURSES
--- -----------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS preview_promote_semester(bigint);
+DROP FUNCTION IF EXISTS preview_promote_semester(bigint, date, date);
+DROP FUNCTION IF EXISTS preview_semester_promotion(bigint);
 
 CREATE OR REPLACE FUNCTION preview_promote_semester(
     p_batch_id bigint,
-    p_closing_end_date date,
-    p_new_start_date date
+    p_closing_end_date date DEFAULT NULL,
+    p_new_start_date date DEFAULT NULL
 )
 RETURNS jsonb AS $$
 DECLARE
@@ -771,7 +1094,13 @@ DECLARE
     v_next_sem int;
     v_max_sems int;
     v_student_count int;
+    v_closing_date date := coalesce(p_closing_end_date, CURRENT_DATE);
+    v_new_start date := coalesce(p_new_start_date, CURRENT_DATE + interval '1 day');
 BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Administrator privilege required to preview promotion.';
+    END IF;
+
     SELECT * INTO v_b FROM batches WHERE id = p_batch_id AND deleted_at IS NULL;
     IF NOT FOUND THEN RAISE EXCEPTION 'Batch ID % does not exist.', p_batch_id; END IF;
 
@@ -786,11 +1115,11 @@ BEGIN
     v_max_sems := course_duration_years(v_c.id) * 2;
 
     IF v_curr_sem >= v_max_sems THEN
-        RAISE EXCEPTION 'Batch % is already in its final Semester (% of %). Cannot promote further. Use complete_batch to graduate.',
-            v_b.name, v_curr_sem, v_max_sems;
+        RAISE EXCEPTION 'Batch "%" is already in its final Semester (% of %). Cannot promote further. Use complete_batch to graduate.',
+            v_b.batch_name, v_curr_sem, v_max_sems;
     END IF;
 
-    IF p_closing_end_date >= p_new_start_date THEN
+    IF p_closing_end_date IS NOT NULL AND p_new_start_date IS NOT NULL AND p_closing_end_date >= p_new_start_date THEN
         RAISE EXCEPTION 'New semester start date (%) must be strictly after closing end date (%).',
             p_new_start_date, p_closing_end_date;
     END IF;
@@ -799,29 +1128,42 @@ BEGIN
     FROM batch_periods 
     WHERE batch_id = p_batch_id AND period_type = 'semester' AND period_no = v_curr_sem;
 
-    IF FOUND AND p_closing_end_date < v_active_sem.start_date THEN
+    IF FOUND AND p_closing_end_date IS NOT NULL AND p_closing_end_date < v_active_sem.start_date THEN
         RAISE EXCEPTION 'Closing end date (%) cannot be earlier than current semester start date (%).',
             p_closing_end_date, v_active_sem.start_date;
     END IF;
 
     SELECT count(*) INTO v_student_count
-    FROM enrollments
-    WHERE batch_id = p_batch_id AND status = 'active';
+    FROM student_enrollments
+    WHERE batch_id = p_batch_id AND status = 'active' AND deleted_at IS NULL;
 
     RETURN jsonb_build_object(
         'batch_id', p_batch_id,
-        'batch_name', v_b.name,
+        'batch_name', v_b.batch_name,
         'course_name', v_c.name,
         'current_semester', v_curr_sem,
         'next_semester', v_next_sem,
         'max_semesters', v_max_sems,
         'active_students_count', v_student_count,
-        'closing_end_date', p_closing_end_date,
-        'new_start_date', p_new_start_date
+        'closing_end_date', v_closing_date,
+        'new_start_date', v_new_start
     );
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
 
+-- Alias for backward compatibility
+CREATE OR REPLACE FUNCTION preview_semester_promotion(p_batch_id bigint)
+RETURNS jsonb AS $$
+BEGIN
+    RETURN preview_promote_semester(p_batch_id, NULL, NULL);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+
+DROP FUNCTION IF EXISTS promote_semester(bigint, date, date);
+DROP FUNCTION IF EXISTS promote_semester(bigint, date, date, text);
 
 CREATE OR REPLACE FUNCTION promote_semester(
     p_batch_id bigint,
@@ -879,33 +1221,49 @@ BEGIN
     WHERE id = p_batch_id;
 
     -- 4. Audit Log
-    INSERT INTO audit_logs (
-        table_name, record_id, action, old_data, new_data, performed_by, reason, created_at
+    INSERT INTO audit_log (
+        table_name, record_id, action, old_data, new_data, actor, created_at
     ) VALUES (
         'batches',
-        p_batch_id,
+        p_batch_id::text,
         'PROMOTE_SEMESTER',
         jsonb_build_object('semester_no', v_curr_sem, 'end_date', p_closing_end_date),
-        jsonb_build_object('semester_no', v_next_sem, 'start_date', p_new_start_date, 'year', v_next_year),
+        jsonb_build_object('semester_no', v_next_sem, 'start_date', p_new_start_date, 'year', v_next_year, 'reason', coalesce(p_override_reason, 'Promoted to next semester')),
         auth.uid(),
-        coalesce(p_override_reason, 'Promoted to next semester'),
         clock_timestamp()
     );
 
-    -- 5. Notify active students
-    INSERT INTO notifications (user_id, type, title, body, link, created_at)
+    -- 5. Notify active students by recipient
+    INSERT INTO notifications (user_id, recipient_type, recipient_id, type, title, body, link, created_at)
     SELECT 
         p.user_id,
-        'promotion',
+        'student'::recipient_type,
+        s.id,
+        'semester_promotion',
         'Semester Promotion',
         'Congratulations! You have been promoted to Semester ' || v_next_sem || ' (Year ' || v_next_year || ') for ' || v_c.name || '.',
         '/attendance',
         clock_timestamp()
-    FROM enrollments e
-    JOIN profiles p ON p.student_id = e.student_id AND p.role = 'student' AND p.active = true
-    WHERE e.batch_id = p_batch_id AND e.status = 'active';
+    FROM student_enrollments se
+    JOIN students s ON s.id = se.student_id
+    LEFT JOIN profiles p ON p.student_id = s.id AND p.role = 'student' AND p.active = true
+    WHERE se.batch_id = p_batch_id AND se.status = 'active' AND s.deleted_at IS NULL;
 
     GET DIAGNOSTICS v_notif_count = ROW_COUNT;
+
+    -- 6. Insert teacher announcement with valid enum category
+    INSERT INTO announcements (
+        category, title, body, audience_type, audience_ids, created_by, created_at
+    ) VALUES (
+        'programme',
+        format('Batch %s Promoted to Semester %s', v_b.batch_name, v_next_sem),
+        format('Batch %s has successfully completed Semester %s and has advanced to Semester %s (Year %s).',
+               v_b.batch_name, v_curr_sem, v_next_sem, v_next_year),
+        'teachers',
+        '[]'::jsonb,
+        auth.uid(),
+        clock_timestamp()
+    );
 
     RETURN jsonb_build_object(
         'success', true,
@@ -916,11 +1274,175 @@ BEGIN
         'notified_students', v_notif_count
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 
 -- -----------------------------------------------------------------------------
--- 11. PUBLISH EXAM: Notification Text for Semester vs Year
+-- 11. PHASE 13: create_exam (PERIOD VALIDATION, SUBJECT COPY, OVERRIDE REASON)
+-- -----------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS create_exam(bigint, bigint, text, text, int, date, date, text);
+
+CREATE OR REPLACE FUNCTION create_exam(
+    p_course_id bigint,
+    p_batch_id bigint,
+    p_name text,
+    p_period_type text DEFAULT 'semester',
+    p_period_no int DEFAULT 1,
+    p_exam_date date DEFAULT CURRENT_DATE,
+    p_publish_date date DEFAULT NULL,
+    p_override_reason text DEFAULT NULL
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_c courses%ROWTYPE;
+    v_b batches%ROWTYPE;
+    v_max_periods int;
+    v_exam_id bigint;
+    v_subj_count int := 0;
+BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Administrator privilege required to create exams.';
+    END IF;
+
+    SELECT * INTO v_c FROM courses WHERE id = p_course_id AND deleted_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Course ID % does not exist.', p_course_id;
+    END IF;
+
+    SELECT * INTO v_b FROM batches WHERE id = p_batch_id AND deleted_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Batch ID % does not exist.', p_batch_id;
+    END IF;
+
+    IF v_b.course_id != p_course_id THEN
+        RAISE EXCEPTION 'Batch % does not belong to course %.', p_batch_id, p_course_id;
+    END IF;
+
+    -- Period validation
+    v_max_periods := course_periods_count(p_course_id);
+    IF p_period_no < 1 OR p_period_no > v_max_periods THEN
+        IF p_override_reason IS NULL OR trim(p_override_reason) = '' THEN
+            RAISE EXCEPTION 'Period % is outside the valid range (1 to %) for course "%". A mandatory override explanation is required.',
+                p_period_no, v_max_periods, v_c.name;
+        END IF;
+    END IF;
+
+    IF v_c.structure = 'year' AND p_period_type != 'year' THEN
+        IF p_override_reason IS NULL OR trim(p_override_reason) = '' THEN
+            RAISE EXCEPTION 'Course "%" has year structure, but exam period_type is "%". A mandatory override explanation is required.',
+                v_c.name, p_period_type;
+        END IF;
+    ELSIF v_c.structure = 'semester' AND p_period_type != 'semester' THEN
+        IF p_override_reason IS NULL OR trim(p_override_reason) = '' THEN
+            RAISE EXCEPTION 'Course "%" has semester structure, but exam period_type is "%". A mandatory override explanation is required.',
+                v_c.name, p_period_type;
+        END IF;
+    END IF;
+
+    -- Insert exam
+    INSERT INTO exams (
+        course_id,
+        batch_id,
+        name,
+        period_type,
+        period_no,
+        semester,
+        exam_date,
+        publish_date,
+        status,
+        override_reason,
+        created_at,
+        updated_at
+    ) VALUES (
+        p_course_id,
+        p_batch_id,
+        trim(p_name),
+        p_period_type,
+        p_period_no,
+        CASE WHEN p_period_type = 'year' THEN 'Year ' || p_period_no ELSE 'Semester ' || p_period_no END,
+        p_exam_date,
+        p_publish_date,
+        'draft',
+        p_override_reason,
+        clock_timestamp(),
+        clock_timestamp()
+    )
+    RETURNING id INTO v_exam_id;
+
+    -- Subject copy: copy from course_subjects matching period_no
+    INSERT INTO exam_subjects (
+        exam_id, name, code, max_marks, pass_marks, display_order, created_at, updated_at
+    )
+    SELECT 
+        v_exam_id,
+        cs.subject_name,
+        coalesce(cs.subject_code, 'SUBJ' || row_number() over ()),
+        cs.max_marks,
+        cs.pass_marks,
+        row_number() over (ORDER BY cs.id)::int,
+        clock_timestamp(),
+        clock_timestamp()
+    FROM course_subjects cs
+    WHERE cs.course_id = p_course_id
+      AND cs.deleted_at IS NULL
+      AND (cs.period_no = p_period_no OR cs.period_no IS NULL);
+
+    GET DIAGNOSTICS v_subj_count = ROW_COUNT;
+
+    -- Fallback: if no period-matching subjects, copy all active course subjects
+    IF v_subj_count = 0 THEN
+        INSERT INTO exam_subjects (
+            exam_id, name, code, max_marks, pass_marks, display_order, created_at, updated_at
+        )
+        SELECT 
+            v_exam_id,
+            cs.subject_name,
+            coalesce(cs.subject_code, 'SUBJ' || row_number() over ()),
+            cs.max_marks,
+            cs.pass_marks,
+            row_number() over (ORDER BY cs.id)::int,
+            clock_timestamp(),
+            clock_timestamp()
+        FROM course_subjects cs
+        WHERE cs.course_id = p_course_id
+          AND cs.deleted_at IS NULL;
+
+        GET DIAGNOSTICS v_subj_count = ROW_COUNT;
+    END IF;
+
+    -- Audit log
+    INSERT INTO audit_log (table_name, record_id, action, new_data, actor, created_at)
+    VALUES (
+        'exams',
+        v_exam_id::text,
+        'INSERT',
+        jsonb_build_object(
+            'name', p_name,
+            'course_id', p_course_id,
+            'batch_id', p_batch_id,
+            'period_type', p_period_type,
+            'period_no', p_period_no,
+            'subjects_copied', v_subj_count,
+            'override_reason', p_override_reason
+        ),
+        auth.uid(),
+        clock_timestamp()
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'exam_id', v_exam_id,
+        'subjects_copied', v_subj_count
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+
+-- -----------------------------------------------------------------------------
+-- 12. PUBLISH EXAM & COMPUTE RESULTS
 -- -----------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION publish_exam(
@@ -942,21 +1464,19 @@ BEGIN
 
     SELECT * INTO v_exam FROM exams WHERE id = p_exam_id AND deleted_at IS NULL;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Exam ID % does not exist.', p_exam_id;
+        RAISE EXCEPTION 'Exam with ID % does not exist or has been deleted.', p_exam_id;
     END IF;
 
-    -- Ensure results have been computed first
-    SELECT count(*) INTO v_results_count
-    FROM results
-    WHERE exam_id = p_exam_id AND deleted_at IS NULL;
-
+    -- Count calculated results
+    SELECT count(*) INTO v_results_count FROM results WHERE exam_id = p_exam_id AND deleted_at IS NULL;
     IF v_results_count = 0 THEN
-        RAISE EXCEPTION 'Cannot publish exam: results have not yet been computed.';
+        RAISE EXCEPTION 'Cannot publish exam "%" (ID %) because results have not been calculated yet. Run compute_results first.',
+            v_exam.name, p_exam_id;
     END IF;
 
     v_was_published := (v_exam.status = 'published');
 
-    -- Update exam status
+    -- Transition exam status to published
     UPDATE exams
     SET status = 'published',
         published_at = coalesce(published_at, clock_timestamp()),
@@ -964,30 +1484,32 @@ BEGIN
         updated_at = clock_timestamp()
     WHERE id = p_exam_id;
 
-    -- Compute title & body
+    -- Compose period-aware notification title & body
     IF v_exam.period_type = 'year' AND v_exam.period_no IS NOT NULL THEN
-        v_title := 'Year ' || v_exam.period_no || ' Result Published';
+        v_title := 'Year ' || v_exam.period_no || ' Results Published';
         v_body := 'Year ' || v_exam.period_no || ' results for "' || v_exam.name || '" are now published. You can view your marksheet.';
     ELSIF v_exam.period_type = 'semester' AND v_exam.period_no IS NOT NULL THEN
-        v_title := 'Semester ' || v_exam.period_no || ' Result Published';
+        v_title := 'Semester ' || v_exam.period_no || ' Results Published';
         v_body := 'Semester ' || v_exam.period_no || ' results for "' || v_exam.name || '" are now published. You can view your marksheet.';
     ELSE
         v_title := 'Exam Results Published';
         v_body := 'Results for "' || v_exam.name || '" are now published. You can view your marksheet.';
     END IF;
 
-    -- Dispatch notifications to students if first time or forced
+    -- Dispatch notifications to students
     IF (NOT v_was_published) OR p_force_notify THEN
-        INSERT INTO notifications (user_id, type, title, body, link, created_at)
+        INSERT INTO notifications (user_id, recipient_type, recipient_id, type, title, body, link, created_at)
         SELECT 
             p.user_id,
+            'student'::recipient_type,
+            r.student_id,
             'result_published',
             v_title,
             v_body,
             '/results/' || p_exam_id::text,
             clock_timestamp()
         FROM results r
-        JOIN profiles p ON p.student_id = r.student_id AND p.role = 'student' AND p.active = true
+        LEFT JOIN profiles p ON p.student_id = r.student_id AND p.role = 'student' AND p.active = true
         WHERE r.exam_id = p_exam_id AND r.deleted_at IS NULL;
 
         GET DIAGNOSTICS v_notif_count = ROW_COUNT;
@@ -999,12 +1521,9 @@ BEGIN
         'notifications_sent', v_notif_count
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
-
--- -----------------------------------------------------------------------------
--- 12. COMPUTE RESULTS: Ensure period_type and period_no are populated
--- -----------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION compute_results(
     p_exam_id bigint
@@ -1138,7 +1657,8 @@ BEGIN
         'failed', v_fail_count
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 
 -- -----------------------------------------------------------------------------
@@ -1151,6 +1671,10 @@ DECLARE
     v_report jsonb;
     v_unparsed_exams jsonb;
 BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can view migration reconciliation reports.';
+    END IF;
+
     SELECT coalesce(jsonb_agg(jsonb_build_object(
         'id', id,
         'name', name,
@@ -1178,4 +1702,125 @@ BEGIN
 
     RETURN v_report;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+
+-- -----------------------------------------------------------------------------
+-- 14. SECURITY HARDENING & FUNCTION PERMISSIONS
+-- -----------------------------------------------------------------------------
+
+-- Ensure base table & sequence permissions for authenticated and service_role
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+
+-- Enforce strict audit immutability (no UPDATE/DELETE on audit tables)
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log, attendance_changes FROM anon, authenticated, PUBLIC;
+
+-- 1. Revoke EXECUTE on all functions in schema public from PUBLIC and anon
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon;
+
+-- 2. Revoke internal / cron / service-only routines from authenticated
+REVOKE EXECUTE ON FUNCTION sync_student_completion_status(bigint) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION log_admin_action(text, text, jsonb) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION expire_student_logins_daily() FROM authenticated;
+REVOKE EXECUTE ON FUNCTION send_access_expiry_reminders() FROM authenticated;
+REVOKE EXECUTE ON FUNCTION prepare_unmarked_slots_dashboard(date) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION verify_security_rls_matrix() FROM authenticated;
+
+-- Grant internal / service routines to service_role
+GRANT EXECUTE ON FUNCTION sync_student_completion_status(bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION log_admin_action(text, text, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION expire_student_logins_daily() TO service_role;
+GRANT EXECUTE ON FUNCTION send_access_expiry_reminders() TO service_role;
+GRANT EXECUTE ON FUNCTION prepare_unmarked_slots_dashboard(date) TO service_role;
+GRANT EXECUTE ON FUNCTION verify_security_rls_matrix() TO service_role;
+
+-- 3. Grant EXECUTE to authenticated for intended client-facing functions
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION is_teacher() TO authenticated;
+GRANT EXECUTE ON FUNCTION is_student() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_current_profile() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_profile_by_email(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION student_access_allowed() TO authenticated;
+GRANT EXECUTE ON FUNCTION current_student_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION current_teacher_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION acknowledge_password_change() TO authenticated;
+GRANT EXECUTE ON FUNCTION record_login_attempt(text, text, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION record_failed_login(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION record_successful_login(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION check_account_lockout(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_login_failure_metrics(text, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_unlock_account(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_unlock_user(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION close_login(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION reopen_login(uuid, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION extend_access(uuid, date) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION course_duration_years(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION course_periods_count(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_update_batch_semester_dates(bigint, integer, date, date, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION audit_inconsistent_batch_semester_dates() TO authenticated;
+GRANT EXECUTE ON FUNCTION preview_promote_semester(bigint, date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION preview_semester_promotion(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION promote_semester(bigint, date, date, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION preview_promote_year(bigint, date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION preview_year_promotion(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION promote_year(bigint, date, date, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION preview_batch_completion(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION complete_batch(bigint, date, bigint[], date, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION reopen_batch(bigint, text) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION complete_student(bigint, bigint, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION reopen_student(bigint, bigint, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION add_student_skill_course(bigint, bigint, bigint, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION undo_import(text) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION attendance_slot_status(date) TO authenticated;
+GRANT EXECUTE ON FUNCTION submit_attendance(bigint, date, attendance_slot, jsonb, boolean, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION confirm_no_class(bigint, date, attendance_slot, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION correct_attendance(bigint, attendance_status, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION evaluate_attendance_alerts(bigint, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION student_attendance_summary(bigint, bigint, integer, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION student_semesters_summary(bigint, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION list_unmarked_slots(date) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_update_session_semester(bigint, integer, text) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION record_payment(bigint, bigint, payment_mode, text, text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION cancel_payment(bigint, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION record_fee_adjustment(bigint, bigint, bigint, text, text) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION create_exam(bigint, bigint, text, text, integer, date, date, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION publish_exam(bigint, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION unpublish_exam(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION save_marks(bigint, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION compute_results(bigint) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION save_daily_timetable(date, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION publish_daily_timetable(date, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION unpublish_daily_timetable(date) TO authenticated;
+GRANT EXECUTE ON FUNCTION copy_daily_timetable(date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION publish_timetable(bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION archive_timetable(bigint) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION send_announcement(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION retract_announcement(bigint) TO authenticated;
+
+GRANT EXECUTE ON FUNCTION get_dashboard_summary_counts() TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_get_accounts_overview() TO authenticated;
+GRANT EXECUTE ON FUNCTION report_student_list(bigint, bigint, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_defaulters(bigint, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_shortage(bigint, bigint, integer, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_fee_collection(date, date, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_course_revenue() TO authenticated;
+GRANT EXECUTE ON FUNCTION report_merit_list(bigint, bigint, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_completed_students_pending_fees(bigint, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION export_database_dump() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_migration_reconciliation_report() TO authenticated;
+
+GRANT EXECUTE ON FUNCTION soft_delete(text, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION restore_soft_delete(text, bigint) TO authenticated;
+GRANT EXECUTE ON FUNCTION next_number(text, integer) TO authenticated;

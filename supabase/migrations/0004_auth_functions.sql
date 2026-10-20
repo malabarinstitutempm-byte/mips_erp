@@ -38,20 +38,8 @@ BEGIN
     END IF;
 
     IF v_profile.locked_at IS NOT NULL THEN
-        -- Check if lockout window has expired
-        IF v_profile.locked_at > clock_timestamp() - (v_lockout_duration_minutes || ' minutes')::interval THEN
-            v_is_locked := true;
-            v_remaining_seconds := EXTRACT(EPOCH FROM (v_profile.locked_at + (v_lockout_duration_minutes || ' minutes')::interval - clock_timestamp()))::int;
-        ELSE
-            -- Lockout has expired; auto-clear lockout
-            UPDATE profiles
-            SET locked_at = NULL,
-                failed_attempts = 0
-            WHERE user_id = p_user_id;
-            
-            v_is_locked := false;
-            v_remaining_seconds := 0;
-        END IF;
+        v_is_locked := true;
+        v_remaining_seconds := 0;
     END IF;
 
     RETURN jsonb_build_object(
@@ -62,7 +50,7 @@ BEGIN
         'must_change_password', v_profile.must_change_password
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE
+$$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
 -- Record a failed login attempt; locks account if threshold (5) is reached

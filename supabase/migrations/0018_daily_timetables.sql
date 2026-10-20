@@ -46,7 +46,7 @@ TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() 
+        WHERE profiles.user_id = auth.uid() 
           AND profiles.role = 'admin' 
           AND profiles.active = true
     )
@@ -54,7 +54,7 @@ USING (
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() 
+        WHERE profiles.user_id = auth.uid() 
           AND profiles.role = 'admin' 
           AND profiles.active = true
     )
@@ -66,7 +66,7 @@ TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() 
+        WHERE profiles.user_id = auth.uid() 
           AND profiles.role = 'admin' 
           AND profiles.active = true
     )
@@ -74,7 +74,7 @@ USING (
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM profiles 
-        WHERE profiles.id = auth.uid() 
+        WHERE profiles.user_id = auth.uid() 
           AND profiles.role = 'admin' 
           AND profiles.active = true
     )
@@ -103,3 +103,218 @@ USING (
           AND dt.date <= ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date + 1)
     )
 );
+
+-- =============================================================================
+-- 4. Daily Timetable Management Functions (Phase 10)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION save_daily_timetable(
+    p_date date,
+    p_entries jsonb
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_timetable_id bigint;
+    v_entry jsonb;
+    v_sort int := 0;
+BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can modify daily timetables.';
+    END IF;
+
+    INSERT INTO daily_timetables (date, status, updated_at)
+    VALUES (p_date, 'draft', clock_timestamp())
+    ON CONFLICT (date) DO UPDATE
+    SET updated_at = clock_timestamp()
+    RETURNING id INTO v_timetable_id;
+
+    DELETE FROM daily_timetable_entries WHERE daily_timetable_id = v_timetable_id;
+
+    FOR v_entry IN SELECT * FROM jsonb_array_elements(p_entries) LOOP
+        v_sort := v_sort + 1;
+        INSERT INTO daily_timetable_entries (
+            daily_timetable_id, date, course_id, course_name, year,
+            teacher_id, teacher_name, subject_id, subject_name,
+            class_room, start_time, end_time, sort_order, created_at
+        ) VALUES (
+            v_timetable_id,
+            p_date,
+            (v_entry->>'course_id')::bigint,
+            coalesce(v_entry->>'course_name', 'N/A'),
+            coalesce(v_entry->>'year', '1st Year'),
+            (v_entry->>'teacher_id')::bigint,
+            coalesce(v_entry->>'teacher_name', 'TBA'),
+            (v_entry->>'subject_id')::bigint,
+            coalesce(v_entry->>'subject_name', 'N/A'),
+            coalesce(v_entry->>'class_room', ''),
+            coalesce(v_entry->>'start_time', '09:00'),
+            coalesce(v_entry->>'end_time', '10:00'),
+            v_sort,
+            clock_timestamp()
+        );
+    END LOOP;
+
+    RETURN jsonb_build_object('success', true, 'timetable_id', v_timetable_id, 'entries_count', v_sort);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION publish_daily_timetable(
+    p_date date,
+    p_notify boolean DEFAULT true
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_timetable_id bigint;
+    v_notif_count int := 0;
+    v_rec record;
+BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can publish daily timetables.';
+    END IF;
+
+    UPDATE daily_timetables
+    SET status = 'published',
+        published_at = clock_timestamp(),
+        notify_users = p_notify,
+        updated_at = clock_timestamp()
+    WHERE date = p_date
+    RETURNING id INTO v_timetable_id;
+
+    IF v_timetable_id IS NULL THEN
+        RAISE EXCEPTION 'No daily timetable exists for date %.', p_date;
+    END IF;
+
+    IF p_notify THEN
+        -- Notify teachers scheduled on this date
+        FOR v_rec IN 
+            SELECT DISTINCT dte.teacher_id, p.user_id
+            FROM daily_timetable_entries dte
+            JOIN profiles p ON p.teacher_id = dte.teacher_id AND p.role = 'teacher' AND p.active = true
+            WHERE dte.daily_timetable_id = v_timetable_id AND dte.teacher_id IS NOT NULL
+        LOOP
+            INSERT INTO notifications (user_id, recipient_type, recipient_id, type, title, body, link, created_at)
+            VALUES (
+                v_rec.user_id,
+                'teacher',
+                v_rec.teacher_id,
+                'timetable_published',
+                'Timetable Published',
+                format('Daily timetable for %s has been published.', to_char(p_date, 'DD-Mon-YYYY')),
+                '/timetable',
+                clock_timestamp()
+            );
+            v_notif_count := v_notif_count + 1;
+        END LOOP;
+
+        -- Notify students in courses scheduled on this date
+        FOR v_rec IN
+            SELECT DISTINCT p.user_id, s.id as student_id
+            FROM daily_timetable_entries dte
+            JOIN students s ON s.course_id = dte.course_id AND s.status = 'active' AND s.deleted_at IS NULL
+            JOIN profiles p ON p.student_id = s.id AND p.role = 'student' AND p.active = true
+            WHERE dte.daily_timetable_id = v_timetable_id
+        LOOP
+            INSERT INTO notifications (user_id, recipient_type, recipient_id, type, title, body, link, created_at)
+            VALUES (
+                v_rec.user_id,
+                'student',
+                v_rec.student_id,
+                'timetable_published',
+                'Timetable Published',
+                format('Your daily timetable for %s is now available.', to_char(p_date, 'DD-Mon-YYYY')),
+                '/timetable',
+                clock_timestamp()
+            );
+            v_notif_count := v_notif_count + 1;
+        END LOOP;
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'timetable_id', v_timetable_id, 'notifications_sent', v_notif_count);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION unpublish_daily_timetable(p_date date)
+RETURNS jsonb AS $$
+BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can unpublish daily timetables.';
+    END IF;
+
+    UPDATE daily_timetables
+    SET status = 'draft',
+        published_at = NULL,
+        updated_at = clock_timestamp()
+    WHERE date = p_date;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No daily timetable found for date %.', p_date;
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'date', p_date, 'status', 'draft');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION copy_daily_timetable(
+    p_source_date date,
+    p_target_date date
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_source_id bigint;
+    v_target_id bigint;
+    v_copied_count int := 0;
+BEGIN
+    IF NOT is_admin() THEN
+        RAISE EXCEPTION 'Access denied. Only administrators can copy daily timetables.';
+    END IF;
+
+    SELECT id INTO v_source_id FROM daily_timetables WHERE date = p_source_date;
+    IF v_source_id IS NULL THEN
+        RAISE EXCEPTION 'Source daily timetable for % does not exist.', p_source_date;
+    END IF;
+
+    INSERT INTO daily_timetables (date, status, updated_at)
+    VALUES (p_target_date, 'draft', clock_timestamp())
+    ON CONFLICT (date) DO UPDATE
+    SET updated_at = clock_timestamp()
+    RETURNING id INTO v_target_id;
+
+    DELETE FROM daily_timetable_entries WHERE daily_timetable_id = v_target_id;
+
+    INSERT INTO daily_timetable_entries (
+        daily_timetable_id, date, course_id, course_name, year,
+        teacher_id, teacher_name, subject_id, subject_name,
+        class_room, start_time, end_time, sort_order, created_at
+    )
+    SELECT 
+        v_target_id,
+        p_target_date,
+        course_id,
+        course_name,
+        year,
+        teacher_id,
+        teacher_name,
+        subject_id,
+        subject_name,
+        class_room,
+        start_time,
+        end_time,
+        sort_order,
+        clock_timestamp()
+    FROM daily_timetable_entries
+    WHERE daily_timetable_id = v_source_id;
+
+    GET DIAGNOSTICS v_copied_count = ROW_COUNT;
+
+    RETURN jsonb_build_object('success', true, 'target_date', p_target_date, 'copied_entries', v_copied_count);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+GRANT EXECUTE ON FUNCTION save_daily_timetable(date, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION publish_daily_timetable(date, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION unpublish_daily_timetable(date) TO authenticated;
+GRANT EXECUTE ON FUNCTION copy_daily_timetable(date, date) TO authenticated;

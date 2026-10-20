@@ -224,7 +224,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION log_admin_action(text, text, jsonb) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION log_admin_action(text, text, jsonb) TO service_role;
 
 -- =============================================================================
 -- 7. Account Unlock Admin Procedure

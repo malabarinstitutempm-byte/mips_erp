@@ -176,14 +176,14 @@ BEGIN
     END LOOP;
 
     -- Audit log
-    INSERT INTO audit_log (actor_id, actor_role, action, target_table, target_id, details)
+    INSERT INTO audit_log (table_name, record_id, action, new_data, actor, created_at)
     VALUES (
-        auth.uid(),
-        'admin',
-        'IMPORT_STUDENTS',
         'students',
         v_batch_id,
-        jsonb_build_object('count', v_count, 'batch_id', v_batch_id)
+        'IMPORT_STUDENTS',
+        jsonb_build_object('count', v_count, 'batch_id', v_batch_id),
+        auth.uid(),
+        clock_timestamp()
     );
 
     RETURN jsonb_build_object(
@@ -226,7 +226,7 @@ BEGIN
     FROM payments p
     JOIN students s ON p.student_id = s.id
     WHERE s.import_batch_id = v_clean_batch_id
-      AND p.is_deleted = false
+      AND p.deleted_at IS NULL
       AND p.is_cancelled = false;
 
     IF v_payments_count > 0 THEN
@@ -255,14 +255,14 @@ BEGIN
     WHERE id = v_clean_batch_id;
 
     -- Audit log
-    INSERT INTO audit_log (actor_id, actor_role, action, target_table, target_id, details)
+    INSERT INTO audit_log (table_name, record_id, action, new_data, actor, created_at)
     VALUES (
-        auth.uid(),
-        'admin',
-        'UNDO_IMPORT',
         'students',
         v_clean_batch_id,
-        jsonb_build_object('undone_count', v_count, 'batch_id', v_clean_batch_id)
+        'UNDO_IMPORT',
+        jsonb_build_object('undone_count', v_count, 'batch_id', v_clean_batch_id),
+        auth.uid(),
+        clock_timestamp()
     );
 
     RETURN jsonb_build_object(

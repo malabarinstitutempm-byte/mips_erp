@@ -16,6 +16,9 @@
 -- 1. Financial Ledger: record_payment with FIFO and Explicit Allocation
 -- =============================================================================
 
+DROP FUNCTION IF EXISTS record_payment(bigint, bigint, payment_mode, text, text);
+DROP FUNCTION IF EXISTS record_payment(bigint, bigint, payment_mode, text, text, jsonb);
+
 CREATE OR REPLACE FUNCTION record_payment(
     p_student_id bigint,
     p_amount_paise bigint,
@@ -92,24 +95,16 @@ BEGIN
 
     -- Generate atomic sequential receipt number
     v_current_year := EXTRACT(YEAR FROM CURRENT_DATE)::int;
-    v_receipt_number := next_number('receipt_counter_' || v_current_year, 'REC-' || v_current_year || '-', 5);
+    v_receipt_number := next_number('receipt', v_current_year);
 
     INSERT INTO receipts (
-        receipt_number,
         payment_id,
-        student_id,
-        amount_paise,
-        issued_date,
-        issued_by,
+        receipt_number,
         created_at,
         updated_at
     ) VALUES (
-        v_receipt_number,
         v_payment_id,
-        p_student_id,
-        p_amount_paise,
-        CURRENT_DATE,
-        v_admin_id,
+        v_receipt_number,
         clock_timestamp(),
         clock_timestamp()
     ) RETURNING id INTO v_receipt_id;
@@ -644,7 +639,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) TO authenticated;
+REVOKE EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION evaluate_attendance_bands(bigint, bigint) TO service_role;
 
 
 -- 4.2. submit_attendance (Updated for slot-based model)
@@ -867,65 +863,14 @@ CREATE OR REPLACE FUNCTION confirm_no_class(
     p_reason text DEFAULT 'Confirmed no class'
 )
 RETURNS jsonb AS $$
-DECLARE
-    v_session_id bigint;
 BEGIN
-    IF NOT is_admin() AND NOT is_teacher() THEN
-        RAISE EXCEPTION 'Access denied. Admin or teacher required.';
-    END IF;
-
-    -- Verify batch exists
-    IF NOT EXISTS (SELECT 1 FROM batches WHERE id = p_batch_id AND deleted_at IS NULL) THEN
-        RAISE EXCEPTION 'Active batch ID % not found.', p_batch_id;
-    END IF;
-
-    INSERT INTO attendance_sessions (
-        batch_id,
-        date,
-        slot,
-        status,
-        marked_by,
-        submitted_at,
-        created_at,
-        updated_at
-    ) VALUES (
+    RETURN submit_attendance(
         p_batch_id,
         p_date,
         p_slot,
-        'no_class',
-        current_teacher_id(),
-        clock_timestamp(),
-        clock_timestamp(),
-        clock_timestamp()
-    )
-    ON CONFLICT (batch_id, date, slot)
-    DO UPDATE SET
-        status = 'no_class',
-        submitted_at = clock_timestamp(),
-        updated_at = clock_timestamp()
-    RETURNING id INTO v_session_id;
-
-    -- Delete any individual records attached so they are not counted
-    DELETE FROM attendance_records WHERE session_id = v_session_id;
-
-    -- Audit log
-    INSERT INTO audit_log (table_name, record_id, action, new_data, actor, created_at)
-    VALUES (
-        'attendance_sessions',
-        v_session_id::text,
-        'UPDATE',
-        jsonb_build_object('batch_id', p_batch_id, 'date', p_date, 'slot', p_slot, 'status', 'no_class', 'reason', p_reason),
-        auth.uid(),
-        clock_timestamp()
-    );
-
-    RETURN jsonb_build_object(
-        'success', true,
-        'session_id', v_session_id,
-        'batch_id', p_batch_id,
-        'date', p_date,
-        'slot', p_slot,
-        'status', 'no_class'
+        '[]'::jsonb,
+        true,
+        p_reason
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
@@ -1423,13 +1368,16 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION prepare_unmarked_slots_dashboard(date) TO authenticated;
+REVOKE EXECUTE ON FUNCTION prepare_unmarked_slots_dashboard(date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION prepare_unmarked_slots_dashboard(date) TO service_role;
 
 -- Schedule job via pg_cron if available
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         -- Run at 14:00 UTC (19:30 IST) every day
-        PERFORM cron.unschedule('unmarked_sessions_1930_ist');
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'unmarked_sessions_1930_ist') THEN
+            PERFORM cron.unschedule('unmarked_sessions_1930_ist');
+        END IF;
         PERFORM cron.schedule(
             'unmarked_sessions_1930_ist',
             '0 14 * * *',

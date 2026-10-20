@@ -13,31 +13,11 @@
 --  10. Phase 9E Access Window helpers: student_access_allowed(), close_login, extend_access
 -- =============================================================================
 
-COMMIT;
-
 -- =============================================================================
--- 1. Enum Types & Columns Evolution
+-- 1. Columns Evolution
 -- =============================================================================
 
--- 1.1. Add 'completed' to student_status
-DO $$ BEGIN
-    ALTER TYPE student_status ADD VALUE IF NOT EXISTS 'completed';
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- 1.2. Add 'completed' to enrollment_status
-DO $$ BEGIN
-    ALTER TYPE enrollment_status ADD VALUE IF NOT EXISTS 'completed';
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-COMMIT;
-
-BEGIN;
-
--- 1.3. Add completed_on to students
+-- 1.1. Add completed_on to students
 ALTER TABLE students 
     ADD COLUMN IF NOT EXISTS completed_on date;
 
@@ -88,8 +68,6 @@ FROM students s
 WHERE se.student_id = s.id 
   AND s.status::text = 'completed'
   AND se.status::text = 'active';
-
-COMMIT;
 
 -- =============================================================================
 -- 2. Multi-Enrollment Status Synchronization Engine
@@ -174,7 +152,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION sync_student_completion_status(bigint) TO authenticated;
+REVOKE EXECUTE ON FUNCTION sync_student_completion_status(bigint) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION sync_student_completion_status(bigint) TO service_role;
 
 
 -- =============================================================================
@@ -847,7 +826,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION expire_student_logins_daily() TO authenticated;
+REVOKE EXECUTE ON FUNCTION expire_student_logins_daily() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION expire_student_logins_daily() TO service_role;
 
 
 -- 5.6. Access Expiry Reminders (14 days and 3 days before expiry)
@@ -903,10 +883,44 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION send_access_expiry_reminders() TO authenticated;
+REVOKE EXECUTE ON FUNCTION send_access_expiry_reminders() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION send_access_expiry_reminders() TO service_role;
+
+-- Safe pg_cron Scheduling
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'expire_student_logins_0030_ist') THEN
+            PERFORM cron.unschedule('expire_student_logins_0030_ist');
+        END IF;
+        PERFORM cron.schedule(
+            'expire_student_logins_0030_ist',
+            '0 19 * * *',
+            'SELECT expire_student_logins_daily();'
+        );
+
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'access_expiry_reminders_daily') THEN
+            PERFORM cron.unschedule('access_expiry_reminders_daily');
+        END IF;
+        PERFORM cron.schedule(
+            'access_expiry_reminders_daily',
+            '0 4 * * *',
+            'SELECT send_access_expiry_reminders();'
+        );
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN null;
+END $$;
 
 
--- 5.7. Update Student RLS Read Policies to Enforce student_access_allowed()
+-- 5.7. Update Student RLS Read Policies to Enforce student_access_allowed() and published exams
+DROP POLICY IF EXISTS p_exams_student_select ON exams;
+CREATE POLICY p_exams_student_select ON exams
+    FOR SELECT TO authenticated
+    USING (
+        student_access_allowed()
+        AND status = 'published'
+        AND deleted_at IS NULL
+    );
 DROP POLICY IF EXISTS p_students_student_select ON students;
 CREATE POLICY p_students_student_select ON students
     FOR SELECT TO authenticated
@@ -939,8 +953,13 @@ CREATE POLICY p_receipts_student_select ON receipts
     FOR SELECT TO authenticated
     USING (
         student_access_allowed() 
-        AND student_id = current_student_id() 
         AND deleted_at IS NULL
+        AND EXISTS (
+            SELECT 1 FROM payments p
+            WHERE p.id = receipts.payment_id
+              AND p.student_id = current_student_id()
+              AND p.deleted_at IS NULL
+        )
     );
 
 DROP POLICY IF EXISTS p_results_student_select ON results;
@@ -950,6 +969,32 @@ CREATE POLICY p_results_student_select ON results
         student_access_allowed() 
         AND student_id = current_student_id() 
         AND deleted_at IS NULL
+        AND EXISTS (
+            SELECT 1 FROM exams e
+            WHERE e.id = results.exam_id
+              AND e.status = 'published'
+              AND e.deleted_at IS NULL
+        )
+    );
+
+DROP POLICY IF EXISTS p_attendance_sessions_student_select ON attendance_sessions;
+CREATE POLICY p_attendance_sessions_student_select ON attendance_sessions
+    FOR SELECT TO authenticated
+    USING (
+        student_access_allowed() 
+        AND status IN ('submitted', 'locked')
+        AND (
+            EXISTS (
+                SELECT 1 FROM student_enrollments se
+                WHERE se.student_id = current_student_id()
+                  AND se.batch_id = attendance_sessions.batch_id
+            )
+            OR EXISTS (
+                SELECT 1 FROM students st
+                WHERE st.id = current_student_id()
+                  AND st.batch_id = attendance_sessions.batch_id
+            )
+        )
     );
 
 DROP POLICY IF EXISTS p_attendance_records_student_select ON attendance_records;
@@ -957,8 +1002,7 @@ CREATE POLICY p_attendance_records_student_select ON attendance_records
     FOR SELECT TO authenticated
     USING (
         student_access_allowed() 
-        AND student_id = current_student_id() 
-        AND deleted_at IS NULL
+        AND student_id = current_student_id()
     );
 
 DROP POLICY IF EXISTS p_marks_student_select ON marks;
@@ -968,6 +1012,12 @@ CREATE POLICY p_marks_student_select ON marks
         student_access_allowed() 
         AND student_id = current_student_id() 
         AND deleted_at IS NULL
+        AND EXISTS (
+            SELECT 1 FROM exams e
+            WHERE e.id = marks.exam_id
+              AND e.status = 'published'
+              AND e.deleted_at IS NULL
+        )
     );
 
 
@@ -1014,6 +1064,9 @@ GRANT SELECT ON students_for_teacher TO authenticated;
 
 
 -- 6.2. Atomic submit_attendance: Rejects completed batches & ignores non-active students
+DROP FUNCTION IF EXISTS submit_attendance(bigint, jsonb);
+DROP FUNCTION IF EXISTS submit_attendance(bigint, date, attendance_slot, jsonb, boolean, text);
+
 CREATE OR REPLACE FUNCTION submit_attendance(
     p_batch_id bigint,
     p_date date,
@@ -1197,9 +1250,13 @@ BEGIN
             'status', CASE WHEN p_no_class THEN 'no_class' ELSE 'submitted' END,
             'records_count', v_count
         ),
-        v_teacher_id,
+        auth.uid(),
         clock_timestamp()
     );
+
+    IF NOT p_no_class THEN
+        PERFORM evaluate_attendance_bands(NULL, p_batch_id);
+    END IF;
 
     RETURN jsonb_build_object(
         'success', true,
@@ -1330,7 +1387,8 @@ GRANT EXECUTE ON FUNCTION evaluate_attendance_alerts(bigint, bigint) TO authenti
 -- 7. Announcements Audience Rules: fee_defaulters includes completed students
 -- =============================================================================
 
-CREATE OR REPLACE FUNCTION create_announcement(p_payload jsonb)
+DROP FUNCTION IF EXISTS create_announcement(jsonb);
+CREATE OR REPLACE FUNCTION send_announcement(p_payload jsonb)
 RETURNS jsonb AS $$
 DECLARE
     v_category announcement_category;
@@ -1476,7 +1534,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
-GRANT EXECUTE ON FUNCTION create_announcement(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION send_announcement(jsonb) TO authenticated;
 
 
 -- =============================================================================
@@ -1542,6 +1600,7 @@ GRANT EXECUTE ON FUNCTION report_completed_students_pending_fees(bigint, bigint)
 
 
 -- 8.2. Update report_student_list with Status Filter
+DROP FUNCTION IF EXISTS report_student_list(bigint, bigint, text);
 CREATE OR REPLACE FUNCTION report_student_list(
     p_course_id bigint DEFAULT NULL,
     p_batch_id bigint DEFAULT NULL,
@@ -1609,6 +1668,10 @@ DECLARE
     v_completed_batches int := 0;
     v_total_courses int := 0;
 BEGIN
+    IF NOT is_admin() AND NOT is_teacher() THEN
+        RAISE EXCEPTION 'Access denied. Only registered administrators or teachers can view dashboard summary counts.';
+    END IF;
+
     SELECT 
         count(*) FILTER (WHERE status = 'active'),
         count(*) FILTER (WHERE status = 'completed'),

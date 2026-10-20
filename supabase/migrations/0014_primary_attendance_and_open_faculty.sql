@@ -10,8 +10,6 @@
 -- 7. Drops teacher_assignments table and teacher_has_assignment() function cleanly
 -- =============================================================================
 
-BEGIN;
-
 -- -----------------------------------------------------------------------------
 -- 1. Validation Trigger: Attendance sessions ONLY for PRIMARY courses
 -- -----------------------------------------------------------------------------
@@ -243,6 +241,10 @@ RETURNS TABLE (
     status text
 ) AS $$
 BEGIN
+    IF NOT is_admin() AND NOT is_teacher() THEN
+        RAISE EXCEPTION 'Access denied. Only registered administrators or teachers can list unmarked slots.';
+    END IF;
+
     RETURN QUERY
     WITH active_primary_batches AS (
         SELECT b.id AS b_id, b.batch_name AS b_name, c.id AS c_id, c.name AS c_name
@@ -283,6 +285,9 @@ SET search_path = public, pg_temp;
 -- -----------------------------------------------------------------------------
 -- 4. Atomic, Race-Safe submit_attendance with Advisory Lock
 -- -----------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS submit_attendance(bigint, jsonb);
+DROP FUNCTION IF EXISTS submit_attendance(bigint, date, attendance_slot, jsonb, boolean, text);
+
 CREATE OR REPLACE FUNCTION submit_attendance(
     p_batch_id bigint,
     p_date date,
@@ -510,23 +515,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
 
--- Legacy 2-argument overload for backwards compatibility during rolling deploys
-CREATE OR REPLACE FUNCTION submit_attendance(
-    p_session_id bigint,
-    p_records jsonb
-)
-RETURNS jsonb AS $$
-DECLARE
-    v_s attendance_sessions%ROWTYPE;
-BEGIN
-    SELECT * INTO v_s FROM attendance_sessions WHERE id = p_session_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Attendance session ID % not found.', p_session_id;
-    END IF;
 
-    RETURN submit_attendance(v_s.batch_id, v_s.date, v_s.slot, p_records, false, NULL);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- -----------------------------------------------------------------------------
@@ -694,161 +683,13 @@ DROP FUNCTION IF EXISTS teacher_has_assignment(bigint, bigint) CASCADE;
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION export_full_database()
 RETURNS jsonb AS $$
-DECLARE
-    v_metadata jsonb;
-    v_academic_years jsonb;
-    v_universities jsonb;
-    v_courses jsonb;
-    v_course_subjects jsonb;
-    v_batches jsonb;
-    v_teachers jsonb;
-    v_students jsonb;
-    v_student_enrollments jsonb;
-    v_teacher_assignments jsonb := '[]'::jsonb;
-    v_fees jsonb;
-    v_fee_items jsonb;
-    v_payments jsonb;
-    v_payment_allocations jsonb;
-    v_fee_adjustments jsonb;
-    v_receipts jsonb;
-    v_exams jsonb;
-    v_exam_subjects jsonb;
-    v_marks jsonb;
-    v_published_exams jsonb;
-    v_grading_schemes jsonb;
-    v_attendance_sessions jsonb;
-    v_attendance_records jsonb;
-    v_timetables jsonb;
-    v_timetable_entries jsonb;
-    v_announcements jsonb;
-    v_announcement_recipients jsonb;
-    v_notifications jsonb;
-    v_audit_log jsonb;
-    v_document_templates jsonb;
-    v_generated_documents jsonb;
-    v_student_record_types jsonb;
-    v_student_records jsonb;
-
-    v_total_fee_billed bigint := 0;
-    v_total_paid bigint := 0;
-    v_total_pending bigint := 0;
 BEGIN
-    IF NOT is_admin() THEN
-        RAISE EXCEPTION 'Access denied. Administrator privileges required.';
-    END IF;
-
-    -- Core Catalog
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_academic_years FROM (SELECT id, year_name, is_current FROM academic_years WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_universities FROM (SELECT id, name, code FROM universities WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_courses FROM (SELECT id, name, code, course_type, total_fee_paise, duration, university_id FROM courses WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_course_subjects FROM (SELECT id, course_id, subject_name, subject_code, max_marks, pass_marks FROM course_subjects WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_batches FROM (SELECT id, course_id, batch_name, start_date, academic_year_id, status FROM batches WHERE deleted_at IS NULL) t;
-
-    -- People & Staff
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_teachers FROM (SELECT id, name, phone, email, login_username, active FROM teachers WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_students FROM (SELECT id, name, admission_number, registration_number, phone, email, gender, dob, address, course_id, batch_id, university_id, academic_year_id, admission_date, status FROM students WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_student_enrollments FROM (SELECT id, student_id, course_id, batch_id, kind, status, enrolled_on FROM student_enrollments WHERE deleted_at IS NULL) t;
-
-    -- Finance & Ledger
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_fees FROM (SELECT id, student_id, total_fee_paise, paid_amount_paise, pending_amount_paise, discount_amount_paise FROM fees WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_fee_items FROM (SELECT id, student_id, enrollment_id, fee_head, amount_paise, paid_amount_paise, due_date FROM fee_items WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_payments FROM (SELECT id, student_id, amount_paise, payment_mode, reference_number, remarks, date, payment_date, is_cancelled, cancel_reason FROM payments WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_payment_allocations FROM (SELECT id, payment_id, fee_item_id, allocated_amount_paise FROM payment_allocations) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_fee_adjustments FROM (SELECT id, student_id, enrollment_id, amount_paise, type, reason FROM fee_adjustments) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_receipts FROM (SELECT id, payment_id, receipt_number, created_at FROM receipts WHERE deleted_at IS NULL) t;
-
-    -- Exams & Results
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_exams FROM (SELECT id, name, exam_code, course_id, batch_id, date, status, max_marks FROM exams WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_exam_subjects FROM (SELECT id, exam_id, subject_id, max_marks, pass_marks FROM exam_subjects WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_marks FROM (SELECT id, exam_id, subject_id, student_id, marks_obtained, is_absent FROM marks) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_published_exams FROM (SELECT id, exam_id, published_at FROM published_exams) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_grading_schemes FROM (SELECT id, name, scheme_data FROM grading_schemes) t;
-
-    -- Attendance
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_attendance_sessions FROM (SELECT id, batch_id, date, slot, status, marked_by, submitted_at, no_class_reason FROM attendance_sessions) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_attendance_records FROM (SELECT id, session_id, student_id, status, remarks FROM attendance_records) t;
-
-    -- Timetables
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_timetables FROM (SELECT id, batch_id, academic_year_id, status, effective_from, effective_to FROM timetables WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_timetable_entries FROM (SELECT id, timetable_id, day_of_week, slot_type, start_time, end_time, subject_id, teacher_id, room FROM timetable_entries) t;
-
-    -- Communications
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_announcements FROM (SELECT id, title, body, audience, priority, status, created_at FROM announcements WHERE deleted_at IS NULL) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_announcement_recipients FROM (SELECT id, announcement_id, user_id, read_at FROM announcement_recipients) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_notifications FROM (SELECT id, recipient_type, recipient_id, type, title, body, read, created_at FROM notifications) t;
-
-    -- Documents & Records
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_document_templates FROM (SELECT id, name, type, content FROM document_templates) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_generated_documents FROM (SELECT id, template_id, student_id, document_number, file_path, created_at FROM generated_documents) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_student_record_types FROM (SELECT id, name, description FROM student_record_types) t;
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_student_records FROM (SELECT id, student_id, record_type_id, title, description, date FROM student_records WHERE deleted_at IS NULL) t;
-
-    -- Audit Log (Last 30 Days)
-    SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_audit_log FROM (SELECT id, table_name, record_id, action, actor, created_at FROM audit_log WHERE created_at >= (clock_timestamp() - interval '30 days')) t;
-
-    -- Financial Totals Reconciliation
-    SELECT coalesce(sum(total_fee_paise), 0), coalesce(sum(paid_amount_paise), 0), coalesce(sum(pending_amount_paise), 0)
-    INTO v_total_fee_billed, v_total_paid, v_total_pending
-    FROM fees WHERE deleted_at IS NULL;
-
-    v_metadata := jsonb_build_object(
-        'system', 'MIPS ERP',
-        'export_version', '2.1.0',
-        'exported_at', clock_timestamp(),
-        'exported_by', auth.uid(),
-        'reconciliation', jsonb_build_object(
-            'total_fee_billed_paise', v_total_fee_billed,
-            'total_paid_paise', v_total_paid,
-            'total_pending_paise', v_total_pending,
-            'students_count', jsonb_array_length(v_students),
-            'payments_count', jsonb_array_length(v_payments)
-        )
-    );
-
-    RETURN jsonb_build_object(
-        'metadata', v_metadata,
-        'tables', jsonb_build_object(
-            'academic_years', v_academic_years,
-            'universities', v_universities,
-            'courses', v_courses,
-            'course_subjects', v_course_subjects,
-            'batches', v_batches,
-            'teachers', v_teachers,
-            'students', v_students,
-            'student_enrollments', v_student_enrollments,
-            'teacher_assignments', v_teacher_assignments,
-            'fees', v_fees,
-            'fee_items', v_fee_items,
-            'payments', v_payments,
-            'payment_allocations', v_payment_allocations,
-            'fee_adjustments', v_fee_adjustments,
-            'receipts', v_receipts,
-            'exams', v_exams,
-            'exam_subjects', v_exam_subjects,
-            'marks', v_marks,
-            'published_exams', v_published_exams,
-            'grading_schemes', v_grading_schemes,
-            'attendance_sessions', v_attendance_sessions,
-            'attendance_records', v_attendance_records,
-            'timetables', v_timetables,
-            'timetable_entries', v_timetable_entries,
-            'announcements', v_announcements,
-            'announcement_recipients', v_announcement_recipients,
-            'notifications', v_notifications,
-            'document_templates', v_document_templates,
-            'generated_documents', v_generated_documents,
-            'student_record_types', v_student_record_types,
-            'student_records', v_student_records,
-            'audit_log', v_audit_log
-        )
-    );
+    RETURN export_database_dump();
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 
 -- -----------------------------------------------------------------------------
 -- 10. Drop teacher_assignments Table Cleanly
--- -----------------------------------------------------------------------------
 DROP TABLE IF EXISTS teacher_assignments CASCADE;
-
-COMMIT;
