@@ -208,9 +208,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
                   unselectedLabelColor: AppColors.textMuted,
                   indicatorColor: AppColors.brand,
                   indicatorWeight: 3,
-                  tabs: const [
-                    Tab(icon: Icon(LucideIcons.penTool, size: 18), text: 'Composer'),
-                    Tab(icon: Icon(LucideIcons.history, size: 18), text: 'Announcement History'),
+                  tabs: [
+                    const Tab(icon: Icon(LucideIcons.penTool, size: 18), text: 'Composer'),
+                    Tab(icon: const Icon(LucideIcons.history, size: 18), text: isMobile ? 'History' : 'Announcement History'),
                   ],
                 ),
               ),
@@ -389,41 +389,94 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> with 
             const SizedBox(height: AppSpacing.lg),
 
             // Preview Count Banner & Action Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(AppRadius.control),
+            if (isMobile)
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.brand.withValues(alpha: 0.05),
+                  border: Border.all(color: AppColors.brand.withValues(alpha: 0.2)),
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.users, size: 20, color: AppColors.brand),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            _isPreviewLoading
+                                ? 'Calculating recipient count...'
+                                : _previewRecipientCount != null
+                                    ? 'Recipient Preview: $_previewRecipientCount person(s) targeted'
+                                    : 'Click "Check Recipients" to preview audience count',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(LucideIcons.calculator, size: 16),
+                            label: const Text('Check Count'),
+                            onPressed: _calculatePreview,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton.icon(
+                            icon: _isSending
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(LucideIcons.send, size: 16),
+                            label: const Text('Dispatch'),
+                            onPressed: _isSending ? null : _sendBroadcast,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.users, size: 20, color: AppColors.brand),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      _isPreviewLoading
+                          ? 'Calculating recipient count...'
+                          : _previewRecipientCount != null
+                              ? 'Recipient Preview: $_previewRecipientCount person(s) targeted'
+                              : 'Click "Check Recipients" to preview audience count',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      icon: const Icon(LucideIcons.calculator, size: 16),
+                      label: const Text('Check Recipients'),
+                      onPressed: _calculatePreview,
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    FilledButton.icon(
+                      icon: _isSending
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(LucideIcons.send, size: 16),
+                      label: const Text('Dispatch Broadcast'),
+                      onPressed: _isSending ? null : _sendBroadcast,
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(LucideIcons.users, size: 20, color: AppColors.brand),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    _isPreviewLoading
-                        ? 'Calculating recipient count...'
-                        : _previewRecipientCount != null
-                            ? 'Recipient Preview: $_previewRecipientCount person(s) targeted'
-                            : 'Click "Check Recipients" to preview audience count',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  OutlinedButton.icon(
-                    icon: const Icon(LucideIcons.calculator, size: 16),
-                    label: const Text('Check Recipients'),
-                    onPressed: _calculatePreview,
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  FilledButton.icon(
-                    icon: _isSending
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(LucideIcons.send, size: 16),
-                    label: const Text('Dispatch Broadcast'),
-                    onPressed: _isSending ? null : _sendBroadcast,
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

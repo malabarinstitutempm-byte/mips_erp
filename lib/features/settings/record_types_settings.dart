@@ -22,28 +22,36 @@ class _RecordTypesSettingsPanelState extends ConsumerState<RecordTypesSettingsPa
   @override
   Widget build(BuildContext context) {
     final typesAsync = ref.watch(studentRecordTypesProvider);
+    final isMobile = MediaQuery.of(context).size.width < 700;
 
     return SectionCard(
       title: 'Student Record Types',
+      trailing: isMobile ? null : ElevatedButton.icon(
+        onPressed: () => _showEditDialog(null),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.documents.base, foregroundColor: Colors.white),
+        icon: const Icon(LucideIcons.plus, size: 16),
+        label: const Text('Add Type'),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Manage categories of scanned documents and certificates.', style: TextStyle(color: AppColors.textMuted)),
-              ElevatedButton.icon(
+          if (isMobile) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
                 onPressed: () => _showEditDialog(null),
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.documents.base, foregroundColor: Colors.white),
                 icon: const Icon(LucideIcons.plus, size: 16),
                 label: const Text('Add Type'),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          const Text('Manage categories of scanned documents and certificates.', style: TextStyle(color: AppColors.textMuted)),
           const SizedBox(height: AppSpacing.xl),
           
           typesAsync.when(
-            data: (types) => _buildTable(types),
+            data: (types) => _buildContent(types, isMobile),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
           ),
@@ -52,7 +60,98 @@ class _RecordTypesSettingsPanelState extends ConsumerState<RecordTypesSettingsPa
     );
   }
 
-  Widget _buildTable(List<StudentRecordType> types) {
+  Widget _buildContent(List<StudentRecordType> types, bool isMobile) {
+    if (types.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: Text('No record types configured.')),
+      );
+    }
+
+    if (isMobile) {
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: types.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, i) {
+          final t = types[i];
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ),
+                          if (t.isSystem) ...[
+                            const SizedBox(width: 6),
+                            const Icon(LucideIcons.lock, size: 13, color: AppColors.textMuted),
+                          ],
+                        ],
+                      ),
+                    ),
+                    StatusBadge(
+                      text: t.isActive ? 'Active' : 'Inactive',
+                      status: t.isActive ? BadgeStatus.success : BadgeStatus.draft,
+                    ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.edit2, size: 16),
+                      onPressed: () => _showEditDialog(t),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.documents.tint,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(t.category, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.documents.dark)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      t.isRequired ? 'Required' : 'Optional',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: t.isRequired ? FontWeight.bold : FontWeight.normal,
+                        color: t.isRequired ? AppColors.danger.base : AppColors.textMuted,
+                      ),
+                    ),
+                    const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                    Text(
+                      t.allowMultiple ? 'Multiple files' : 'Single file',
+                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+                if (t.allowedExtensions.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Formats: ${t.allowedExtensions}',
+                    style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.border),
@@ -60,69 +159,72 @@ class _RecordTypesSettingsPanelState extends ConsumerState<RecordTypesSettingsPa
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.card),
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(AppColors.bg),
-          dataRowMaxHeight: 56,
-          columns: const [
-            DataColumn(label: Text('Record Type', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Constraints', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: types.map((t) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          if (t.isSystem) ...[
-                            const SizedBox(width: 6),
-                            const Icon(LucideIcons.lock, size: 12, color: AppColors.textMuted),
-                          ]
-                        ],
-                      ),
-                      if (t.allowedExtensions.isNotEmpty)
-                        Text(t.allowedExtensions, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                    ],
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(AppColors.bg),
+            dataRowMaxHeight: 56,
+            columns: const [
+              DataColumn(label: Text('Record Type', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Constraints', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+            ],
+            rows: types.map((t) {
+              return DataRow(
+                cells: [
+                  DataCell(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            if (t.isSystem) ...[
+                              const SizedBox(width: 6),
+                              const Icon(LucideIcons.lock, size: 12, color: AppColors.textMuted),
+                            ]
+                          ],
+                        ),
+                        if (t.allowedExtensions.isNotEmpty)
+                          Text(t.allowedExtensions, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      ],
+                    ),
                   ),
-                ),
-                DataCell(Text(t.category)),
-                DataCell(
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (t.isRequired) Text('Required', style: TextStyle(fontSize: 12, color: AppColors.danger.base, fontWeight: FontWeight.bold))
-                      else const Text('Optional', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      
-                      if (t.allowMultiple) const Text('Multiple allowed', style: TextStyle(fontSize: 12, color: AppColors.textMuted))
-                      else const Text('Single file only', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                    ],
+                  DataCell(Text(t.category)),
+                  DataCell(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (t.isRequired) Text('Required', style: TextStyle(fontSize: 12, color: AppColors.danger.base, fontWeight: FontWeight.bold))
+                        else const Text('Optional', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                        
+                        if (t.allowMultiple) const Text('Multiple allowed', style: TextStyle(fontSize: 12, color: AppColors.textMuted))
+                        else const Text('Single file only', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                      ],
+                    ),
                   ),
-                ),
-                DataCell(
-                  StatusBadge(
-                    text: t.isActive ? 'Active' : 'Inactive',
-                    status: t.isActive ? BadgeStatus.success : BadgeStatus.draft,
+                  DataCell(
+                    StatusBadge(
+                      text: t.isActive ? 'Active' : 'Inactive',
+                      status: t.isActive ? BadgeStatus.success : BadgeStatus.draft,
+                    ),
                   ),
-                ),
-                DataCell(
-                  IconButton(
-                    icon: const Icon(LucideIcons.edit2, size: 16),
-                    onPressed: () => _showEditDialog(t),
-                    tooltip: 'Edit',
+                  DataCell(
+                    IconButton(
+                      icon: const Icon(LucideIcons.edit2, size: 16),
+                      onPressed: () => _showEditDialog(t),
+                      tooltip: 'Edit',
+                    ),
                   ),
-                ),
-              ],
-            );
-          }).toList(),
+                ],
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -199,7 +301,7 @@ class _RecordTypeDialogState extends ConsumerState<_RecordTypeDialog> {
       isRequired: _isRequired,
       allowMultiple: _allowMultiple,
       isActive: _isActive,
-      isSystem: widget.type?.isSystem ?? false, // can't change system flag
+      isSystem: widget.type?.isSystem ?? false,
       sortOrder: widget.type?.sortOrder ?? 99,
     );
 
@@ -241,7 +343,7 @@ class _RecordTypeDialogState extends ConsumerState<_RecordTypeDialog> {
               
               TextFormField(
                 controller: _nameCtrl,
-                enabled: !isSystem, // system names cannot be changed to prevent logic breaks
+                enabled: !isSystem,
                 decoration: InputDecoration(
                   labelText: 'Name', 
                   hintText: 'e.g., Blood Group Certificate',
@@ -292,7 +394,7 @@ class _RecordTypeDialogState extends ConsumerState<_RecordTypeDialog> {
                 title: const Text('Active', style: TextStyle(fontSize: 14)),
                 subtitle: const Text('If inactive, this type will not appear in dropdowns.', style: TextStyle(fontSize: 12)),
                 value: _isActive,
-                onChanged: isSystem ? null : (v) => setState(() => _isActive = v), // system types cannot be completely deactivated if we want to be safe, but actually user rules say "they can deactivate". Let's allow deactivation.
+                onChanged: isSystem ? null : (v) => setState(() => _isActive = v),
               ),
               
               const SizedBox(height: AppSpacing.xl),

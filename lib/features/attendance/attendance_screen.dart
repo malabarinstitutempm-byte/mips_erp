@@ -223,31 +223,88 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> with Single
                 },
               ),
 
-              // Band Filter Segmented
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'all', label: Text('All')),
-                  ButtonSegment(value: 'shortage', label: Text('Shortage (<75%)')),
-                  ButtonSegment(value: 'low', label: Text('Low (75-80%)')),
-                  ButtonSegment(value: 'ok', label: Text('Safe (>80%)')),
-                ],
-                selected: {filter.band},
-                onSelectionChanged: (val) {
-                  ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(band: val.first);
-                },
-              ),
+              // Band Filter Segmented / Mobile Chips
+              if (isMobile)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('All'),
+                        selected: filter.band == 'all',
+                        onSelected: (_) => ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(band: 'all'),
+                      ),
+                      const SizedBox(width: 6),
+                      ChoiceChip(
+                        label: const Text('Shortage (<75%)'),
+                        selected: filter.band == 'shortage',
+                        selectedColor: Colors.red.withValues(alpha: 0.15),
+                        onSelected: (_) => ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(band: 'shortage'),
+                      ),
+                      const SizedBox(width: 6),
+                      ChoiceChip(
+                        label: const Text('Low (75-80%)'),
+                        selected: filter.band == 'low',
+                        selectedColor: Colors.orange.withValues(alpha: 0.15),
+                        onSelected: (_) => ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(band: 'low'),
+                      ),
+                      const SizedBox(width: 6),
+                      ChoiceChip(
+                        label: const Text('Safe (>80%)'),
+                        selected: filter.band == 'ok',
+                        selectedColor: Colors.green.withValues(alpha: 0.15),
+                        onSelected: (_) => ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(band: 'ok'),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'all', label: Text('All')),
+                    ButtonSegment(value: 'shortage', label: Text('Shortage (<75%)')),
+                    ButtonSegment(value: 'low', label: Text('Low (75-80%)')),
+                    ButtonSegment(value: 'ok', label: Text('Safe (>80%)')),
+                  ],
+                  selected: {filter.band},
+                  onSelectionChanged: (val) {
+                    ref.read(attendanceFilterProvider.notifier).state = filter.copyWith(band: val.first);
+                  },
+                ),
 
               // Export Actions
-              OutlinedButton.icon(
-                icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
-                label: const Text('Export Excel'),
-                onPressed: () => _exportReport(asPdf: false),
-              ),
-              OutlinedButton.icon(
-                icon: const Icon(LucideIcons.fileText, size: 16),
-                label: const Text('Export PDF'),
-                onPressed: () => _exportReport(asPdf: true),
-              ),
+              if (isMobile)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
+                        label: const Text('Export Excel'),
+                        onPressed: () => _exportReport(asPdf: false),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(LucideIcons.fileText, size: 16),
+                        label: const Text('Export PDF'),
+                        onPressed: () => _exportReport(asPdf: true),
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                OutlinedButton.icon(
+                  icon: const Icon(LucideIcons.fileSpreadsheet, size: 16),
+                  label: const Text('Export Excel'),
+                  onPressed: () => _exportReport(asPdf: false),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(LucideIcons.fileText, size: 16),
+                  label: const Text('Export PDF'),
+                  onPressed: () => _exportReport(asPdf: true),
+                ),
+              ],
             ],
           ),
         ),

@@ -167,17 +167,19 @@ class ExamsScreen extends ConsumerWidget {
             },
             borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.card)),
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Row(
+              padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Row(
                           children: [
-                            CourseChip(courseName: exam['course']?.toString() ?? 'N/A', courseCode: exam['code']?.toString() ?? 'N/A'),
+                            Flexible(
+                              child: CourseChip(courseName: exam['course']?.toString() ?? 'N/A', courseCode: exam['code']?.toString() ?? 'N/A'),
+                            ),
                             if (exam['period_display'] != null) ...[
                               const SizedBox(width: 6),
                               Container(
@@ -195,27 +197,8 @@ class ExamsScreen extends ConsumerWidget {
                             ],
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          exam['name'].toString(),
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppColors.textStrong),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '${exam['batch'] ?? 'Batch'} • ${exam['period_display'] ?? 'General'} • $subjectsCount Subjects • $studentsCount Students',
-                          style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                      ),
+                      const SizedBox(width: 8),
                       StatusBadge(text: exam['status'].toString(), status: isPublished ? BadgeStatus.success : BadgeStatus.draft),
                       PopupMenuButton<String>(
                         icon: const Icon(LucideIcons.moreVertical, size: 16, color: AppColors.textMuted),
@@ -280,6 +263,23 @@ class ExamsScreen extends ConsumerWidget {
                         ],
                       ),
                     ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    exam['name'].toString(),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppColors.textStrong,
+                      fontSize: isMobile ? 16 : null,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '${exam['batch'] ?? 'Batch'} • ${exam['period_display'] ?? 'General'} • $subjectsCount Subjects • $studentsCount Students',
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

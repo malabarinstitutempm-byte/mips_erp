@@ -357,23 +357,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     decoration: const InputDecoration(labelText: 'Complete Address'),
                                   ),
                                   const SizedBox(height: AppSpacing.lg),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _institutionEmailCtrl,
-                                          decoration: const InputDecoration(labelText: 'Contact Email'),
+                                  if (isMobile) ...[
+                                    TextFormField(
+                                      controller: _institutionEmailCtrl,
+                                      decoration: const InputDecoration(labelText: 'Contact Email'),
+                                    ),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    TextFormField(
+                                      controller: _institutionPhoneCtrl,
+                                      decoration: const InputDecoration(labelText: 'Contact Phone'),
+                                    ),
+                                  ] else ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _institutionEmailCtrl,
+                                            decoration: const InputDecoration(labelText: 'Contact Email'),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: AppSpacing.lg),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _institutionPhoneCtrl,
-                                          decoration: const InputDecoration(labelText: 'Contact Phone'),
+                                        const SizedBox(width: AppSpacing.lg),
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _institutionPhoneCtrl,
+                                            decoration: const InputDecoration(labelText: 'Contact Phone'),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                   const SizedBox(height: AppSpacing.lg),
                                   TextFormField(
                                     controller: _institutionWebsiteCtrl,
@@ -386,7 +398,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                           // 1: Academic Years
                           if (_selectedIndex == 1) ...[
-                            _buildAcademicYearsSection(),
+                            _buildAcademicYearsSection(isMobile),
                           ],
                           
                           // 2: Fee & Receipts
@@ -416,25 +428,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   const SizedBox(height: 4),
                                   const Text('Default template amounts applied when creating new courses.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
                                   const SizedBox(height: AppSpacing.md),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _defaultRegFeeCtrl,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(labelText: 'Default Registration Fee (₹)'),
+                                  if (isMobile) ...[
+                                    TextFormField(
+                                      controller: _defaultRegFeeCtrl,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(labelText: 'Default Registration Fee (₹)'),
+                                    ),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    TextFormField(
+                                      controller: _defaultTuitionFeeCtrl,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(labelText: 'Default Tuition Fee (₹)'),
+                                    ),
+                                  ] else ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _defaultRegFeeCtrl,
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(labelText: 'Default Registration Fee (₹)'),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: AppSpacing.lg),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _defaultTuitionFeeCtrl,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(labelText: 'Default Tuition Fee (₹)'),
+                                        const SizedBox(width: AppSpacing.lg),
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _defaultTuitionFeeCtrl,
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(labelText: 'Default Tuition Fee (₹)'),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -442,7 +468,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                           // 3: Admin Users
                           if (_selectedIndex == 3) ...[
-                            _buildAdminUsersSection(),
+                            _buildAdminUsersSection(isMobile),
                           ],
 
                           // 4: Data Management (Backup)
@@ -755,12 +781,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildAcademicYearsSection() {
+  Widget _buildAcademicYearsSection(bool isMobile) {
     final yearsAsync = ref.watch(academicYearsProvider);
 
     return SectionCard(
       title: 'Academic Years',
-      trailing: ElevatedButton.icon(
+      trailing: isMobile ? null : ElevatedButton.icon(
         onPressed: () => _showAddAcademicYearDialog(),
         icon: const Icon(LucideIcons.plus, size: 16),
         label: const Text('Add Academic Year'),
@@ -768,6 +794,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isMobile) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showAddAcademicYearDialog(),
+                icon: const Icon(LucideIcons.plus, size: 16),
+                label: const Text('Add Academic Year'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           const Text('Manage institution academic cycles and active year configuration.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
           const SizedBox(height: AppSpacing.md),
           yearsAsync.when(
@@ -863,7 +900,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildAdminUsersSection() {
+  Widget _buildAdminUsersSection(bool isMobile) {
     final adminsAsync = ref.watch(adminUsersProvider);
     final authState = ref.watch(authProvider);
     final currentUserId = authState.user?.id;
@@ -872,7 +909,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return SectionCard(
       title: 'Administrator Accounts',
-      trailing: ElevatedButton.icon(
+      trailing: isMobile ? null : ElevatedButton.icon(
         onPressed: () => _showAddAdminDialog(context),
         icon: const Icon(LucideIcons.userPlus, size: 16),
         label: const Text('Add Administrator'),
@@ -880,6 +917,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isMobile) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showAddAdminDialog(context),
+                icon: const Icon(LucideIcons.userPlus, size: 16),
+                label: const Text('Add Administrator'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           const Text(
             'Users with administrative access to manage institution settings, academics, exams, and student records.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 13),
@@ -911,6 +959,93 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   final isCurrentUser = (currentUserId != null && a.id == currentUserId) ||
                       (currentUserEmail.isNotEmpty && (a.email.toLowerCase() == currentUserEmail || a.username.toLowerCase() == currentUserEmail.split('@').first)) ||
                       (currentUserName.isNotEmpty && a.fullName.toLowerCase() == currentUserName);
+
+                  if (isMobile) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: isCurrentUser
+                                    ? AppColors.brand.withValues(alpha: 0.15)
+                                    : (isSuper ? AppColors.brand.withValues(alpha: 0.12) : AppColors.courses.tint),
+                                child: Icon(
+                                  isCurrentUser
+                                      ? LucideIcons.userCheck
+                                      : (isSuper ? LucideIcons.shieldAlert : LucideIcons.user),
+                                  color: isCurrentUser
+                                      ? AppColors.brand
+                                      : (isSuper ? AppColors.brand : AppColors.courses.base),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                        if (isCurrentUser)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(color: AppColors.brand, borderRadius: BorderRadius.circular(10)),
+                                            child: const Text('You', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                                          ),
+                                      ],
+                                    ),
+                                    Text('@ • ', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(LucideIcons.moreVertical, size: 18),
+                                onSelected: (val) {
+                                  if (val == 'password') _showChangePasswordDialog(context, a);
+                                  if (val == 'edit') _showEditAdminDialog(context, a);
+                                  if (val == 'delete') _confirmDeleteAdmin(context, a, isCurrentUser: isCurrentUser);
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(value: 'password', child: Row(children: [Icon(LucideIcons.keyRound, size: 16), SizedBox(width: 8), Text('Change Password')])),
+                                  const PopupMenuItem(value: 'edit', child: Row(children: [Icon(LucideIcons.edit3, size: 16), SizedBox(width: 8), Text('Edit Details')])),
+                                  PopupMenuItem(value: 'delete', child: Row(children: [Icon(LucideIcons.trash2, size: 16, color: Colors.red), const SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))])),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isSuper ? AppColors.brand.withValues(alpha: 0.1) : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: isSuper ? AppColors.brand.withValues(alpha: 0.3) : AppColors.border),
+                                ),
+                                child: Text(a.role, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isSuper ? AppColors.brand : AppColors.textMuted)),
+                              ),
+                              const SizedBox(width: 8),
+                              StatusBadge(
+                                text: active ? 'Active' : 'Disabled',
+                                status: active ? BadgeStatus.success : BadgeStatus.danger,
+                              ),
+                              const Spacer(),
+                              Text(isCurrentUser ? 'Active' : 'Login: ', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

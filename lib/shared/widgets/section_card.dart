@@ -25,7 +25,7 @@ class SectionCard extends StatelessWidget {
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: AppColors.textStrong.withOpacity(0.04),
+            color: AppColors.textStrong.withValues(alpha: 0.04),
             blurRadius: 2,
             offset: const Offset(0, 1),
           )
@@ -42,8 +42,13 @@ class SectionCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(title!, style: Theme.of(context).textTheme.titleLarge),
-                  if (trailing != null) trailing!,
+                  Expanded(
+                    child: Text(title!, style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: AppSpacing.md),
+                    trailing!,
+                  ],
                 ],
               ),
             ),

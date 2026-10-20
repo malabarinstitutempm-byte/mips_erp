@@ -289,9 +289,48 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
     return const Color(0xFF475569);
   }
 
+  Widget _buildPresetButton() {
+    return PopupMenuButton<GradingSchemePreset>(
+      tooltip: 'Select a Preset Scheme',
+      onSelected: _applyPreset,
+      itemBuilder: (ctx) => GradingPresets.all.map((p) {
+        return PopupMenuItem<GradingSchemePreset>(
+          value: p,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 2),
+              Text(p.description, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.control),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.listFilter, size: 14, color: AppColors.textStrong),
+            SizedBox(width: 6),
+            Text('Presets', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            SizedBox(width: 4),
+            Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final schemesAsync = ref.watch(gradingSchemesProvider);
+    final isMobile = MediaQuery.of(context).size.width < 700;
 
     return schemesAsync.when(
       loading: () => const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator())),
@@ -300,7 +339,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
         final sorted = List<GradingScheme>.from(schemes)
           ..sort((a, b) => b.minPercent.compareTo(a.minPercent));
 
-        // Evaluate test percentage
         final testEvaluation = GradingSchemeRepository.evaluate(
           percentage: _testPct,
           schemes: sorted,
@@ -309,47 +347,12 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header Action Bar
             SectionCard(
               title: 'Grading Scheme & Percentage Thresholds',
-              trailing: Row(
+              trailing: isMobile ? null : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  PopupMenuButton<GradingSchemePreset>(
-                    tooltip: 'Select a Preset Scheme',
-                    onSelected: _applyPreset,
-                    itemBuilder: (ctx) => GradingPresets.all.map((p) {
-                      return PopupMenuItem<GradingSchemePreset>(
-                        value: p,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                            const SizedBox(height: 2),
-                            Text(p.description, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.control),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(LucideIcons.listFilter, size: 14, color: AppColors.textStrong),
-                          SizedBox(width: 6),
-                          Text('Presets', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                          SizedBox(width: 4),
-                          Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textMuted),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _buildPresetButton(),
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: _confirmResetDefaults,
@@ -375,13 +378,42 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (isMobile) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildPresetButton(),
+                        OutlinedButton.icon(
+                          onPressed: _confirmResetDefaults,
+                          icon: const Icon(LucideIcons.rotateCcw, size: 14),
+                          label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddEditTierDialog(),
+                          icon: const Icon(LucideIcons.plus, size: 14),
+                          label: const Text('Add Tier', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.exams.base,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   const Text(
                     'Define the percentage range required for each grade. When marks are entered or published, students are automatically assigned grades and ranks according to these thresholds.',
                     style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   ),
                   const SizedBox(height: 16),
 
-                  // Interactive Live Calculator / Tester
+                  // Interactive Live Calculator
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -389,59 +421,108 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                       borderRadius: BorderRadius.circular(AppRadius.control),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(LucideIcons.calculator, size: 20, color: AppColors.brand),
-                        const SizedBox(width: 10),
-                        const Text(
-                          'Test Calculator:',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 80,
-                          height: 34,
-                          child: TextFormField(
-                            controller: _testPercentageCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                              suffixText: '%',
-                            ),
+                    child: isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(LucideIcons.calculator, size: 18, color: AppColors.brand),
+                                  const SizedBox(width: 8),
+                                  const Text('Test Calculator:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    width: 75,
+                                    height: 32,
+                                    child: TextFormField(
+                                      controller: _testPercentageCtrl,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                                        suffixText: '%',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Text('Result: ', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass).withValues(alpha: 0.4)),
+                                    ),
+                                    child: Text(
+                                      testEvaluation.grade,
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  StatusBadge(
+                                    text: testEvaluation.isPass ? 'Pass' : 'Fail',
+                                    status: testEvaluation.isPass ? BadgeStatus.success : BadgeStatus.danger,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              const Icon(LucideIcons.calculator, size: 20, color: AppColors.brand),
+                              const SizedBox(width: 10),
+                              const Text('Test Calculator:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 80,
+                                height: 34,
+                                child: TextFormField(
+                                  controller: _testPercentageCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                    suffixText: '%',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Icon(LucideIcons.arrowRight, size: 16, color: AppColors.textMuted),
+                              const SizedBox(width: 16),
+                              const Text('Resulting Grade: ', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass).withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  testEvaluation.grade,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              StatusBadge(
+                                text: testEvaluation.isPass ? 'Pass' : 'Fail',
+                                status: testEvaluation.isPass ? BadgeStatus.success : BadgeStatus.danger,
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Icon(LucideIcons.arrowRight, size: 16, color: AppColors.textMuted),
-                        const SizedBox(width: 16),
-                        const Text('Resulting Grade: ', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass).withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: Text(
-                            testEvaluation.grade,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: _getGradeColor(testEvaluation.grade, testEvaluation.isPass),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        StatusBadge(
-                          text: testEvaluation.isPass ? 'Pass' : 'Fail',
-                          status: testEvaluation.isPass ? BadgeStatus.success : BadgeStatus.danger,
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -453,6 +534,70 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                         child: Text('No grade tiers configured. Click "Reset" or "Add Tier" to create tiers.'),
                       ),
                     ),
+                  ] else if (isMobile) ...[
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: sorted.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) {
+                        final s = sorted[i];
+                        final gradeColor = _getGradeColor(s.grade, s.isPass);
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(AppRadius.control),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: gradeColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: gradeColor.withValues(alpha: 0.35)),
+                                ),
+                                child: Text(
+                                  s.grade,
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: gradeColor),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${s.minPercent.toStringAsFixed(1)}% – ${s.maxPercent.toStringAsFixed(1)}%',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      s.isPass ? 'Passing Grade' : 'Failing Grade',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: s.isPass ? AppColors.success.base : AppColors.danger.base,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(LucideIcons.edit2, size: 16),
+                                onPressed: () => _showAddEditTierDialog(existingScheme: s),
+                              ),
+                              IconButton(
+                                icon: Icon(LucideIcons.trash2, size: 16, color: AppColors.danger.base),
+                                onPressed: () => _confirmDelete(s),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ] else ...[
                     Container(
                       decoration: BoxDecoration(
@@ -461,7 +606,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                       ),
                       child: Column(
                         children: [
-                          // Table Header
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: const BoxDecoration(
@@ -479,7 +623,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                               ],
                             ),
                           ),
-                          // Rows
                           ...sorted.map((s) {
                             final gradeColor = _getGradeColor(s.grade, s.isPass);
                             final span = (s.maxPercent - s.minPercent).clamp(0.0, 100.0);
@@ -491,7 +634,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                               ),
                               child: Row(
                                 children: [
-                                  // Grade Badge
                                   SizedBox(
                                     width: 90,
                                     child: Align(
@@ -514,7 +656,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                                       ),
                                     ),
                                   ),
-                                  // Percentage range
                                   SizedBox(
                                     width: 140,
                                     child: Text(
@@ -522,7 +663,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                                     ),
                                   ),
-                                  // Mini bar representation
                                   Expanded(
                                     child: Padding(
                                       padding: const EdgeInsets.only(right: 24),
@@ -536,7 +676,7 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                                             ),
                                           ),
                                           Positioned(
-                                            left: (s.minPercent / 100.0) * 200, // scaled visual
+                                            left: (s.minPercent / 100.0) * 200,
                                             child: Container(
                                               width: ((span / 100.0) * 200).clamp(4.0, 200.0),
                                               height: 8,
@@ -550,7 +690,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                                       ),
                                     ),
                                   ),
-                                  // Pass/Fail status
                                   SizedBox(
                                     width: 90,
                                     child: StatusBadge(
@@ -558,7 +697,6 @@ class _GradingSchemeManagerViewState extends ConsumerState<GradingSchemeManagerV
                                       status: s.isPass ? BadgeStatus.success : BadgeStatus.danger,
                                     ),
                                   ),
-                                  // Edit & Delete actions
                                   SizedBox(
                                     width: 80,
                                     child: Row(
