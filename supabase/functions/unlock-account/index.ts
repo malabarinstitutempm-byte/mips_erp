@@ -68,58 +68,18 @@ serve(async (req: Request) => {
       }
     }
 
-    if (!targetUserId) {
-      return errorResponse('Target user_id is required.', 400, undefined, req);
-    }
-
-    // 3. Query Target Profile
-    const { data: targetProfile, error: profileError } = await adminClient
-      .from('profiles')
-      .select('user_id, role, active, locked_at, failed_attempts')
-      .eq('user_id', targetUserId)
-      .maybeSingle();
-
-    if (profileError || !targetProfile) {
-      return errorResponse('User profile not found.', 404, undefined, req);
-    }
-
-    // 4. Clear Failed Attempts and Lockout Timestamp
-    const { error: updateError } = await adminClient
-      .from('profiles')
-      .update({
-        failed_attempts: 0,
-        locked_at: null,
-        active: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', targetUserId);
-
-    if (updateError) {
-      return errorResponse(`Failed to unlock account: ${updateError.message}`, 500, undefined, req);
-    }
-
-    // 5. Audit Logging (Zero Secrets in Log)
-    await adminClient.rpc('log_admin_action', {
-      p_action: 'UNLOCK_ACCOUNT',
-      p_target: targetUserId,
-      p_details: {
-        target_user_id: targetUserId,
-        role: targetProfile.role,
-        previous_failed_attempts: targetProfile.failed_attempts,
-        was_locked: targetProfile.locked_at !== null,
-      },
+    // 3. Delegate to consolidated atomic RPC function admin_unlock_account
+    const { data: rpcRes, error: rpcErr } = await adminClient.rpc('admin_unlock_account', {
+      p_user_id: targetUserId || null,
+      p_identifier: body.identifier || null,
+      p_role: body.role || null,
     });
 
-    return jsonResponse(
-      {
-        success: true,
-        message: 'Account successfully unlocked and failure counters reset.',
-        user_id: targetUserId,
-        role: targetProfile.role,
-      },
-      200,
-      req
-    );
+    if (rpcErr || !rpcRes?.success) {
+      return errorResponse(rpcErr?.message || rpcRes?.error || 'Failed to unlock account.', 400, undefined, req);
+    }
+
+    return jsonResponse(rpcRes, 200, req);
 
   } catch (error) {
     return errorResponse(

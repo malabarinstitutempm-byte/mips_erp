@@ -276,6 +276,16 @@ class StudentAccountActions {
         : (student.admissionNumber ?? '');
 
     try {
+      // Direct RPC execution: eliminates Edge Function invocation
+      final rpcRes = await _client.rpc('admin_unlock_account', params: {
+        'p_identifier': regNo,
+        'p_role': 'student',
+      });
+      if (rpcRes is Map && rpcRes['success'] == true) {
+        ref.invalidate(studentAccountInfoProvider(student));
+        return;
+      }
+
       final response = await _client.functions.invoke(
         'unlock-account',
         body: {

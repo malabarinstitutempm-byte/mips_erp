@@ -11,6 +11,29 @@ import { verifyTurnstileToken } from '../_shared/turnstile.ts';
 const LOCKED_MESSAGE = 'Too many failed attempts. Please contact the college office to reset your password.';
 const GENERIC_AUTH_ERROR = 'Register number or password is incorrect.';
 
+// Static lookup cache for MFA setting (5-minute TTL to avoid per-login database queries)
+let cachedMfaSetting: { value: boolean; expires: number } | null = null;
+
+async function getAdminMfaSetting(adminClient: any): Promise<boolean> {
+  const now = Date.now();
+  if (cachedMfaSetting && cachedMfaSetting.expires > now) {
+    return cachedMfaSetting.value;
+  }
+  try {
+    const { data } = await adminClient
+      .from('settings')
+      .select('value')
+      .eq('key', 'require_admin_mfa')
+      .maybeSingle();
+
+    const isRequired = data?.value === 'true';
+    cachedMfaSetting = { value: isRequired, expires: now + 5 * 60 * 1000 };
+    return isRequired;
+  } catch (_) {
+    return false;
+  }
+}
+
 interface LoginPayload {
   identifier: string;
   password: string;
@@ -247,34 +270,17 @@ serve(async (req: Request) => {
       }
     }
 
-    // 6. Reset Failed Attempts and Record Successful Attempt
-    await adminClient.rpc('record_login_attempt', {
+    // 6. Reset Failed Attempts and Record Successful Attempt in 1 Consolidated Atomic Query
+    await adminClient.rpc('record_login_success', {
+      p_user_id: authData.user.id,
       p_identifier_hash: identifierHash,
       p_ip: clientIp,
-      p_success: true,
     });
 
-    await adminClient
-      .from('profiles')
-      .update({
-        failed_attempts: 0,
-        locked_at: null,
-        last_login_at: new Date().toISOString(),
-      })
-      .eq('user_id', authData.user.id);
-
-    // 7. Check if Admin MFA is required
+    // 7. Check if Admin MFA is required (cached lookup to avoid hitting settings on every login)
     let mfaRequired = false;
     if (profile.role === 'admin') {
-      const { data: mfaSetting } = await adminClient
-        .from('settings')
-        .select('value')
-        .eq('key', 'require_admin_mfa')
-        .maybeSingle();
-
-      if (mfaSetting?.value === 'true') {
-        mfaRequired = true;
-      }
+      mfaRequired = await getAdminMfaSetting(adminClient);
     }
 
     return jsonResponse(

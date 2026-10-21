@@ -497,6 +497,21 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
     SupabaseService.instance.assertCanWrite('unlock account');
 
     try {
+      // Direct RPC execution: eliminates Edge Function invocation
+      final rpcRes = await _client.rpc('admin_unlock_account', params: {
+        'p_user_id': userId,
+      });
+      if (rpcRes is Map && rpcRes['success'] == true) {
+        final idx = _localTeachers.indexWhere((t) => t.userId == userId || t.id.toString() == userId);
+        if (idx != -1) {
+          _localTeachers[idx] = _localTeachers[idx].copyWith(
+            lockedAt: null,
+            failedAttempts: 0,
+          );
+        }
+        return;
+      }
+
       final response = await _client.functions.invoke(
         'unlock-account',
         body: {

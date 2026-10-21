@@ -56,10 +56,35 @@ serve(async (req: Request) => {
       return errorResponse(error.message, 500, undefined, req);
     }
 
+    let pushSummary = null;
+    if (!payload.dry_run && data?.announcement_id) {
+      // 1. Fetch user IDs for this announcement in 1 query
+      const { data: recipientRows } = await adminClient
+        .from('notifications')
+        .select('user_id')
+        .eq('announcement_id', data.announcement_id);
+
+      const userIds: string[] = (recipientRows || [])
+        .map((r: any) => r.user_id)
+        .filter(Boolean);
+
+      if (userIds.length > 0) {
+        // 2. Dispatch batch push with auto-skip and dead-endpoint pruning
+        const { sendBatchPushNotifications } = await import('../_shared/push-sender.ts');
+        pushSummary = await sendBatchPushNotifications(adminClient, userIds, {
+          title,
+          body,
+          url: '/student/notifications',
+          eventId: `announcement_${data.announcement_id}`,
+        });
+      }
+    }
+
     return jsonResponse(
       {
         success: true,
         data,
+        push: pushSummary,
       },
       200,
       undefined,
