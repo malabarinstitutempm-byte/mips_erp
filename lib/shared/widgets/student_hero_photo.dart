@@ -7,6 +7,7 @@ import '../../core/models/student.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/services/file_storage_service.dart';
+import '../../core/utils/image_transform_helper.dart';
 
 class StudentHeroPhoto extends StatelessWidget {
   final Student student;
@@ -85,10 +86,12 @@ class StudentHeroPhoto extends StatelessWidget {
     }
 
     if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      // O5 Optimization: Transform to width 384, WebP, quality 75
+      final transformed = transformImageUrl(photo, width: 384, quality: 75);
       return ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.card),
         child: Image.network(
-          photo,
+          transformed,
           key: ValueKey(student.profilePhotoUpdatedAt),
           fit: BoxFit.cover,
         ),

@@ -114,7 +114,7 @@ class PerfLoggingHttpClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final stopwatch = Stopwatch().start();
+    final stopwatch = Stopwatch()..start();
     final url = request.url;
     final method = request.method;
 

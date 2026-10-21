@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/student.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/file_storage_service.dart';
+import '../../core/utils/image_transform_helper.dart';
 import 'app_avatar.dart';
 
 class StudentListAvatar extends StatelessWidget {
@@ -38,9 +39,11 @@ class StudentListAvatar extends StatelessWidget {
     }
 
     if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      // O5 Optimization: Transform to width 96, WebP, quality 75
+      final transformed = transformImageUrl(photo, width: 96, quality: 75);
       return CircleAvatar(
         radius: radius,
-        backgroundImage: NetworkImage(photo),
+        backgroundImage: NetworkImage(transformed),
         backgroundColor: AppColors.students.tint,
       );
     }

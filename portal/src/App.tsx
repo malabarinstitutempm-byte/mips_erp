@@ -7,19 +7,25 @@ import { useAuth } from './context/AuthContext';
 import { OnlineStatusProvider } from './context/OnlineStatusContext';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { PwaUpdatePrompt } from './components/common/PwaUpdatePrompt';
-import { PushPromptModal } from './components/notifications/PushPromptModal';
-import { LoginScreen } from './components/auth/LoginScreen';
-import { ForcePasswordChange } from './components/auth/ForcePasswordChange';
-import { AdminNotice } from './components/auth/AdminNotice';
-import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { AlertCircle, X } from 'lucide-react';
-
-// Lazy-load route bundles to minimize initial client payload (<250 kB)
+// Lazy-load route bundles and auth screens to keep initial client payload under 150 KB gzipped
 const StudentArea = React.lazy(() =>
   import('./components/student/StudentArea').then((m) => ({ default: m.StudentArea }))
 );
 const TeacherArea = React.lazy(() =>
   import('./components/teacher/TeacherArea').then((m) => ({ default: m.TeacherArea }))
+);
+const LoginScreen = React.lazy(() =>
+  import('./components/auth/LoginScreen').then((m) => ({ default: m.LoginScreen }))
+);
+const ForcePasswordChange = React.lazy(() =>
+  import('./components/auth/ForcePasswordChange').then((m) => ({ default: m.ForcePasswordChange }))
+);
+const AdminNotice = React.lazy(() =>
+  import('./components/auth/AdminNotice').then((m) => ({ default: m.AdminNotice }))
+);
+const PushPromptModal = React.lazy(() =>
+  import('./components/notifications/PushPromptModal').then((m) => ({ default: m.PushPromptModal }))
 );
 
 function AppLoadingSpinner({ label = 'Connecting to MIPS Portal...' }: { label?: string }) {
@@ -52,12 +58,20 @@ function ProtectedRoute({
 
   // Intercept if password must be changed
   if (user.must_change_password || user.first_login_required) {
-    return <ForcePasswordChange onSuccess={() => {}} />;
+    return (
+      <Suspense fallback={<AppLoadingSpinner />}>
+        <ForcePasswordChange onSuccess={() => {}} />
+      </Suspense>
+    );
   }
 
   // If administrator
   if (user.role === 'admin') {
-    return <AdminNotice />;
+    return (
+      <Suspense fallback={<AppLoadingSpinner />}>
+        <AdminNotice />
+      </Suspense>
+    );
   }
 
   // Guard against cross-role navigation
@@ -92,11 +106,13 @@ export function AppRoutes() {
 
       {/* Opt-in Push Notification Prompt Modal */}
       {user && (
-        <PushPromptModal
-          userId={user.id}
-          isOpen={isPushModalOpen}
-          onClose={() => setIsPushModalOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <PushPromptModal
+            userId={user.id}
+            isOpen={isPushModalOpen}
+            onClose={() => setIsPushModalOpen(false)}
+          />
+        </Suspense>
       )}
 
       {/* 5-Day Inactivity Warning Notification */}
@@ -124,25 +140,34 @@ export function AppRoutes() {
         <Route
           path="/login"
           element={
-            user ? (
-              user.must_change_password || user.first_login_required ? (
-                <ForcePasswordChange onSuccess={() => {}} />
-              ) : user.role === 'admin' ? (
-                <AdminNotice />
+            <Suspense fallback={<AppLoadingSpinner />}>
+              {user ? (
+                user.must_change_password || user.first_login_required ? (
+                  <ForcePasswordChange onSuccess={() => {}} />
+                ) : user.role === 'admin' ? (
+                  <AdminNotice />
+                ) : (
+                  <Navigate to={user.role === 'teacher' ? '/teacher' : '/student'} replace />
+                )
               ) : (
-                <Navigate to={user.role === 'teacher' ? '/teacher' : '/student'} replace />
-              )
-            ) : (
-              <LoginScreen
-                onSuccess={() => {
-                  // Will automatically route on state transition
-                }}
-              />
-            )
+                <LoginScreen
+                  onSuccess={() => {
+                    // Will automatically route on state transition
+                  }}
+                />
+              )}
+            </Suspense>
           }
         />
 
-        <Route path="/admin" element={<AdminNotice />} />
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<AppLoadingSpinner />}>
+              <AdminNotice />
+            </Suspense>
+          }
+        />
 
         <Route
           path="/student/*"
