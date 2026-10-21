@@ -2,6 +2,7 @@
 // Supabase Client Initialization for Portal App
 
 import { createClient } from '@supabase/supabase-js';
+import { createInstrumentedFetch } from './perfLogger';
 
 const DEFAULT_SUPABASE_URL = 'https://evzehywyyqmcktszwmeg.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
@@ -10,10 +11,19 @@ const DEFAULT_SUPABASE_ANON_KEY =
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
+const isDev = import.meta.env.DEV && !import.meta.env.TEST;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
   },
+  ...(isDev
+    ? {
+        global: {
+          fetch: createInstrumentedFetch(fetch),
+        },
+      }
+    : {}),
 });

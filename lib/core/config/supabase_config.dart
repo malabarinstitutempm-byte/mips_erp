@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/perf_logger.dart';
 
 class SupabaseConfig {
   static const String defaultUrl = 'https://evzehywyyqmcktszwmeg.supabase.co';
@@ -29,6 +31,7 @@ class SupabaseConfig {
     await Supabase.initialize(
       url: url,
       anonKey: anonKey,
+      httpClient: kDebugMode ? PerfLoggingHttpClient() : null,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
       ),
