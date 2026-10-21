@@ -9,7 +9,6 @@ import '../../shared/widgets/page_header.dart';
 import '../../shared/widgets/section_card.dart';
 import '../../shared/widgets/app_avatar.dart';
 import '../layout/app_shell.dart';
-import '../students/student_provider.dart';
 import '../courses/course_provider.dart';
 import 'dashboard_provider.dart';
 import '../students/add_student_screen.dart';
@@ -22,8 +21,7 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final studentsAsync = ref.watch(studentsProvider(''));
-    final statsAsync = ref.watch(dashboardStatsProvider);
+    final summaryAsync = ref.watch(dashboardSummaryProvider);
     final coursesAsync = ref.watch(coursesProvider);
     final courseMap = coursesAsync.maybeWhen(
       data: (courses) => {for (var c in courses) if (c.id != null) c.id!: c.name},
@@ -34,31 +32,42 @@ class DashboardScreen extends ConsumerWidget {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 800;
 
+        final totalStudents = summaryAsync.maybeWhen(data: (s) => s.totalStudents.toString(), orElse: () => '—');
+        final totalCourses = summaryAsync.maybeWhen(data: (s) => s.totalCourses.toString(), orElse: () => '—');
+        final totalReceivable = summaryAsync.maybeWhen(
+          data: (s) => '₹${(s.totalFees / 100000).toStringAsFixed(1)}L',
+          orElse: () => '—',
+        );
+        final pendingDues = summaryAsync.maybeWhen(
+          data: (s) => '₹${(s.pendingFees / 100000).toStringAsFixed(1)}L',
+          orElse: () => '—',
+        );
+
         final kpiCards = [
           KpiCard(
             title: 'Total Students',
-            value: '248',
+            value: totalStudents,
             icon: LucideIcons.users,
             baseColor: AppColors.students.base,
             tintColor: AppColors.students.tint,
           ),
           KpiCard(
             title: 'Active Courses',
-            value: '8',
+            value: totalCourses,
             icon: LucideIcons.bookOpen,
             baseColor: AppColors.courses.base,
             tintColor: AppColors.courses.tint,
           ),
           KpiCard(
             title: 'Total Receivable',
-            value: '₹24.8L',
+            value: totalReceivable,
             icon: LucideIcons.indianRupee,
             baseColor: AppColors.fees.base,
             tintColor: AppColors.fees.tint,
           ),
           KpiCard(
-            title: 'Students w/ Dues',
-            value: '61',
+            title: 'Pending Dues',
+            value: pendingDues,
             icon: LucideIcons.alertTriangle,
             baseColor: AppColors.danger.base,
             tintColor: AppColors.danger.tint,
@@ -152,8 +161,9 @@ class DashboardScreen extends ConsumerWidget {
         final recentAdmissionsCard = SectionCard(
           title: 'Recent Admissions',
           padding: EdgeInsets.zero,
-          child: studentsAsync.when(
-            data: (students) {
+          child: summaryAsync.when(
+            data: (summary) {
+              final students = summary.recentStudents;
               if (students.isEmpty) {
                 return const Center(child: Padding(padding: EdgeInsets.all(16), child: Text('No recent admissions.', style: TextStyle(color: AppColors.textMuted))));
               }
@@ -163,21 +173,27 @@ class DashboardScreen extends ConsumerWidget {
                 itemCount: students.length > 3 ? 3 : students.length,
                 itemBuilder: (context, index) {
                   final s = students[index];
+                  final sName = s['name']?.toString() ?? 'Student';
+                  final sCourseId = (s['course_id'] as num?)?.toInt();
                   return Container(
                     decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                     child: Row(
                       children: [
-                        AppAvatar(name: s.name, radius: 16),
+                        AppAvatar(name: sName, radius: 16),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textStrong, fontSize: 13)),
-                              Text(courseMap[s.courseId] ?? (s.courseId != null ? 'Course #${s.courseId}' : 'N/A'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                              Text(sName, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textStrong, fontSize: 13)),
+                              Text(courseMap[sCourseId] ?? (sCourseId != null ? 'Course #$sCourseId' : 'N/A'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                             ],
                           ),
+                        ),
+                        Text(
+                          s['admission_number']?.toString() ?? '',
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
@@ -186,50 +202,7 @@ class DashboardScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
-            error: (_, __) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: const Row(
-                      children: [
-                        AppAvatar(name: 'Mohammed Shafi', radius: 16),
-                        SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Mohammed Shafi', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textStrong, fontSize: 13)),
-                              Text('Diploma in Medical Laboratory Technology', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: const Row(
-                      children: [
-                        AppAvatar(name: 'Fathima Sana', radius: 16),
-                        SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Fathima Sana', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textStrong, fontSize: 13)),
-                              Text('Diploma in Radiological Technology', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            error: (_, __) => const Center(child: Padding(padding: EdgeInsets.all(16), child: Text('No recent admissions.', style: TextStyle(color: AppColors.textMuted)))),
           ),
         );
 

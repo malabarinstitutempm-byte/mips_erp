@@ -117,6 +117,86 @@ export const studentService = {
   // 1. Student Profile & Enrolled Batches
   async getStudentProfile(): Promise<{ profile: StudentProfile; enrollments: StudentEnrollmentInfo[] }> {
     try {
+      // O3 Optimization: Consolidated RPC gets profile + enrollments in 1 fast query
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_student_portal_overview');
+      if (!rpcErr && rpcData && !rpcData.error && rpcData.profile) {
+        const profileView = rpcData.profile;
+        const rawEnrollments = rpcData.enrollments || [];
+        const enrollments: StudentEnrollmentInfo[] = rawEnrollments.map((e: any) => {
+          const sem = Number(e.current_semester || 1);
+          const yr = Number(e.current_year || (sem > 0 ? Math.ceil(sem / 2) : 1));
+          return {
+            enrollmentId: e.enrollment_id,
+            courseId: e.course_id,
+            courseName: e.course_name || profileView.course_name || 'Course',
+            courseType: (e.course_type || 'primary') as 'primary' | 'skill',
+            courseStructure: (e.course_structure || 'semester') as 'semester' | 'year' | 'single',
+            attendanceBasis: (e.attendance_basis || e.course_structure || 'semester') as 'semester' | 'year' | 'none',
+            durationYears: Number(e.duration_years || 1),
+            batchId: e.batch_id,
+            batchName: e.batch_name || profileView.batch_name || 'Batch',
+            status: e.status || 'active',
+            completedOn: e.completed_on || null,
+            currentSemester: sem,
+            currentYear: yr,
+          };
+        });
+
+        if (enrollments.length === 0 && profileView.course_id) {
+          enrollments.push({
+            enrollmentId: 0,
+            courseId: profileView.course_id,
+            courseName: profileView.course_name || 'Primary Course',
+            courseType: 'primary',
+            courseStructure: 'semester',
+            attendanceBasis: 'semester',
+            durationYears: 2,
+            batchId: profileView.batch_id || 0,
+            batchName: profileView.batch_name || 'Main Batch',
+            status: profileView.status || 'active',
+            completedOn: profileView.completed_on || null,
+            currentSemester: 1,
+            currentYear: 1,
+          });
+        }
+
+        const primaryEnrollment = enrollments.find((e) => e.courseType === 'primary') || enrollments[0];
+        const skillEnrollment = enrollments.find((e) => e.courseType === 'skill');
+
+        const activeSemester = primaryEnrollment?.currentSemester || 1;
+        const activeYear = primaryEnrollment?.currentYear || Math.ceil(activeSemester / 2);
+
+        const profile: StudentProfile = {
+          id: profileView.id,
+          admission_number: profileView.admission_number,
+          registration_number: profileView.registration_number,
+          name: profileView.name,
+          dob: profileView.dob || null,
+          phone: profileView.phone,
+          gender: profileView.gender,
+          course_id: primaryEnrollment?.courseId || profileView.course_id,
+          batch_id: primaryEnrollment?.batchId || profileView.batch_id,
+          course_name: primaryEnrollment?.courseName || profileView.course_name,
+          batch_name: primaryEnrollment?.batchName || profileView.batch_name,
+          batch_status: profileView.batch_status || 'active',
+          status: profileView.status || 'active',
+          completed_on: profileView.completed_on || null,
+          access_until: profileView.access_until || null,
+          skill_course_id: skillEnrollment?.courseId,
+          skill_course_name: skillEnrollment?.courseName,
+          skill_batch_id: skillEnrollment?.batchId,
+          skill_batch_name: skillEnrollment?.batchName,
+          current_semester: activeSemester,
+          current_year: activeYear,
+          course_structure: primaryEnrollment?.courseStructure || 'semester',
+          attendance_basis: primaryEnrollment?.attendanceBasis || 'semester',
+          duration_years: primaryEnrollment?.durationYears || 2,
+        };
+
+        return { profile, enrollments };
+      }
+
+      // Fallback: direct table queries
       const { data: profileView, error } = await supabase
         .from('student_profile_view')
         .select('*')
@@ -417,6 +497,71 @@ export const studentService = {
   // 3. Fees Ledger & Receipts
   async getStudentFees(studentId: number): Promise<StudentFeeLedger> {
     try {
+      // O3 Optimization: Consolidated RPC returns summary + items + payments in 1 query
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_student_fee_summary', {
+        p_student_id: studentId,
+      });
+
+      if (!rpcErr && rpcData) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const rawItems = rpcData.items || [];
+        const items = rawItems.map((fi: any) => {
+          const amount = Number(fi.amount_paise || 0);
+          const paid = Number(fi.paid_amount_paise || 0);
+          const pending = Number(fi.pending_amount_paise != null ? fi.pending_amount_paise : Math.max(0, amount - paid));
+          let status: 'Paid' | 'Due' | 'Overdue' = 'Due';
+          if (pending === 0) {
+            status = 'Paid';
+          } else if (fi.due_date && fi.due_date < todayStr) {
+            status = 'Overdue';
+          }
+
+          return {
+            id: fi.id,
+            title: fi.label || fi.title || 'Tuition Fee Installment',
+            kind: fi.kind || 'tuition',
+            courseName: fi.course_name,
+            amountPaise: amount,
+            paidAmountPaise: paid,
+            pendingAmountPaise: pending,
+            dueDate: fi.due_date,
+            status,
+          };
+        });
+
+        const rawPayments = rpcData.payments || [];
+        const payments = rawPayments.map((p: any) => ({
+          id: p.id,
+          receiptNumber: p.receipt_number || `REC-${String(p.id).padStart(4, '0')}`,
+          date: p.payment_date,
+          amountPaise: Number(p.amount_paise || 0),
+          paymentMode: p.payment_mode || 'Cash',
+          referenceNumber: p.reference_number || null,
+        }));
+
+        const total = Number(rpcData.total_fee_paise || 0);
+        const paid = Number(rpcData.paid_amount_paise || 0);
+        const pending = Number(rpcData.pending_amount_paise != null ? rpcData.pending_amount_paise : Math.max(0, total - paid));
+
+        return {
+          summary: {
+            totalFeePaise: total,
+            paidAmountPaise: paid,
+            pendingAmountPaise: pending,
+            primaryFeePaise: total,
+            primaryPaidPaise: paid,
+            primaryPendingPaise: pending,
+            skillFeePaise: 0,
+            skillPaidPaise: 0,
+            skillPendingPaise: 0,
+          },
+          items,
+          payments,
+          lastUpdated: rpcData.last_updated || new Date().toISOString(),
+        };
+      }
+
+      // Fallback: direct table queries
       // 3.1. Financial Summary
       const { data: summaryData } = await supabase
         .from('view_student_fee_summary')

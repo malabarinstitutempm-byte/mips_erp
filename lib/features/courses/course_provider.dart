@@ -10,6 +10,7 @@ final courseRepositoryProvider = Provider<CourseRepository>((ref) => SupabaseCou
 final batchRepositoryProvider = Provider<BatchRepository>((ref) => SupabaseBatchRepository());
 
 final coursesProvider = FutureProvider<List<Course>>((ref) async {
+  ref.keepAlive();
   try {
     final repo = ref.read(courseRepositoryProvider);
     final list = await repo.getCourses();

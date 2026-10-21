@@ -708,9 +708,6 @@ export const TeacherMarksTab: React.FC<TeacherMarksTabProps> = ({ teacherId }) =
           </div>
         </div>
       )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

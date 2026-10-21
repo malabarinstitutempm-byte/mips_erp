@@ -137,6 +137,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
       final count = res['undone_count'] ?? 0;
       
       if (mounted) {
+        ref.invalidate(studentListResultProvider);
         ref.invalidate(paginatedStudentsProvider);
         ref.invalidate(studentsTotalCountProvider);
         ref.invalidate(studentsProvider);
@@ -187,6 +188,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
               Navigator.pop(ctx);
               if (s.id != null) {
                 await ref.read(studentRepositoryProvider).deleteStudent(s.id!);
+                ref.invalidate(studentListResultProvider);
                 ref.invalidate(paginatedStudentsProvider);
                 ref.invalidate(studentsTotalCountProvider);
                 ref.invalidate(studentsProvider);
@@ -232,6 +234,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
               Navigator.pop(ctx);
               if (s.id != null) {
                 await ref.read(studentRepositoryProvider).restoreStudent(s.id!);
+                ref.invalidate(studentListResultProvider);
                 ref.invalidate(paginatedStudentsProvider);
                 ref.invalidate(studentsTotalCountProvider);
                 ref.invalidate(studentsProvider);

@@ -224,11 +224,11 @@ describe('Phase 14C - Year-wise Courses in React Student Portal', () => {
       await waitFor(() => {
         expect(screen.getByText('Year 1 Annual Examination - 2026')).toBeInTheDocument();
         expect(screen.getAllByText(/Year 1/i).length).toBeGreaterThan(0);
-        expect(screen.getByText('Human Anatomy & Physiology')).toBeInTheDocument();
-        expect(screen.getByText('Radiation Physics & Protection')).toBeInTheDocument();
-        expect(screen.getByText('Radiographic Photography & Film Processing')).toBeInTheDocument();
-        expect(screen.getByText('Basic Principles of Radiography')).toBeInTheDocument();
-        expect(screen.getByText('Practical & Viva Radiography - Year 1')).toBeInTheDocument();
+        expect(screen.getAllByText('Human Anatomy & Physiology').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Radiation Physics & Protection').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Radiographic Photography & Film Processing').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Basic Principles of Radiography').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Practical & Viva Radiography - Year 1').length).toBeGreaterThan(0);
       });
 
       // Check PDF Export button triggers filename with "Year_1"

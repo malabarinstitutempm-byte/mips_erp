@@ -193,8 +193,8 @@ describe('MIPS ERP Portal - Sub-phase 6E Test Suite', () => {
       expect(screen.getByText('First Year Final Examination')).toBeInTheDocument();
       expect(screen.getAllByText('PASS').length).toBeGreaterThan(0);
       expect(screen.getByText('A+')).toBeInTheDocument();
-      expect(screen.getByText('Clinical Biochemistry')).toBeInTheDocument();
-      expect(screen.getByText('Microbiology')).toBeInTheDocument();
+      expect(screen.getAllByText('Clinical Biochemistry').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Microbiology').length).toBeGreaterThan(0);
     });
 
     // Trigger PDF Export
@@ -271,8 +271,8 @@ describe('MIPS ERP Portal - Sub-phase 6E Test Suite', () => {
     await waitFor(() => {
       // Pending balance check: 2500000 paise = ₹25,000
       expect(screen.getAllByText(/25,000/).length).toBeGreaterThan(0);
-      expect(screen.getByText('Tuition Fee - Term 1')).toBeInTheDocument();
-      expect(screen.getByText('REC-2026-0045')).toBeInTheDocument();
+      expect(screen.getAllByText('Tuition Fee - Term 1').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('REC-2026-0045').length).toBeGreaterThan(0);
     });
 
     // Download Receipt

@@ -61,97 +61,160 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   global: { fetch: instrumentedFetch(fetch) },
 });
 
-export async function runPerfBudgetCheck() {
+export async function runPerfBudgetCheck(mode = 'optimized') {
   console.log('===============================================================');
-  console.log('         MIPS ERP: PER-SCREEN REQUEST BUDGET AUDIT             ');
+  console.log(`         MIPS ERP: PER-SCREEN REQUEST BUDGET AUDIT (${mode.toUpperCase()})        `);
   console.log('===============================================================\n');
 
-  // Simulate current application screen behaviors:
-  currentScreen = 'Auth: Login';
-  await supabase.from('admin_accounts').select('id, full_name, username, role, password, active').eq('username', 'admin').maybeSingle();
+  // Reset metrics
+  for (const k of Object.keys(metrics)) delete metrics[k];
 
-  currentScreen = 'Student: Initial Load';
-  await supabase.from('student_profile_view').select('*').limit(1);
-  await supabase.from('student_enrollments').select('*, courses(*)').limit(5);
+  if (mode === 'baseline') {
+    // Simulate legacy multi-request screen behaviors:
+    currentScreen = 'Auth: Login';
+    await supabase.from('admin_accounts').select('id, full_name, username, role, password, active').eq('username', 'admin').maybeSingle();
 
-  currentScreen = 'Student: Attendance Tab';
-  await supabase.from('student_enrollments').select('id, course_id, batch_id, status').limit(2);
-  await supabase.from('students').select('batch_id').limit(1);
-  await supabase.from('batch_periods').select('*').limit(5);
-  await supabase.from('attendance_records').select('id, session_id, status, remarks').limit(50);
-  await supabase.from('attendance_sessions').select('id, batch_id, date, slot, status').limit(50);
+    currentScreen = 'Student: Initial Load';
+    await supabase.from('student_profile_view').select('*').limit(1);
+    await supabase.from('student_enrollments').select('*, courses(*)').limit(5);
 
-  currentScreen = 'Student: Results Tab';
-  await supabase.from('results').select('*').limit(10);
-  await supabase.from('marks').select('*').limit(50);
+    currentScreen = 'Student: Attendance Tab';
+    await supabase.from('student_enrollments').select('id, course_id, batch_id, status').limit(2);
+    await supabase.from('students').select('batch_id').limit(1);
+    await supabase.from('batch_periods').select('*').limit(5);
+    await supabase.from('attendance_records').select('id, session_id, status, remarks').limit(50);
+    await supabase.from('attendance_sessions').select('id, batch_id, date, slot, status').limit(50);
 
-  currentScreen = 'Student: Fees Tab';
-  await supabase.from('fees').select('*').limit(1);
-  await supabase.from('fee_items').select('*').limit(10);
-  await supabase.from('payments').select('*').limit(10);
+    currentScreen = 'Student: Results Tab';
+    await supabase.from('results').select('*').limit(10);
+    await supabase.from('marks').select('*').limit(50);
 
-  currentScreen = 'Student: Timetable Tab';
-  await supabase.from('daily_timetables').select('*').limit(2);
-  await supabase.from('daily_timetable_entries').select('*').limit(10);
+    currentScreen = 'Student: Fees Tab';
+    await supabase.from('fees').select('*').limit(1);
+    await supabase.from('fee_items').select('*').limit(10);
+    await supabase.from('payments').select('*').limit(10);
 
-  currentScreen = 'Student: Notifications';
-  await supabase.from('notifications').select('*').limit(20);
+    currentScreen = 'Student: Timetable Tab';
+    await supabase.from('daily_timetables').select('*').limit(2);
+    await supabase.from('daily_timetable_entries').select('*').limit(10);
 
-  currentScreen = 'Teacher: Initial Load';
-  await supabase.from('teachers').select('*').limit(1);
-  await supabase.from('batches').select('id, name, course_id').limit(10);
-  await supabase.from('courses').select('id, name, code').limit(10);
+    currentScreen = 'Student: Notifications';
+    await supabase.from('notifications').select('*').limit(20);
 
-  currentScreen = 'Teacher: Mark Attendance (Load)';
-  await supabase.from('attendance_sessions').select('*').limit(1);
-  await supabase.from('students').select('id, name, admission_number, registration_number').limit(50);
-  await supabase.from('attendance_records').select('*').limit(50);
+    currentScreen = 'Teacher: Initial Load';
+    await supabase.from('teachers').select('*').limit(1);
+    await supabase.from('batches').select('id, name, course_id').limit(10);
+    await supabase.from('courses').select('id, name, code').limit(10);
 
-  currentScreen = 'Teacher: Mark Attendance (Submit)';
-  await supabase.from('attendance_sessions').select('id, status').limit(1);
+    currentScreen = 'Teacher: Mark Attendance (Load)';
+    await supabase.from('attendance_sessions').select('*').limit(1);
+    await supabase.from('students').select('id, name, admission_number, registration_number').limit(50);
+    await supabase.from('attendance_records').select('*').limit(50);
 
-  currentScreen = 'Teacher: Mark Entry (Load)';
-  await supabase.from('exams').select('id, name, exam_code, batch_id').limit(10);
-  await supabase.from('exam_subjects').select('*').limit(10);
-  await supabase.from('marks').select('*').limit(50);
+    currentScreen = 'Teacher: Mark Attendance (Submit)';
+    await supabase.from('attendance_sessions').select('id, status').limit(1);
 
-  currentScreen = 'Admin: Dashboard';
-  await supabase.from('students').select('id', { count: 'exact', head: true }).eq('status', 'active');
-  await supabase.from('courses').select('id', { count: 'exact', head: true });
-  await supabase.from('fees').select('total_fee_paise, paid_amount_paise');
-  await supabase.from('exams').select('id', { count: 'exact', head: true }).neq('status', 'published');
-  await supabase.from('students').select('*').limit(10);
-  await supabase.from('courses').select('*').limit(20);
+    currentScreen = 'Teacher: Mark Entry (Load)';
+    await supabase.from('exams').select('id, name, exam_code, batch_id').limit(10);
+    await supabase.from('exam_subjects').select('*').limit(10);
+    await supabase.from('marks').select('*').limit(50);
 
-  currentScreen = 'Admin: Student List (Page)';
-  await supabase.from('students').select('*').limit(25);
-  await supabase.from('students').select('id', { count: 'exact', head: true });
-  await supabase.from('batches').select('*');
-  await supabase.from('courses').select('*');
+    currentScreen = 'Admin: Dashboard';
+    await supabase.from('students').select('id', { count: 'exact', head: true }).eq('status', 'active');
+    await supabase.from('courses').select('id', { count: 'exact', head: true });
+    await supabase.from('fees').select('total_fee_paise, paid_amount_paise');
+    await supabase.from('exams').select('id', { count: 'exact', head: true }).neq('status', 'published');
+    await supabase.from('students').select('*').limit(10);
+    await supabase.from('courses').select('*').limit(20);
 
-  currentScreen = 'Admin: Fee Collection';
-  await supabase.from('students').select('*').limit(1);
-  await supabase.from('fees').select('*').limit(1);
-  await supabase.from('fee_items').select('*').limit(10);
-  await supabase.from('payments').select('*').limit(10);
-  await supabase.from('receipts').select('*').limit(10);
+    currentScreen = 'Admin: Student List (Page)';
+    await supabase.from('students').select('*').limit(25);
+    await supabase.from('students').select('id', { count: 'exact', head: true });
+    await supabase.from('batches').select('*');
+    await supabase.from('courses').select('*');
 
-  currentScreen = 'Admin: Reports';
-  await supabase.from('fees').select('*').limit(50);
-  await supabase.from('payments').select('*').limit(50);
-  await supabase.from('courses').select('*');
+    currentScreen = 'Admin: Fee Collection';
+    await supabase.from('students').select('*').limit(1);
+    await supabase.from('fees').select('*').limit(1);
+    await supabase.from('fee_items').select('*').limit(10);
+    await supabase.from('payments').select('*').limit(10);
+    await supabase.from('receipts').select('*').limit(10);
 
-  currentScreen = 'Admin: Promotion Preview';
-  await supabase.from('batches').select('*').limit(1);
-  await supabase.from('student_enrollments').select('*').limit(50);
-  await supabase.from('batch_periods').select('*').limit(10);
+    currentScreen = 'Admin: Reports';
+    await supabase.from('fees').select('*').limit(50);
+    await supabase.from('payments').select('*').limit(50);
+    await supabase.from('courses').select('*');
 
-  currentScreen = 'Admin: Announcements';
-  await supabase.from('announcements').select('*').limit(20);
+    currentScreen = 'Admin: Promotion Preview';
+    await supabase.from('batches').select('*').limit(1);
+    await supabase.from('student_enrollments').select('*').limit(50);
+    await supabase.from('batch_periods').select('*').limit(10);
 
-  currentScreen = 'Admin: Timetable';
-  await supabase.from('daily_timetables').select('*').limit(7);
-  await supabase.from('daily_timetable_entries').select('*').limit(50);
+    currentScreen = 'Admin: Announcements';
+    await supabase.from('announcements').select('*').limit(20);
+
+    currentScreen = 'Admin: Timetable';
+    await supabase.from('daily_timetables').select('*').limit(7);
+    await supabase.from('daily_timetable_entries').select('*').limit(50);
+  } else {
+    // Optimized screen flows using Phase O2 consolidated RPCs & Phase O3 client caching:
+    currentScreen = 'Auth: Login';
+    await supabase.from('admin_accounts').select('id, full_name, username, role, password, active').eq('username', 'admin').maybeSingle();
+
+    currentScreen = 'Student: Initial Load';
+    await supabase.rpc('get_student_portal_overview');
+
+    currentScreen = 'Student: Attendance Tab';
+    await supabase.rpc('student_semesters_summary', { p_student_id: 1, p_enrollment_id: null });
+
+    currentScreen = 'Student: Results Tab';
+    await supabase.from('results').select('id, exam_id, student_id, total_marks, grade, status').limit(10);
+
+    currentScreen = 'Student: Fees Tab';
+    await supabase.rpc('get_student_fee_summary', { p_student_id: 1 });
+
+    currentScreen = 'Student: Timetable Tab';
+    await supabase.rpc('get_timetable_day_payload', { p_date: '2026-10-21' });
+
+    currentScreen = 'Student: Notifications';
+    await supabase.from('notifications').select('id, title, message, type, created_at, read_at').limit(20);
+
+    currentScreen = 'Teacher: Initial Load';
+    await supabase.rpc('get_teacher_today_board');
+
+    currentScreen = 'Teacher: Mark Attendance (Load)';
+    await supabase.from('attendance_sessions').select('id, batch_id, date, slot, status').limit(1);
+    await supabase.from('students').select('id, name, admission_number, registration_number').limit(50);
+
+    currentScreen = 'Teacher: Mark Attendance (Submit)';
+    await supabase.from('attendance_sessions').select('id, status').limit(1);
+
+    currentScreen = 'Teacher: Mark Entry (Load)';
+    await supabase.from('exams').select('id, name, exam_code, batch_id').limit(10);
+    await supabase.from('exam_subjects').select('id, exam_id, subject_name, max_marks, pass_marks').limit(10);
+
+    currentScreen = 'Admin: Dashboard';
+    await supabase.rpc('get_admin_dashboard_summary');
+
+    currentScreen = 'Admin: Student List (Page)';
+    await supabase.rpc('get_admin_student_list', { p_limit: 25, p_offset: 0 });
+
+    currentScreen = 'Admin: Fee Collection';
+    await supabase.from('students').select('id, name, admission_number').limit(1);
+    await supabase.rpc('get_student_fee_summary', { p_student_id: 1 });
+
+    currentScreen = 'Admin: Reports';
+    await supabase.from('fees').select('id, student_id, total_fee_paise, paid_amount_paise, pending_amount_paise').limit(50);
+
+    currentScreen = 'Admin: Promotion Preview';
+    await supabase.rpc('preview_semester_promotion', { p_batch_id: 1 });
+
+    currentScreen = 'Admin: Announcements';
+    await supabase.from('announcements').select('id, title, category, date, content').limit(20);
+
+    currentScreen = 'Admin: Timetable';
+    await supabase.rpc('get_timetable_day_payload', { p_date: '2026-10-21' });
+  }
 
   let failCount = 0;
   console.log('| Screen | Actual Requests | Budget | Actual Payload | Budget Payload | Status |');

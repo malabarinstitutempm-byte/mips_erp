@@ -66,7 +66,44 @@ export const dailyTimetableService = {
    */
   async getDailyTimetable(dateStr: string, heading: string): Promise<DailyTimetableResult> {
     try {
-      // 1. Check Supabase publication status
+      // O3 Optimization: Consolidated RPC fetches status + entries in 1 query
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_timetable_day_payload', {
+        p_date: dateStr,
+      });
+
+      if (!rpcErr && rpcData && rpcData.status && rpcData.status !== 'not_created') {
+        if (rpcData.status !== 'published') {
+          return {
+            isPublished: false,
+            status: rpcData.status,
+            date: dateStr,
+            heading: rpcData.heading || heading,
+            entries: [],
+          };
+        }
+
+        const rawEntries = rpcData.entries || [];
+        return {
+          isPublished: true,
+          status: 'published',
+          date: dateStr,
+          heading: rpcData.heading || heading,
+          entries: rawEntries.map((e: any) => ({
+            id: e.id,
+            date: e.date,
+            courseName: e.course_name,
+            year: e.year || '1st Year',
+            teacherName: e.teacher_name,
+            subjectName: e.subject_name,
+            classRoom: e.class_room,
+            startTime: e.start_time,
+            endTime: e.end_time,
+            sortOrder: e.sort_order || 0,
+          })),
+        };
+      }
+
+      // Fallback: Check Supabase publication status
       const { data: ttStatus, error: statusErr } = await supabase
         .from('daily_timetables')
         .select('*')

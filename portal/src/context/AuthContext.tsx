@@ -369,45 +369,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [fetchProfileAndRole, fetchUnreadCount, clearPersistedSession, persistSession]);
 
-  // Real-time Notifications Subscription with Sound & Query Invalidation
+  // Real-time Notifications Subscription: active only when tab is visible (pauses in background)
   useEffect(() => {
     if (!user?.id) return;
 
-    const channel = supabase
-      .channel(`portal:notifications:${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          setUnreadCount((c) => c + 1);
-          queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
-          import('../lib/soundAlert').then(({ playNotificationChime }) => {
-            playNotificationChime();
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchUnreadCount(user.id);
-          queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
-        }
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setupChannel = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (channel) return;
+
+      channel = supabase
+        .channel(`portal:notifications:${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            setUnreadCount((c) => c + 1);
+            queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+            import('../lib/soundAlert').then(({ playNotificationChime }) => {
+              playNotificationChime();
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchUnreadCount(user.id);
+            queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+          }
+        )
+        .subscribe();
+    };
+
+    const tearDownChannel = () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setupChannel();
+        fetchUnreadCount(user.id);
+      } else {
+        tearDownChannel();
+      }
+    };
+
+    setupChannel();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      tearDownChannel();
     };
   }, [user?.id, fetchUnreadCount, queryClient]);
 

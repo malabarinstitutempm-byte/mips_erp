@@ -733,6 +733,7 @@ class _AddStudentPanelState extends ConsumerState<AddStudentPanel> {
       }
 
       if (mounted) {
+        ref.invalidate(studentListResultProvider);
         ref.invalidate(paginatedStudentsProvider);
         ref.invalidate(studentsTotalCountProvider);
         ref.invalidate(studentsProvider);

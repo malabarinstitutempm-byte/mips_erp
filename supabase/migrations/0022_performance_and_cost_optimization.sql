@@ -254,6 +254,7 @@ DECLARE
     v_today_unmarked int := 0;
     v_tomorrow_timetable_published boolean := false;
     v_recent_payments jsonb;
+    v_recent_students jsonb;
 BEGIN
     IF NOT (SELECT public.is_admin()) THEN
         RAISE EXCEPTION 'Access denied. Administrator privileges required.';
@@ -303,6 +304,17 @@ BEGIN
         LIMIT 5
     ) p;
 
+    -- 7. Recent 3 Admissions (Feed for Dashboard)
+    SELECT coalesce(jsonb_agg(to_jsonb(s)), '[]'::jsonb)
+    INTO v_recent_students
+    FROM (
+        SELECT id, name, admission_number, course_id, batch_id, admission_date
+        FROM public.students
+        WHERE deleted_at IS NULL
+        ORDER BY id DESC
+        LIMIT 3
+    ) s;
+
     RETURN jsonb_build_object(
         'total_students', v_total_students,
         'total_courses', v_total_courses,
@@ -314,7 +326,8 @@ BEGIN
         'today_sessions_marked', v_today_marked,
         'today_sessions_unmarked', v_today_unmarked,
         'tomorrow_timetable_published', v_tomorrow_timetable_published,
-        'recent_payments', v_recent_payments
+        'recent_payments', v_recent_payments,
+        'recent_students', v_recent_students
     );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;

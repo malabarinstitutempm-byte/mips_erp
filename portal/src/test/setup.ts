@@ -63,6 +63,11 @@ vi.mock('html2pdf.js', () => ({
   }),
 }));
 
+// Mock scrollIntoView for jsdom
+if (typeof window !== 'undefined' && window.HTMLElement) {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+}
+
 // Mock WebSocket to prevent Node 22 undici dispatchEvent errors during Vitest runs
 class MockWebSocket {
   static readonly CONNECTING = 0;
