@@ -16,6 +16,7 @@ import '../backup/backup_service.dart';
 import 'record_types_settings.dart';
 import 'integrity_check_dialog.dart';
 import 'settings_provider.dart';
+import 'system_health_view.dart';
 import '../exams/grading_scheme_manager.dart';
 import '../auth/auth_provider.dart';
 
@@ -686,6 +687,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                             ),
                           ],
+
+                          // 8: System Health & Quotas
+                          if (_selectedIndex == 8) ...[
+                            const SystemHealthView(),
+                          ],
                         ],
                       ),
                     ),
@@ -746,6 +752,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _buildMobileCategoryChip(6, 'Grading', LucideIcons.award),
                 const SizedBox(width: 6),
                 _buildMobileCategoryChip(7, 'System Info', LucideIcons.info),
+                const SizedBox(width: 6),
+                _buildMobileCategoryChip(8, 'Health & Quotas', LucideIcons.activity),
               ],
             ),
           ),
@@ -768,6 +776,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _buildNavTile(5, 'Student Record Types', LucideIcons.files, AppColors.documents),
                       _buildNavTile(6, 'Grading System', LucideIcons.award, AppColors.exams),
                       _buildNavTile(7, 'System Info', LucideIcons.info, AppColors.reports),
+                      _buildNavTile(8, 'System Health & Quotas', LucideIcons.activity, AppColors.success),
                     ],
                   ),
                 ),
