@@ -27,6 +27,7 @@ class _ExamTimetableScheduleViewState extends ConsumerState<ExamTimetableSchedul
   Widget build(BuildContext context) {
     final batchesAsync = ref.watch(allBatchesProvider);
     final examEntriesAsync = ref.watch(examTimetableProvider);
+    final isMobile = MediaQuery.of(context).size.width < 700;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,42 +35,79 @@ class _ExamTimetableScheduleViewState extends ConsumerState<ExamTimetableSchedul
         // Controls Bar
         SectionCard(
           title: 'Examination Timetable Configuration',
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<int?>(
-                  value: _selectedBatchId,
-                  decoration: const InputDecoration(
-                    labelText: 'Filter by Course Batch',
-                    isDense: true,
-                  ),
-                  items: [
-                    const DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text('All Institutional Batches'),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<int?>(
+                      value: _selectedBatchId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Filter by Course Batch',
+                        isDense: true,
+                      ),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('All Institutional Batches', overflow: TextOverflow.ellipsis),
+                        ),
+                        if (batchesAsync.valueOrNull != null)
+                          ...batchesAsync.valueOrNull!.map((b) {
+                            return DropdownMenuItem<int?>(
+                              value: b['id'] as int,
+                              child: Text(b['name'] as String, overflow: TextOverflow.ellipsis),
+                            );
+                          }),
+                      ],
+                      onChanged: (val) {
+                        setState(() => _selectedBatchId = val);
+                      },
                     ),
-                    if (batchesAsync.valueOrNull != null)
-                      ...batchesAsync.valueOrNull!.map((b) {
-                        return DropdownMenuItem<int?>(
-                          value: b['id'] as int,
-                          child: Text(b['name'] as String),
-                        );
-                      }),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      icon: const Icon(LucideIcons.plus, size: 16),
+                      label: const Text('Add Exam Paper'),
+                      onPressed: () => _openAddEditDialog(context, null),
+                    ),
                   ],
-                  onChanged: (val) {
-                    setState(() => _selectedBatchId = val);
-                  },
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<int?>(
+                        value: _selectedBatchId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Filter by Course Batch',
+                          isDense: true,
+                        ),
+                        items: [
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('All Institutional Batches'),
+                          ),
+                          if (batchesAsync.valueOrNull != null)
+                            ...batchesAsync.valueOrNull!.map((b) {
+                              return DropdownMenuItem<int?>(
+                                value: b['id'] as int,
+                                child: Text(b['name'] as String),
+                              );
+                            }),
+                        ],
+                        onChanged: (val) {
+                          setState(() => _selectedBatchId = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.lg),
+                    FilledButton.icon(
+                      icon: const Icon(LucideIcons.plus, size: 16),
+                      label: const Text('Add Exam Paper'),
+                      onPressed: () => _openAddEditDialog(context, null),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: AppSpacing.lg),
-              FilledButton.icon(
-                icon: const Icon(LucideIcons.plus, size: 16),
-                label: const Text('Add Exam Paper'),
-                onPressed: () => _openAddEditDialog(context, null),
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: AppSpacing.lg),
 
@@ -122,114 +160,189 @@ class _ExamTimetableScheduleViewState extends ConsumerState<ExamTimetableSchedul
                 itemBuilder: (context, index) {
                   final paper = filtered[index];
                   final parsedDate = DateTime.tryParse(paper.examDate);
-                  final formattedDate = parsedDate != null
-                      ? DateFormat('EEEE, MMM d, yyyy').format(parsedDate)
-                      : paper.examDate;
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Date Badge
-                        Container(
-                          width: 80,
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.brandTint,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.brand.withOpacity(0.3)),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                parsedDate != null ? DateFormat('MMM').format(parsedDate).toUpperCase() : 'EXAM',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Date Badge
+                            Container(
+                              width: isMobile ? 68 : 80,
+                              padding: EdgeInsets.symmetric(vertical: 8, horizontal: isMobile ? 4 : 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.brandTint,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.brand.withValues(alpha: 0.3)),
                               ),
-                              Text(
-                                parsedDate != null ? DateFormat('d').format(parsedDate) : '--',
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    parsedDate != null ? DateFormat('MMM').format(parsedDate).toUpperCase() : 'EXAM',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                                  ),
+                                  Text(
+                                    parsedDate != null ? DateFormat('d').format(parsedDate) : '--',
+                                    style: TextStyle(fontSize: isMobile ? 18 : 20, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                                  ),
+                                  Text(
+                                    parsedDate != null ? DateFormat('EEE').format(parsedDate) : '',
+                                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                parsedDate != null ? DateFormat('EEE').format(parsedDate) : '',
-                                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
 
-                        // Details
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                            // Details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      Text(
+                                        paper.subjectName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blueGrey.shade50,
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.blueGrey.shade200),
+                                        ),
+                                        child: Text(
+                                          paper.subjectCode,
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    paper.subjectName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    '${paper.examName} • ${paper.batchName}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w500),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blueGrey.shade50,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.blueGrey.shade200),
+                                  if (!isMobile) ...[
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 16,
+                                      runSpacing: 4,
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(LucideIcons.clock, size: 14, color: AppColors.brand),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${paper.startTime} - ${paper.endTime}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(LucideIcons.mapPin, size: 14, color: Colors.redAccent),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              paper.room,
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                    child: Text(
-                                      paper.subjectCode,
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800),
-                                    ),
-                                  ),
+                                    if (paper.instructions.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        paper.instructions,
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
+                                  ],
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${paper.examName} • ${paper.batchName}',
-                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w500),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const Icon(LucideIcons.clock, size: 14, color: AppColors.brand),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${paper.startTime} - ${paper.endTime}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  const Icon(LucideIcons.mapPin, size: 14, color: Colors.redAccent),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    paper.room,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                              if (paper.instructions.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  paper.instructions,
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                            ),
+
+                            // Action Buttons
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(LucideIcons.edit2, size: 16, color: AppColors.brand),
+                                  tooltip: 'Edit Exam Paper',
+                                  constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+                                  padding: isMobile ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+                                  onPressed: () => _openAddEditDialog(context, paper),
+                                ),
+                                IconButton(
+                                  icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.redAccent),
+                                  tooltip: 'Delete Exam Paper',
+                                  constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
+                                  padding: isMobile ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+                                  onPressed: () => _confirmDeleteDialog(context, paper.id, paper.subjectName),
                                 ),
                               ],
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
 
-                        // Action Buttons
-                        IconButton(
-                          icon: const Icon(LucideIcons.edit2, size: 16, color: AppColors.brand),
-                          tooltip: 'Edit Exam Paper',
-                          onPressed: () => _openAddEditDialog(context, paper),
-                        ),
-                        IconButton(
-                          icon: const Icon(LucideIcons.trash2, size: 16, color: Colors.redAccent),
-                          tooltip: 'Delete Exam Paper',
-                          onPressed: () => _confirmDeleteDialog(context, paper.id, paper.subjectName),
-                        ),
+                        // If mobile, place time and venue on their own row aligned nicely
+                        if (isMobile) ...[
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 80),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(LucideIcons.clock, size: 13, color: AppColors.brand),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${paper.startTime} - ${paper.endTime}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(LucideIcons.mapPin, size: 13, color: Colors.redAccent),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          paper.room,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                if (paper.instructions.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    paper.instructions,
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
