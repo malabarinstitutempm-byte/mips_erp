@@ -280,6 +280,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(coursesProvider);
     final batchesAsync = ref.watch(allBatchesProvider);
+    final isMobile = MediaQuery.of(context).size.width < 800;
 
     final courseName = coursesAsync.maybeWhen(
       data: (courses) {
@@ -325,7 +326,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1440),
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
+            padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -333,134 +334,276 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                 SectionCard(
                   padding: EdgeInsets.zero,
                   child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxl),
-                    child: Row(
-                      children: [
-                        StudentHeroPhoto(
-                          student: _student,
-                          onChangePhoto: () async {
-                            await AddStudentPanel.show(context, student: _student);
-                            await _refreshStudent();
-                          },
-                        ),
-                        const SizedBox(width: AppSpacing.xxl),
-                        Expanded(
-                          child: Column(
+                    padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xxl),
+                    child: isMobile
+                        ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: AppSpacing.md,
-                                runSpacing: AppSpacing.sm,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(_student.name, style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppColors.textStrong)),
-                                  StatusBadge(
-                                    text: _student.status == 'completed' ? 'COMPLETED' : _student.status.toUpperCase(),
-                                    status: _student.status == 'completed'
-                                        ? BadgeStatus.info
-                                        : _student.status == 'discontinued'
-                                            ? BadgeStatus.neutral
-                                            : _student.status == 'tc_issued'
-                                                ? BadgeStatus.warning
-                                                : BadgeStatus.success,
+                                  StudentHeroPhoto(
+                                    student: _student,
+                                    onChangePhoto: () async {
+                                      await AddStudentPanel.show(context, student: _student);
+                                      await _refreshStudent();
+                                    },
                                   ),
-                                  if (batch != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.brand.withOpacity(0.08),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: AppColors.brand.withOpacity(0.25)),
-                                      ),
-                                      child: Text(
-                                        'Semester ${batch.currentSemester} (Year ${batch.currentYear})',
-                                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.brand),
-                                      ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _student.name,
+                                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                            color: AppColors.textStrong,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: AppSpacing.xs),
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: AppSpacing.sm,
+                                          runSpacing: AppSpacing.xs,
+                                          children: [
+                                            StatusBadge(
+                                              text: _student.status == 'completed' ? 'COMPLETED' : _student.status.toUpperCase(),
+                                              status: _student.status == 'completed'
+                                                  ? BadgeStatus.info
+                                                  : _student.status == 'discontinued'
+                                                      ? BadgeStatus.neutral
+                                                      : _student.status == 'tc_issued'
+                                                          ? BadgeStatus.warning
+                                                          : BadgeStatus.success,
+                                            ),
+                                            if (batch != null)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.brand.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: AppColors.brand.withOpacity(0.25)),
+                                                ),
+                                                child: Text(
+                                                  'Sem ${batch.currentSemester} (Yr ${batch.currentYear})',
+                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brand),
+                                                ),
+                                              ),
+                                            if (_student.status == 'completed' && _student.completedOn != null)
+                                              Text(
+                                                '(${_student.completedOn})',
+                                                style: const TextStyle(color: Colors.purple, fontSize: 11, fontWeight: FontWeight.bold),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: AppSpacing.xs),
+                                        Text(
+                                          '${_student.admissionNumber ?? 'N/A'} • $courseName',
+                                          style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                                        ),
+                                        if (_student.phone != null && _student.phone!.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(LucideIcons.phone, size: 13, color: AppColors.textMuted),
+                                              const SizedBox(width: 4),
+                                              Text(_student.phone!, style: const TextStyle(color: AppColors.textBody, fontSize: 12)),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
                                     ),
-                                  if (_student.status == 'completed' && _student.completedOn != null)
-                                    Text(
-                                      '(${_student.completedOn})',
-                                      style: const TextStyle(color: Colors.purple, fontSize: 12, fontWeight: FontWeight.bold),
-                                    ),
+                                  ),
                                 ],
                               ),
+                              const SizedBox(height: AppSpacing.md),
+                              const Divider(height: 1),
                               const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                '${_student.admissionNumber ?? 'N/A'} • $courseName • ${batch != null ? batch.batchName : 'No Batch'} • ${_student.gender ?? 'Male'}',
-                                style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
                                 children: [
-                                  const Icon(LucideIcons.phone, size: 16, color: AppColors.textMuted),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Text(_student.phone ?? 'No phone provided', style: const TextStyle(color: AppColors.textBody)),
+                                  if (_student.status == 'active')
+                                    ElevatedButton.icon(
+                                      onPressed: _showMarkCompletedDialog,
+                                      icon: const Icon(LucideIcons.checkCircle, size: 14),
+                                      label: const Text('Mark Completed', style: TextStyle(fontSize: 12)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.teal[700],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      ),
+                                    )
+                                  else if (_student.status == 'completed')
+                                    ElevatedButton.icon(
+                                      onPressed: _showReopenStudentDialog,
+                                      icon: const Icon(LucideIcons.rotateCcw, size: 14),
+                                      label: const Text('Reopen Student', style: TextStyle(fontSize: 12)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange[800],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      ),
+                                    ),
+                                  OutlinedButton.icon(
+                                    onPressed: () => _showAddSkillCourseDialog(),
+                                    icon: const Icon(LucideIcons.sparkles, size: 14, color: Colors.purple),
+                                    label: const Text('Add Skill Course', style: TextStyle(color: Colors.purple, fontSize: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(color: Colors.purple.withOpacity(0.4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await AddStudentPanel.show(context, student: _student);
+                                      await _refreshStudent();
+                                    },
+                                    icon: const Icon(LucideIcons.edit3, size: 14),
+                                    label: const Text('Edit Profile', style: TextStyle(fontSize: 12)),
+                                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: _confirmDeleteStudent,
+                                    icon: Icon(LucideIcons.trash2, size: 14, color: AppColors.danger.base),
+                                    label: Text('Delete', style: TextStyle(color: AppColors.danger.base, fontSize: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(color: AppColors.danger.base.withValues(alpha: 0.4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              StudentHeroPhoto(
+                                student: _student,
+                                onChangePhoto: () async {
+                                  await AddStudentPanel.show(context, student: _student);
+                                  await _refreshStudent();
+                                },
+                              ),
+                              const SizedBox(width: AppSpacing.xxl),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: AppSpacing.md,
+                                      runSpacing: AppSpacing.sm,
+                                      children: [
+                                        Text(_student.name, style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppColors.textStrong)),
+                                        StatusBadge(
+                                          text: _student.status == 'completed' ? 'COMPLETED' : _student.status.toUpperCase(),
+                                          status: _student.status == 'completed'
+                                              ? BadgeStatus.info
+                                              : _student.status == 'discontinued'
+                                                  ? BadgeStatus.neutral
+                                                  : _student.status == 'tc_issued'
+                                                      ? BadgeStatus.warning
+                                                      : BadgeStatus.success,
+                                        ),
+                                        if (batch != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.brand.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: AppColors.brand.withOpacity(0.25)),
+                                            ),
+                                            child: Text(
+                                              'Semester ${batch.currentSemester} (Year ${batch.currentYear})',
+                                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.brand),
+                                            ),
+                                          ),
+                                        if (_student.status == 'completed' && _student.completedOn != null)
+                                          Text(
+                                            '(${_student.completedOn})',
+                                            style: const TextStyle(color: Colors.purple, fontSize: 12, fontWeight: FontWeight.bold),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    Text(
+                                      '${_student.admissionNumber ?? 'N/A'} • $courseName • ${batch != null ? batch.batchName : 'No Batch'} • ${_student.gender ?? 'Male'}',
+                                      style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                                    ),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    Row(
+                                      children: [
+                                        const Icon(LucideIcons.phone, size: 16, color: AppColors.textMuted),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        Text(_student.phone ?? 'No phone provided', style: const TextStyle(color: AppColors.textBody)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (_student.status == 'active') ...[
+                                    ElevatedButton.icon(
+                                      onPressed: _showMarkCompletedDialog,
+                                      icon: const Icon(LucideIcons.checkCircle, size: 14),
+                                      label: const Text('Mark Completed', style: TextStyle(fontSize: 12.5)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.teal[700],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.sm),
+                                  ] else if (_student.status == 'completed') ...[
+                                    ElevatedButton.icon(
+                                      onPressed: _showReopenStudentDialog,
+                                      icon: const Icon(LucideIcons.rotateCcw, size: 14),
+                                      label: const Text('Reopen Student', style: TextStyle(fontSize: 12.5)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange[800],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.sm),
+                                  ],
+                                  OutlinedButton.icon(
+                                    onPressed: () => _showAddSkillCourseDialog(),
+                                    icon: const Icon(LucideIcons.sparkles, size: 14, color: Colors.purple),
+                                    label: const Text('Add Skill Course', style: TextStyle(color: Colors.purple, fontSize: 12.5)),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(color: Colors.purple.withOpacity(0.4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await AddStudentPanel.show(context, student: _student);
+                                      await _refreshStudent();
+                                    },
+                                    icon: const Icon(LucideIcons.edit3, size: 14),
+                                    label: const Text('Edit Profile', style: TextStyle(fontSize: 12.5)),
+                                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  OutlinedButton.icon(
+                                    onPressed: _confirmDeleteStudent,
+                                    icon: Icon(LucideIcons.trash2, size: 14, color: AppColors.danger.base),
+                                    label: Text('Delete', style: TextStyle(color: AppColors.danger.base, fontSize: 12.5)),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(color: AppColors.danger.base.withValues(alpha: 0.4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (_student.status == 'active') ...[
-                              ElevatedButton.icon(
-                                onPressed: _showMarkCompletedDialog,
-                                icon: const Icon(LucideIcons.checkCircle, size: 14),
-                                label: const Text('Mark Completed', style: TextStyle(fontSize: 12.5)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.teal[700],
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                            ] else if (_student.status == 'completed') ...[
-                              ElevatedButton.icon(
-                                onPressed: _showReopenStudentDialog,
-                                icon: const Icon(LucideIcons.rotateCcw, size: 14),
-                                label: const Text('Reopen Student', style: TextStyle(fontSize: 12.5)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange[800],
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                            ],
-                            OutlinedButton.icon(
-                              onPressed: () => _showAddSkillCourseDialog(),
-                              icon: const Icon(LucideIcons.sparkles, size: 14, color: Colors.purple),
-                              label: const Text('Add Skill Course', style: TextStyle(color: Colors.purple, fontSize: 12.5)),
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: Colors.purple.withOpacity(0.4)),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            OutlinedButton.icon(
-                              onPressed: () async {
-                                await AddStudentPanel.show(context, student: _student);
-                                await _refreshStudent();
-                              },
-                              icon: const Icon(LucideIcons.edit3, size: 14),
-                              label: const Text('Edit Profile', style: TextStyle(fontSize: 12.5)),
-                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            OutlinedButton.icon(
-                              onPressed: _confirmDeleteStudent,
-                              icon: Icon(LucideIcons.trash2, size: 14, color: AppColors.danger.base),
-                              label: Text('Delete', style: TextStyle(color: AppColors.danger.base, fontSize: 12.5)),
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: AppColors.danger.base.withValues(alpha: 0.4)),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
                   ),
                 ),
                 
@@ -510,44 +653,55 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
   }
 
   Widget _buildOverviewTab(String courseName, Batch? batch) {
-    return SingleChildScrollView(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
+    final personalCard = SectionCard(
+      title: 'Personal Details',
+      child: Column(
         children: [
-          Expanded(
-            child: SectionCard(
-              title: 'Personal Details',
-              child: Column(
-                children: [
-                  _buildDetailRow('Gender', _student.gender?.isNotEmpty == true ? _student.gender! : 'Male'),
-                  _buildDetailRow('Date of Birth', _student.dob?.isNotEmpty == true ? _student.dob! : 'Not Provided'),
-                  _buildDetailRow('Phone Number', _student.phone?.isNotEmpty == true ? _student.phone! : 'Not Provided'),
-                  _buildDetailRow('Email', _student.email?.isNotEmpty == true ? _student.email! : 'Not Provided'),
-                  _buildDetailRow('Address', _student.address?.isNotEmpty == true ? _student.address! : 'Not Provided'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xl),
-          Expanded(
-            child: SectionCard(
-              title: 'Academic Details',
-              child: Column(
-                children: [
-                  _buildDetailRow('Enrolled Course', courseName),
-                  _buildDetailRow('Batch', batch != null ? batch.batchName : 'No Batch Assigned'),
-                  _buildDetailRow('Current Semester', batch != null ? 'Semester ${batch.currentSemester}' : 'N/A'),
-                  _buildDetailRow('Academic Year', batch != null ? 'Year ${batch.currentYear}' : 'N/A'),
-                  _buildDetailRow('Admission No', _student.admissionNumber ?? 'N/A'),
-                  _buildDetailRow('University Reg No', _student.registrationNumber?.isNotEmpty == true ? _student.registrationNumber! : 'Pending'),
-                  _buildDetailRow('Admission Date', _student.admissionDate?.isNotEmpty == true ? _student.admissionDate! : 'Unknown'),
-                  _buildDetailRow('Status', _student.status.toUpperCase()),
-                ],
-              ),
-            ),
-          ),
+          _buildDetailRow('Gender', _student.gender?.isNotEmpty == true ? _student.gender! : 'Male'),
+          _buildDetailRow('Date of Birth', _student.dob?.isNotEmpty == true ? _student.dob! : 'Not Provided'),
+          _buildDetailRow('Phone Number', _student.phone?.isNotEmpty == true ? _student.phone! : 'Not Provided'),
+          _buildDetailRow('Email', _student.email?.isNotEmpty == true ? _student.email! : 'Not Provided'),
+          _buildDetailRow('Address', _student.address?.isNotEmpty == true ? _student.address! : 'Not Provided'),
         ],
       ),
+    );
+
+    final academicCard = SectionCard(
+      title: 'Academic Details',
+      child: Column(
+        children: [
+          _buildDetailRow('Enrolled Course', courseName),
+          _buildDetailRow('Batch', batch != null ? batch.batchName : 'No Batch Assigned'),
+          _buildDetailRow('Current Semester', batch != null ? 'Semester ${batch.currentSemester}' : 'N/A'),
+          _buildDetailRow('Academic Year', batch != null ? 'Year ${batch.currentYear}' : 'N/A'),
+          _buildDetailRow('Admission No', _student.admissionNumber ?? 'N/A'),
+          _buildDetailRow('University Reg No', _student.registrationNumber?.isNotEmpty == true ? _student.registrationNumber! : 'Pending'),
+          _buildDetailRow('Admission Date', _student.admissionDate?.isNotEmpty == true ? _student.admissionDate! : 'Unknown'),
+          _buildDetailRow('Status', _student.status.toUpperCase()),
+        ],
+      ),
+    );
+
+    return SingleChildScrollView(
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                personalCard,
+                const SizedBox(height: AppSpacing.lg),
+                academicCard,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: personalCard),
+                const SizedBox(width: AppSpacing.xl),
+                Expanded(child: academicCard),
+              ],
+            ),
     );
   }
 

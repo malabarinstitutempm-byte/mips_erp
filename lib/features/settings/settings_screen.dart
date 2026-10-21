@@ -836,6 +836,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   final yearName = y['year_name']?.toString() ?? 'N/A';
                   final yearId = (y['id'] as num?)?.toInt() ?? (i + 1);
 
+                  final isMobile = MediaQuery.of(context).size.width < 600;
+
+                  if (isMobile) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  yearName,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              StatusBadge(
+                                text: isCurrent ? 'Active Cycle' : 'Past / Future',
+                                status: isCurrent ? BadgeStatus.success : BadgeStatus.draft,
+                              ),
+                            ],
+                          ),
+                          if (!isCurrent) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                icon: const Icon(Icons.check_circle_outline, size: 16),
+                                label: const Text('Set as Current'),
+                                onPressed: () async {
+                                  await ref.read(academicYearsProvider.notifier).setCurrentYear(yearId);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Academic cycle set to $yearName.')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }
+
                   return ListTile(
                     title: Text(yearName, style: const TextStyle(fontWeight: FontWeight.w600)),
                     trailing: Row(
