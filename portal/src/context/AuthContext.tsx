@@ -619,14 +619,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               password === 'password123' ||
               password === 'Hi@1234567';
             const isStoredMatch = Boolean(storedPass && password === storedPass);
+            const isFirstTime = !isStoredMatch && (isDobMatch || isDefaultPass);
 
             if (isStoredMatch || isDobMatch || isDefaultPass) {
               const studentUser: AuthUser = {
                 id: `s_${studentMatch.id}`,
                 email: `${cleanId}@students.mips.invalid`,
                 role: 'student',
-                must_change_password: false,
-                first_login_required: false,
+                must_change_password: isFirstTime,
+                first_login_required: isFirstTime,
               };
               setUser(studentUser);
               setRole('student');
@@ -660,14 +661,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               password === 'password123' ||
               password === 'Hi@1234567';
             const isStoredMatch = Boolean(storedPass && password === storedPass);
+            const isFirstTime = !isStoredMatch && isDefaultPass;
 
             if (isStoredMatch || isDefaultPass) {
               const teacherUser: AuthUser = {
                 id: `t_${teacherMatch.id}`,
                 email: `${cleanId}@teachers.mips.invalid`,
                 role: 'teacher',
-                must_change_password: false,
-                first_login_required: false,
+                must_change_password: isFirstTime,
+                first_login_required: isFirstTime,
               };
               setUser(teacherUser);
               setRole('teacher');
@@ -812,23 +814,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Fallback for offline or local dev when Edge Functions gateway is not running
       const cleanReg = regNo.trim().toUpperCase();
+      let studentMatch: any = null;
       try {
-        const { data: studentMatch } = await supabase
+        const { data } = await supabase
           .from('students')
-          .select('id, name, registration_number, admission_number, dob')
+          .select('id, name, registration_number, admission_number, dob, status')
           .or(`registration_number.ilike.${regNo.trim()},admission_number.ilike.${regNo.trim()}`)
+          .is('deleted_at', null)
           .maybeSingle();
 
-        if (studentMatch && studentMatch.dob && studentMatch.dob !== isoDob) {
+        if (data) studentMatch = data;
+      } catch (_) {}
+
+      if (!studentMatch) {
+        studentMatch = accountSyncService.getAccount(cleanReg.toLowerCase()) || accountSyncService.getAccount(cleanReg);
+      }
+
+      if (studentMatch) {
+        if (studentMatch.status === 'inactive' || studentMatch.status === 'discontinued') {
+          return {
+            success: false,
+            error: 'Your account has been deactivated. Please contact administration.',
+          };
+        }
+
+        const rawDob = studentMatch.dob ? String(studentMatch.dob).split('T')[0] : '';
+        if (rawDob && rawDob !== isoDob) {
           return {
             success: false,
             error: 'Date of Birth does not match institutional records.',
           };
         }
-      } catch (_) {}
+      }
 
       const studentUser: AuthUser = {
-        id: 'a0000000-0000-0000-0000-000000000003',
+        id: studentMatch?.id ? `s_${studentMatch.id}` : 'a0000000-0000-0000-0000-000000000003',
         email: `${cleanReg.toLowerCase()}@students.mips.invalid`,
         role: 'student',
         must_change_password: false,
@@ -839,6 +859,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       persistSession(studentUser, 'student');
       localStorage.setItem(`mips_student_activated_${cleanReg}`, 'true');
       localStorage.setItem(`mips_student_password_${cleanReg}`, newPass);
+      localStorage.setItem(`mips_student_password_${cleanReg.toLowerCase()}`, newPass);
       await accountSyncService.setPermanentPassword(cleanReg.toLowerCase(), newPass);
       return { success: true, user: studentUser };
     } catch (err: any) {
@@ -942,6 +963,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Verification matched! Establish permanent password and log in
+      localStorage.setItem(`mips_teacher_activated_${cleanUsername}`, 'true');
+      localStorage.setItem(`mips_teacher_password_${cleanUsername}`, newPass);
       await accountSyncService.setPermanentPassword(cleanUsername, newPass);
 
       const teacherUser: AuthUser = {
@@ -969,6 +992,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (user?.email) {
         const idPart = user.email.split('@')[0];
+        localStorage.setItem(`mips_${user.role}_password_${idPart}`, newPass);
+        localStorage.setItem(`mips_${user.role}_password_${idPart.toUpperCase()}`, newPass);
+        localStorage.setItem(`mips_${user.role}_password_${idPart.toLowerCase()}`, newPass);
         await accountSyncService.setPermanentPassword(idPart, newPass);
       }
 

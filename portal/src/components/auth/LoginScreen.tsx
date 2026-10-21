@@ -5,7 +5,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { TurnstileWidget } from './TurnstileWidget';
 import { EcgLine } from '../common/EcgLine';
-import { Lock, User, Eye, EyeOff, AlertCircle, ArrowRight, ShieldAlert } from 'lucide-react';
+import { FirstLoginModal } from './FirstLoginModal';
+import { Lock, User, Eye, EyeOff, AlertCircle, ArrowRight, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface LoginScreenProps {
   onSuccess?: () => void;
@@ -16,6 +17,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
 
   // Failure and Lockout Tracking
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -156,9 +158,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="login-password" className="block text-xs font-bold text-navy mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="login-password" className="block text-xs font-bold text-navy">
+                  Password
+                </label>
+                <span className="text-[11px] text-slate-400 font-normal">
+                  First login? Use DOB (DD/MM/YYYY)
+                </span>
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-muted absolute left-3.5 top-3.5" aria-hidden="true" />
                 <input
@@ -167,7 +174,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
                   required
                   disabled={isLocked}
                   autoComplete="current-password"
-                  placeholder="Enter your password"
+                  placeholder="Enter password or DOB (DD/MM/YYYY)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-11 py-2.5 text-base sm:text-sm rounded-input border border-inputBorder focus:outline-none focus:ring-2 focus:ring-focusRing min-h-touch disabled:bg-slate-100 disabled:cursor-not-allowed transition-all"
@@ -216,9 +223,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
                 </>
               )}
             </button>
-
-
           </form>
+
+          {/* First-Time Activation Trigger */}
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+            <p className="text-xs text-muted mb-2.5 font-medium">
+              First time logging in to the MIPS portal?
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowFirstLoginModal(true)}
+              className="w-full py-2.5 px-4 rounded-btn border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 text-primary font-sora font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 min-h-touch"
+            >
+              <Sparkles className="w-4 h-4 text-primary shrink-0" />
+              <span>First Time Login? Activate & Set Password</span>
+            </button>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Students verify via Date of Birth (DOB) · Teachers via Staff Username
+            </p>
+          </div>
+
+          <FirstLoginModal
+            isOpen={showFirstLoginModal}
+            onClose={() => setShowFirstLoginModal(false)}
+            onSuccess={() => {
+              setShowFirstLoginModal(false);
+              onSuccess?.();
+            }}
+          />
 
         </div>
       </main>
