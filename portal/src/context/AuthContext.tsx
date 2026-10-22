@@ -584,102 +584,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return { success: true, user: studentUser };
         }
 
-        // Live Database Fallback: Check if student exists in database
+        // 1. Direct Server-Side Verification via SECURITY DEFINER RPC
         try {
-          const { data: studentMatch } = await supabase
-            .from('students')
-            .select('id, name, registration_number, admission_number, dob, status')
-            .or(`registration_number.ilike.${cleanId},admission_number.ilike.${cleanId}`)
-            .is('deleted_at', null)
-            .maybeSingle();
+          const { data: verifyData, error: rpcErr } = await supabase.rpc('portal_verify_login', {
+            p_identifier: cleanId,
+            p_password: password,
+          });
 
-          if (studentMatch) {
-            if (studentMatch.status === 'inactive' || studentMatch.status === 'discontinued') {
-              return { success: false, error: 'Your account has been deactivated. Please contact administration.' };
-            }
-
-            const storedPass =
-              localStorage.getItem(`mips_student_password_${cleanId}`) ||
-              accountSyncService.getAccount(cleanId)?.password;
-
-            const rawDob = studentMatch.dob ? String(studentMatch.dob).split('T')[0] : '';
-            const dobParts = rawDob.split('-');
-            const ddmmyyyy = dobParts.length === 3 ? `${dobParts[2]}/${dobParts[1]}/${dobParts[0]}` : '';
-            const ddmmyyyyDash = dobParts.length === 3 ? `${dobParts[2]}-${dobParts[1]}-${dobParts[0]}` : '';
-            const compactDob = dobParts.join('');
-
-            const isDobMatch =
-              password === rawDob ||
-              password === ddmmyyyy ||
-              password === ddmmyyyyDash ||
-              password === compactDob;
-            const isDefaultPass =
-              password === 'Student#Pass2026' ||
-              password === 'student123' ||
-              password === 'password123' ||
-              password === 'Hi@1234567';
-            const isStoredMatch = Boolean(storedPass && password === storedPass);
-            const isFirstTime = !isStoredMatch && (isDobMatch || isDefaultPass);
-
-            if (isStoredMatch || isDobMatch || isDefaultPass) {
-              const studentUser: AuthUser = {
-                id: `s_${studentMatch.id}`,
-                email: `${cleanId}@students.mips.invalid`,
-                role: 'student',
+          if (!rpcErr && verifyData && typeof verifyData === 'object') {
+            if (verifyData.success && verifyData.user) {
+              const u = verifyData.user;
+              const isFirstTime = Boolean(verifyData.is_first_time);
+              const authUser: AuthUser = {
+                id: u.id,
+                email: u.email,
+                role: verifyData.role,
                 must_change_password: isFirstTime,
                 first_login_required: isFirstTime,
               };
-              setUser(studentUser);
-              setRole('student');
-              persistSession(studentUser, 'student');
-              return { success: true, user: studentUser };
-            } else {
-              return { success: false, error: 'Register number or password is incorrect.' };
+              setUser(authUser);
+              setRole(verifyData.role);
+              persistSession(authUser, verifyData.role);
+              return { success: true, user: authUser };
+            } else if (verifyData.error) {
+              return { success: false, error: verifyData.error };
             }
           }
         } catch (_) {}
 
-        // Live Database Fallback: Check if teacher exists in database
-        try {
-          const { data: teacherMatch } = await supabase
-            .from('teachers')
-            .select('id, name, login_username, phone, status')
-            .ilike('login_username', cleanId)
-            .maybeSingle();
+        // Fallback: Check local sync records if offline
+        const storedPass =
+          localStorage.getItem(`mips_student_password_${cleanId}`) ||
+          localStorage.getItem(`mips_teacher_password_${cleanId}`) ||
+          accountSyncService.getAccount(cleanId)?.password;
 
-          if (teacherMatch) {
-            if (teacherMatch.status === 'inactive') {
-              return { success: false, error: 'Your account has been deactivated. Please contact administration.' };
-            }
-            const storedPass =
-              localStorage.getItem(`mips_teacher_password_${cleanId}`) ||
-              accountSyncService.getAccount(cleanId)?.password;
-            const isDefaultPass =
-              password === 'Teacher#Pass2026' ||
-              password === 'teacher123' ||
-              password === 'admin123' ||
-              password === 'password123' ||
-              password === 'Hi@1234567';
-            const isStoredMatch = Boolean(storedPass && password === storedPass);
-            const isFirstTime = !isStoredMatch && isDefaultPass;
-
-            if (isStoredMatch || isDefaultPass) {
-              const teacherUser: AuthUser = {
-                id: `t_${teacherMatch.id}`,
-                email: `${cleanId}@teachers.mips.invalid`,
-                role: 'teacher',
-                must_change_password: isFirstTime,
-                first_login_required: isFirstTime,
-              };
-              setUser(teacherUser);
-              setRole('teacher');
-              persistSession(teacherUser, 'teacher');
-              return { success: true, user: teacherUser };
-            } else {
-              return { success: false, error: 'Register number or password is incorrect.' };
-            }
-          }
-        } catch (_) {}
+        if (storedPass && password === storedPass) {
+          const syncRole = (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')) ? 'teacher' : 'student';
+          const authUser: AuthUser = {
+            id: `sync_${cleanId}`,
+            email: `${cleanId}@${syncRole}s.mips.invalid`,
+            role: syncRole,
+            must_change_password: false,
+            first_login_required: false,
+          };
+          setUser(authUser);
+          setRole(syncRole);
+          persistSession(authUser, syncRole);
+          return { success: true, user: authUser };
+        }
 
         // If credentials did not match any institutional records
         return {
@@ -812,6 +764,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true, user: authUser };
       }
 
+      // Server-Side Verification via SECURITY DEFINER RPC
+      try {
+        const { data: actData, error: actErr } = await supabase.rpc('portal_first_login_verify', {
+          p_role: 'student',
+          p_identifier: regNo.trim(),
+          p_secret: isoDob,
+          p_new_password: newPass,
+        });
+
+        if (!actErr && actData && typeof actData === 'object') {
+          if (actData.success && actData.user) {
+            const u = actData.user;
+            const studentUser: AuthUser = {
+              id: u.id,
+              email: u.email,
+              role: 'student',
+              must_change_password: false,
+              first_login_required: false,
+            };
+            setUser(studentUser);
+            setRole('student');
+            persistSession(studentUser, 'student');
+            localStorage.setItem(`mips_student_activated_${regNo.trim().toUpperCase()}`, 'true');
+            localStorage.setItem(`mips_student_password_${regNo.trim().toUpperCase()}`, newPass);
+            localStorage.setItem(`mips_student_password_${regNo.trim().toLowerCase()}`, newPass);
+            await accountSyncService.setPermanentPassword(regNo.trim().toLowerCase(), newPass);
+            return { success: true, user: studentUser };
+          } else if (actData.error && !actData.error.includes('not found')) {
+            return { success: false, error: actData.error };
+          }
+        }
+      } catch (_) {}
+
       // Fallback for offline or local dev when Edge Functions gateway is not running
       const cleanReg = regNo.trim().toUpperCase();
       let studentMatch: any = null;
@@ -931,6 +916,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await accountSyncService.setPermanentPassword(cleanUsername, newPass);
         return { success: true, user: authUser };
       }
+
+      // Direct Server-Side Verification via SECURITY DEFINER RPC
+      try {
+        const { data: actData, error: actErr } = await supabase.rpc('portal_first_login_verify', {
+          p_role: 'teacher',
+          p_identifier: cleanUsername,
+          p_secret: enteredPhone,
+          p_new_password: newPass,
+        });
+
+        if (!actErr && actData && typeof actData === 'object') {
+          if (actData.success && actData.user) {
+            const u = actData.user;
+            const teacherUser: AuthUser = {
+              id: u.id,
+              email: u.email,
+              role: 'teacher',
+              must_change_password: false,
+              first_login_required: false,
+            };
+            setUser(teacherUser);
+            setRole('teacher');
+            persistSession(teacherUser, 'teacher');
+            localStorage.setItem(`mips_teacher_activated_${cleanUsername}`, 'true');
+            localStorage.setItem(`mips_teacher_password_${cleanUsername}`, newPass);
+            await accountSyncService.setPermanentPassword(cleanUsername, newPass);
+            return { success: true, user: teacherUser };
+          } else if (actData.error && !actData.error.includes('not found')) {
+            return { success: false, error: actData.error };
+          }
+        }
+      } catch (_) {}
 
       // Fallback verification for offline/dev
       let teacherFound: any = null;

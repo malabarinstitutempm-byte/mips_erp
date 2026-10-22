@@ -121,6 +121,15 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
   @override
   Future<List<Teacher>> getTeachers() async {
     try {
+      final rpcRes = await _client.rpc('admin_get_all_teachers');
+      if (rpcRes is List && rpcRes.isNotEmpty) {
+        return rpcRes.map((row) => Teacher.fromJson(Map<String, dynamic>.from(row as Map))).toList();
+      }
+    } catch (e) {
+      debugPrint('admin_get_all_teachers RPC fallback: $e');
+    }
+
+    try {
       final data = await _client
           .from('teachers')
           .select('*, profiles(user_id, active, locked_at, failed_attempts, last_login_at)')
@@ -197,6 +206,21 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
     SupabaseService.instance.assertCanWrite('provision teacher account');
 
     try {
+      final res = await _client.rpc('admin_upsert_teacher', params: {
+        'p_name': name.trim(),
+        'p_username': username.trim().toLowerCase(),
+        'p_phone': phone?.trim() ?? '',
+        if (tempPassword != null && tempPassword.isNotEmpty) 'p_temp_password': tempPassword,
+      });
+
+      if (res is Map && res['success'] == true) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      debugPrint('admin_upsert_teacher RPC fallback: $e');
+    }
+
+    try {
       final response = await _client.functions.invoke(
         'create-teacher',
         body: {
@@ -265,6 +289,18 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
     if (username != null) fields['username'] = username;
 
     try {
+      if (name != null && username != null) {
+        await _client.rpc('admin_upsert_teacher', params: {
+          'p_name': name.trim(),
+          'p_username': username.trim().toLowerCase(),
+          'p_phone': phone?.trim() ?? '',
+        });
+      }
+    } catch (e) {
+      debugPrint('updateTeacher admin_upsert_teacher RPC fallback: $e');
+    }
+
+    try {
       final response = await _client.functions.invoke(
         'update-teacher',
         body: {
@@ -307,6 +343,19 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
     int? reassignTo,
   }) async {
     SupabaseService.instance.assertCanWrite('change teacher status');
+
+    try {
+      final res = await _client.rpc('admin_set_teacher_active', params: {
+        'p_teacher_id': teacherId,
+        'p_active': active,
+      });
+
+      if (res is Map && res['success'] == true) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      debugPrint('setTeacherActive RPC fallback: $e');
+    }
 
     try {
       final response = await _client.functions.invoke(
