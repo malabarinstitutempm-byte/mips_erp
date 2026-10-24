@@ -1271,209 +1271,215 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
-          title: const Row(
-            children: [
-              Icon(LucideIcons.userPlus, color: AppColors.brand, size: 22),
-              SizedBox(width: 10),
-              Text('Add Administrator Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: SizedBox(
-            width: 460,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.brand.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(AppRadius.control),
-                      border: Border.all(color: AppColors.brand.withValues(alpha: 0.2)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(LucideIcons.shieldCheck, size: 18, color: AppColors.brand),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Permanent Credentials: The administrator can log in immediately using these details.',
-                            style: TextStyle(fontSize: 11.5, color: AppColors.textStrong),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (dialogError != null) ...[
-                    const SizedBox(height: 10),
+      builder: (dialogCtx) => Consumer(
+        builder: (ctx, dialogRef, _) => StatefulBuilder(
+          builder: (builderCtx, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+            title: const Row(
+              children: [
+                Icon(LucideIcons.userPlus, color: AppColors.brand, size: 22),
+                SizedBox(width: 10),
+                Text('Add Administrator Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: 460,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: AppColors.brand.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(AppRadius.control),
-                        border: Border.all(color: Colors.red.shade300),
+                        border: Border.all(color: AppColors.brand.withValues(alpha: 0.2)),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
-                          Icon(LucideIcons.alertCircle, size: 18, color: Colors.red.shade800),
-                          const SizedBox(width: 8),
+                          Icon(LucideIcons.shieldCheck, size: 18, color: AppColors.brand),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              dialogError!,
-                              style: TextStyle(fontSize: 12, color: Colors.red.shade900, fontWeight: FontWeight.w600),
+                              'Permanent Credentials: The administrator can log in immediately using these details.',
+                              style: TextStyle(fontSize: 11.5, color: AppColors.textStrong),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name *',
-                      hintText: 'e.g. Dr. Salim PK',
-                      prefixIcon: Icon(LucideIcons.user, size: 18),
-                      isDense: true,
-                    ),
-                    onChanged: (_) {
-                      if (dialogError != null) setDialogState(() => dialogError = null);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: usernameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Username / Login ID *',
-                      hintText: 'e.g. salim or office_head',
-                      prefixIcon: Icon(LucideIcons.atSign, size: 18),
-                      isDense: true,
-                    ),
-                    onChanged: (_) {
-                      if (dialogError != null) setDialogState(() => dialogError = null);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Email Address (Optional)',
-                      hintText: 'e.g. salim@mipsedu.in',
-                      prefixIcon: Icon(LucideIcons.mail, size: 18),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'Privilege Role *',
-                      prefixIcon: Icon(LucideIcons.shield, size: 18),
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Super Administrator',
-                        child: Text('Super Administrator (Full System Control)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Office Administrator',
-                        child: Text('Office Administrator (Desk & Management)'),
+                    if (dialogError != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(AppRadius.control),
+                          border: Border.all(color: Colors.red.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.alertCircle, size: 18, color: Colors.red.shade800),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: TextStyle(fontSize: 12, color: Colors.red.shade900, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                    onChanged: (v) => setDialogState(() => selectedRole = v!),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: passwordCtrl,
-                    obscureText: obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Login Password *',
-                      hintText: 'Set direct password (min 4 characters)',
-                      prefixIcon: const Icon(LucideIcons.lock, size: 18),
-                      isDense: true,
-                      suffixIcon: IconButton(
-                        icon: Icon(obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye, size: 18),
-                        onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name *',
+                        hintText: 'e.g. Dr. Salim PK',
+                        prefixIcon: Icon(LucideIcons.user, size: 18),
+                        isDense: true,
+                      ),
+                      onChanged: (_) {
+                        if (dialogError != null) setDialogState(() => dialogError = null);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: usernameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Username / Login ID *',
+                        hintText: 'e.g. salim or office_head',
+                        prefixIcon: Icon(LucideIcons.atSign, size: 18),
+                        isDense: true,
+                      ),
+                      onChanged: (_) {
+                        if (dialogError != null) setDialogState(() => dialogError = null);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Email Address (Optional)',
+                        hintText: 'e.g. salim@mipsedu.in',
+                        prefixIcon: Icon(LucideIcons.mail, size: 18),
+                        isDense: true,
                       ),
                     ),
-                    onChanged: (_) {
-                      if (dialogError != null) setDialogState(() => dialogError = null);
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedRole,
+                      decoration: const InputDecoration(
+                        labelText: 'Privilege Role *',
+                        prefixIcon: Icon(LucideIcons.shield, size: 18),
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Super Administrator',
+                          child: Text('Super Administrator (Full System Control)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Office Administrator',
+                          child: Text('Office Administrator (Desk & Management)'),
+                        ),
+                      ],
+                      onChanged: (v) => setDialogState(() => selectedRole = v!),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: passwordCtrl,
+                      obscureText: obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Login Password *',
+                        hintText: 'Set direct password (min 4 characters)',
+                        prefixIcon: const Icon(LucideIcons.lock, size: 18),
+                        isDense: true,
+                        suffixIcon: IconButton(
+                          icon: Icon(obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye, size: 18),
+                          onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                        ),
+                      ),
+                      onChanged: (_) {
+                        if (dialogError != null) setDialogState(() => dialogError = null);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton.icon(
-              icon: isSubmitting
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(LucideIcons.check, size: 16),
-              label: Text(isSubmitting ? 'Creating...' : 'Create Administrator'),
-              onPressed: isSubmitting ? null : () async {
-                final rawName = nameCtrl.text.trim();
-                final rawUsername = usernameCtrl.text.trim();
-                final rawPassword = passwordCtrl.text;
-                final email = emailCtrl.text.trim();
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                icon: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(LucideIcons.check, size: 16),
+                label: Text(isSubmitting ? 'Creating...' : 'Create Administrator'),
+                onPressed: isSubmitting ? null : () async {
+                  final rawName = nameCtrl.text.trim();
+                  final rawUsername = usernameCtrl.text.trim();
+                  final rawPassword = passwordCtrl.text;
+                  final email = emailCtrl.text.trim();
 
-                if (rawName.isEmpty) {
-                  setDialogState(() => dialogError = 'Please enter the administrator\'s Full Name.');
-                  return;
-                }
-                if (rawUsername.isEmpty) {
-                  setDialogState(() => dialogError = 'Please enter a Username / Login ID.');
-                  return;
-                }
-                if (rawPassword.length < 4) {
-                  setDialogState(() => dialogError = 'Password must be at least 4 characters long.');
-                  return;
-                }
-
-                final cleanUsername = rawUsername.toLowerCase().replaceAll(RegExp(r'\s+'), '_').replaceAll(RegExp(r'^@+'), '');
-
-                setDialogState(() {
-                  isSubmitting = true;
-                  dialogError = null;
-                });
-
-                try {
-                  await ref.read(adminUsersProvider.notifier).createAdmin(
-                    fullName: rawName,
-                    username: cleanUsername,
-                    password: rawPassword,
-                    email: email.isNotEmpty ? email : null,
-                    role: selectedRole,
-                  ).timeout(const Duration(seconds: 8));
-
-                  if (dialogCtx.mounted) {
-                    Navigator.pop(dialogCtx);
+                  if (rawName.isEmpty) {
+                    setDialogState(() => dialogError = 'Please enter the administrator\'s Full Name.');
+                    return;
+                  }
+                  if (rawUsername.isEmpty) {
+                    setDialogState(() => dialogError = 'Please enter a Username / Login ID.');
+                    return;
+                  }
+                  if (rawPassword.length < 4) {
+                    setDialogState(() => dialogError = 'Password must be at least 4 characters long.');
+                    return;
                   }
 
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Administrator "$rawName" (@$cleanUsername) created successfully!'),
-                      backgroundColor: AppColors.success.base,
-                    ),
-                  );
-                } catch (e) {
+                  final cleanUsername = rawUsername.toLowerCase().replaceAll(RegExp(r'\s+'), '_').replaceAll(RegExp(r'^@+'), '');
+
                   setDialogState(() {
-                    isSubmitting = false;
-                    dialogError = 'Error: $e';
+                    isSubmitting = true;
+                    dialogError = null;
                   });
-                }
-              },
-            ),
-          ],
+
+                  try {
+                    await AdminUserService.instance.createAdmin(
+                      fullName: rawName,
+                      username: cleanUsername,
+                      password: rawPassword,
+                      email: email.isNotEmpty ? email : null,
+                      role: selectedRole,
+                    ).timeout(const Duration(seconds: 8));
+
+                    try {
+                      dialogRef.read(adminUsersProvider.notifier).loadAdmins();
+                    } catch (_) {}
+
+                    if (dialogCtx.mounted) {
+                      Navigator.pop(dialogCtx);
+                    }
+
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Administrator "$rawName" (@$cleanUsername) created successfully!'),
+                        backgroundColor: AppColors.success.base,
+                      ),
+                    );
+                  } catch (e) {
+                    setDialogState(() {
+                      isSubmitting = false;
+                      dialogError = 'Error: $e';
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
