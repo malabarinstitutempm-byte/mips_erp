@@ -109,7 +109,19 @@ class AdminUserService {
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
 
-    // 1. Fetch remote cloud accounts first (Single source of truth)
+    // 1. Dedicated PostgreSQL RPC (Security definer, fast, zero RLS issues)
+    try {
+      final client = SupabaseService.instance.client;
+      final rpcData = await client.rpc('admin_get_all_accounts');
+      if (rpcData != null && rpcData is List && rpcData.isNotEmpty) {
+        _cachedAdmins = rpcData.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
+        await _saveToStorage();
+        _isLoaded = true;
+        return;
+      }
+    } catch (_) {}
+
+    // 2. Direct table select fallback
     try {
       final client = SupabaseService.instance.client;
       final data = await client.from('admin_accounts').select().order('created_at', ascending: true);

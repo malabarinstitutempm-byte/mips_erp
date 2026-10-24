@@ -181,6 +181,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _loadLocalStats();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(adminUsersProvider.notifier).loadAdmins();
+    });
   }
 
   Future<void> _loadLocalStats() async {
@@ -966,22 +969,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return SectionCard(
       title: 'Administrator Accounts',
-      trailing: isMobile ? null : ElevatedButton.icon(
-        onPressed: () => _showAddAdminDialog(context),
-        icon: const Icon(LucideIcons.userPlus, size: 16),
-        label: const Text('Add Administrator'),
+      trailing: isMobile ? null : Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(LucideIcons.refreshCw, size: 16),
+            tooltip: 'Refresh Administrators',
+            onPressed: () => ref.read(adminUsersProvider.notifier).loadAdmins(),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () => _showAddAdminDialog(context),
+            icon: const Icon(LucideIcons.userPlus, size: 16),
+            label: const Text('Add Administrator'),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isMobile) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showAddAdminDialog(context),
-                icon: const Icon(LucideIcons.userPlus, size: 16),
-                label: const Text('Add Administrator'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showAddAdminDialog(context),
+                    icon: const Icon(LucideIcons.userPlus, size: 16),
+                    label: const Text('Add Administrator'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                  tooltip: 'Refresh',
+                  onPressed: () => ref.read(adminUsersProvider.notifier).loadAdmins(),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
           ],
@@ -1059,7 +1082,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                           ),
                                       ],
                                     ),
-                                    Text('@ • ', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                                    Text('@$username • $email', style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
                                   ],
                                 ),
                               ),
@@ -1096,7 +1119,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 status: active ? BadgeStatus.success : BadgeStatus.danger,
                               ),
                               const Spacer(),
-                              Text(isCurrentUser ? 'Active' : 'Login: ', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                              Text(isCurrentUser ? 'Active' : 'Login: $lastLogin', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                             ],
                           ),
                         ],
