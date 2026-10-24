@@ -1246,6 +1246,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     String selectedRole = 'Super Administrator';
     bool obscurePassword = true;
     bool obscureConfirm = true;
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -1384,35 +1385,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
+              onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
               child: const Text('Cancel'),
             ),
             ElevatedButton.icon(
-              icon: const Icon(LucideIcons.check, size: 16),
-              label: const Text('Create Administrator'),
-              onPressed: () async {
+              icon: isSubmitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(LucideIcons.check, size: 16),
+              label: Text(isSubmitting ? 'Creating...' : 'Create Administrator'),
+              onPressed: isSubmitting ? null : () async {
                 if (!formKey.currentState!.validate()) return;
                 final name = nameCtrl.text.trim();
                 final username = usernameCtrl.text.trim();
                 final email = emailCtrl.text.trim();
                 final password = passwordCtrl.text;
-                Navigator.pop(dialogCtx);
 
-                await ref.read(adminUsersProvider.notifier).createAdmin(
-                  fullName: name,
-                  username: username,
-                  password: password,
-                  email: email.isNotEmpty ? email : null,
-                  role: selectedRole,
-                );
+                setDialogState(() => isSubmitting = true);
 
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Administrator "$name" (@$username) created successfully with permanent password!'),
-                    backgroundColor: AppColors.success.base,
-                  ),
-                );
+                try {
+                  await ref.read(adminUsersProvider.notifier).createAdmin(
+                    fullName: name,
+                    username: username,
+                    password: password,
+                    email: email.isNotEmpty ? email : null,
+                    role: selectedRole,
+                  );
+
+                  if (dialogCtx.mounted) {
+                    Navigator.pop(dialogCtx);
+                  }
+
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Administrator "$name" (@$username) created successfully with permanent password!'),
+                      backgroundColor: AppColors.success.base,
+                    ),
+                  );
+                } catch (e) {
+                  setDialogState(() => isSubmitting = false);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to create administrator: $e'),
+                      backgroundColor: Colors.red.shade800,
+                    ),
+                  );
+                }
               },
             ),
           ],

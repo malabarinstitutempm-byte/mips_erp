@@ -101,17 +101,6 @@ class AdminUserService {
       createdAt: '2025-01-01T00:00:00.000Z',
       lastLoginAt: 'Active Now',
     ),
-    const AdminAccount(
-      id: 'a0000000-0000-0000-0000-000000000002',
-      fullName: 'Office Administrative Desk',
-      username: 'office',
-      email: 'office@mipsedu.in',
-      role: 'Office Administrator',
-      active: true,
-      password: 'office123',
-      createdAt: '2025-06-01T00:00:00.000Z',
-      lastLoginAt: 'Yesterday',
-    ),
   ];
 
   List<AdminAccount> _cachedAdmins = [];
@@ -119,38 +108,34 @@ class AdminUserService {
 
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
-    try {
-      final jsonStr = await _storage.read(key: _storageKey);
-      if (jsonStr != null && jsonStr.isNotEmpty) {
-        final List list = jsonDecode(jsonStr);
-        _cachedAdmins = list.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
-      } else {
-        _cachedAdmins = List.from(_seedAdmins);
-        await _saveToStorage();
-      }
-    } catch (_) {
-      _cachedAdmins = List.from(_seedAdmins);
-    }
 
-    // Attempt cloud synchronization from Supabase 'admin_accounts' table
+    // 1. Fetch remote cloud accounts first (Single source of truth)
     try {
       final client = SupabaseService.instance.client;
       final data = await client.from('admin_accounts').select().order('created_at', ascending: true);
       final List remoteList = data as List;
       if (remoteList.isNotEmpty) {
-        final remoteAdmins = remoteList.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
-        for (final r in remoteAdmins) {
-          final localIdx = _cachedAdmins.indexWhere((l) => l.id == r.id || l.username.toLowerCase() == r.username.toLowerCase());
-          if (localIdx != -1) {
-            _cachedAdmins[localIdx] = r;
-          } else {
-            _cachedAdmins.add(r);
-          }
-        }
+        _cachedAdmins = remoteList.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
         await _saveToStorage();
+        _isLoaded = true;
+        return;
       }
     } catch (_) {}
 
+    // 2. Fallback to local storage if offline
+    try {
+      final jsonStr = await _storage.read(key: _storageKey);
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final List list = jsonDecode(jsonStr);
+        _cachedAdmins = list.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
+        _isLoaded = true;
+        return;
+      }
+    } catch (_) {}
+
+    // 3. Fallback to default Super Admin seed
+    _cachedAdmins = List.from(_seedAdmins);
+    await _saveToStorage();
     _isLoaded = true;
   }
 
@@ -162,7 +147,7 @@ class AdminUserService {
   }
 
   Future<List<AdminAccount>> getAdmins() async {
-    _isLoaded = false; // Refresh on explicit view
+    _isLoaded = false; // Always refresh from database on view
     await _ensureLoaded();
     return List.from(_cachedAdmins);
   }
@@ -174,8 +159,6 @@ class AdminUserService {
     String? email,
     String role = 'Super Administrator',
   }) async {
-    await _ensureLoaded();
-
     final cleanUsername = username.trim().toLowerCase().replaceAll(RegExp(r'^@+'), '');
     final effectiveEmail = (email != null && email.trim().isNotEmpty)
         ? email.trim()
@@ -193,10 +176,6 @@ class AdminUserService {
       lastLoginAt: 'Never',
     );
 
-    _cachedAdmins.removeWhere((a) => a.username.toLowerCase() == cleanUsername);
-    _cachedAdmins.add(newAdmin);
-    await _saveToStorage();
-
     // Persist immediately to Supabase cloud 'admin_accounts' table for cross-device access
     try {
       final client = SupabaseService.instance.client;
@@ -211,8 +190,18 @@ class AdminUserService {
     } catch (_) {
       try {
         final client = SupabaseService.instance.client;
-        await client.from('admin_accounts').upsert(newAdmin.toMap());
+        await client.from('admin_accounts').upsert(newAdmin.toMap(), onConflict: 'username');
       } catch (_) {}
+    }
+
+    // Refresh memory cache from cloud
+    _isLoaded = false;
+    await _ensureLoaded();
+
+    // Ensure present in memory cache
+    if (!_cachedAdmins.any((a) => a.username.toLowerCase() == cleanUsername)) {
+      _cachedAdmins.add(newAdmin);
+      await _saveToStorage();
     }
 
     return newAdmin;
