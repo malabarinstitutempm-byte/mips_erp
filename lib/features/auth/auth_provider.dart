@@ -203,7 +203,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true, isMfaRequired: false);
 
     // 1. Direct authentication check for configured administrator accounts
-    final cleanId = identifier.trim().toLowerCase();
+    final rawClean = identifier.trim().toLowerCase();
+    final cleanId = rawClean.replaceAll(RegExp(r'^@+'), '');
     final localAdmin = await AdminUserService.instance.authenticate(cleanId, password);
     if (localAdmin != null) {
       final adminUser = User(
@@ -232,97 +233,73 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     }
 
+    // 2. Direct server-side RPC verification via portal_verify_login (checks admin_accounts in DB)
     try {
-      // 2. Authenticate via login Edge Function with anti-enumeration and lockout protection
-      final functionRes = await _client.functions.invoke(
-        'login',
-        body: {
-          'identifier': identifier.trim(),
-          'password': password,
-        },
-      );
+      final rpcRes = await _client.rpc('portal_verify_login', params: {
+        'p_identifier': cleanId,
+        'p_password': password,
+      });
 
-      if (functionRes.status >= 400) {
-        final err = (functionRes.data is Map && functionRes.data['error'] != null)
-            ? functionRes.data['error'].toString()
-            : 'Register number or password is incorrect.';
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: err,
-        );
-        return false;
-      }
-
-      final data = functionRes.data as Map<String, dynamic>;
-      final sessionMap = data['session'] as Map<String, dynamic>?;
-
-      if (sessionMap == null) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Login failed to return session tokens.',
-        );
-        return false;
-      }
-
-      // 2. Set authenticated session in local client
-      final refreshToken = sessionMap['refresh_token'] as String?;
-      if (refreshToken != null) {
-        await _client.auth.setSession(refreshToken);
-      }
-
-      final userMap = data['user'] as Map<String, dynamic>?;
-      final mfaRequired = userMap?['mfa_required'] == true;
-
-      if (mfaRequired) {
-        state = state.copyWith(
-          isLoading: false,
-          isMfaRequired: true,
-        );
-        return false;
-      }
-
-      final current = _client.auth.currentUser;
-      if (current != null) {
-        await _loadUserProfile(current);
-      }
-
-      return state.isAuthenticated;
-    } on FunctionException catch (fe) {
-      String msg = 'Failed to authenticate';
-      if (fe.details is Map && (fe.details as Map)['error'] != null) {
-        msg = (fe.details as Map)['error'].toString();
-      } else if (fe.details != null) {
-        msg = fe.details.toString();
-      }
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: msg,
-      );
-      return false;
-    } catch (e) {
-      // Direct signIn fallback if edge functions gateway has network issues
-      try {
-        final email = identifier.trim().contains('@')
-            ? identifier.trim()
-            : '${identifier.trim()}@students.mips.invalid';
-
-        final response = await _client.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
-
-        if (response.user != null) {
-          await _loadUserProfile(response.user!);
-          return state.isAuthenticated;
+      if (rpcRes != null && rpcRes is Map && rpcRes['success'] == true) {
+        final role = rpcRes['role']?.toString() ?? 'admin';
+        if (role == 'admin') {
+          final userObj = (rpcRes['user'] as Map?)?.cast<String, dynamic>() ?? {};
+          final adminUser = User(
+            id: userObj['id']?.toString() ?? 'admin_${DateTime.now().millisecondsSinceEpoch}',
+            appMetadata: {},
+            userMetadata: {'name': userObj['name']?.toString() ?? 'Administrator'},
+            aud: 'authenticated',
+            createdAt: DateTime.now().toIso8601String(),
+            email: userObj['email']?.toString() ?? '$cleanId@mipsedu.in',
+          );
+          final profile = {
+            'user_id': adminUser.id,
+            'role': 'admin',
+            'active': true,
+            'name': userObj['name']?.toString() ?? 'Administrator',
+          };
+          state = AuthState(
+            user: adminUser,
+            profile: profile,
+            isLoading: false,
+          );
+          await _persistSession(adminUser, profile);
+          InactivityService.instance.start(onTimeout: () {
+            logout(reason: 'You have been signed out due to 5 days of inactivity.');
+          });
+          return true;
+        } else {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'This app is for administrators. Students and teachers should use the web portal.',
+          );
+          return false;
         }
-      } catch (_) {}
+      }
+    } catch (_) {}
 
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Register number or password is incorrect.',
+    // 3. Direct Supabase Auth signIn fallback (if user has auth.users entry)
+    try {
+      final email = identifier.trim().contains('@')
+          ? identifier.trim()
+          : '$cleanId@mipsedu.in';
+
+      final response = await _client.auth.signInWithPassword(
+        email: email,
+        password: password,
       );
-      return false;
-    }
+
+      if (response.user != null) {
+        await _loadUserProfile(response.user!);
+        return state.isAuthenticated;
+      }
+    } catch (_) {}
+
+    state = state.copyWith(
+      isLoading: false,
+      errorMessage: 'Username or password is incorrect.',
+    );
+    return false;
   }
 
   Future<bool> verifyTotp(String code) async {

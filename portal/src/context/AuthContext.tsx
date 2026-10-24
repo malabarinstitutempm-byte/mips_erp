@@ -442,231 +442,165 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user?.id, fetchUnreadCount, queryClient]);
 
-  // Login via Edge Function
+  // Login via direct PostgreSQL RPC (with seamless fallback)
   const login = async (identifier: string, password: string, captchaToken?: string): Promise<AuthResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke('login', {
-        body: {
-          identifier: identifier.trim(),
-          password,
-          captcha_token: captchaToken,
-        },
-      });
+      const rawCleanId = identifier.trim().toLowerCase();
+      const cleanId = rawCleanId.replace(/^@+/, '');
 
-      if (error) {
-        // Fallback for local testing when edge functions gateway is offline or returning 404
-        const cleanId = identifier.trim().toLowerCase();
+      // 1. Direct Server-Side Verification via SECURITY DEFINER RPC (Fastest, zero edge function dependency)
+      try {
+        const { data: verifyData, error: rpcErr } = await supabase.rpc('portal_verify_login', {
+          p_identifier: cleanId,
+          p_password: password,
+        });
 
-        // 1. Check synced account state (tracks Admin resets and first-login requirements)
-        const syncAccount = accountSyncService.getAccount(cleanId);
-
-        // Check if account is inactive / deactivated
-        if (syncAccount?.status === 'inactive') {
-          return {
-            success: false,
-            error: 'Your account has been deactivated. Please contact administration.',
-          };
-        }
-
-        // Check if account has been reset to first login or not yet activated
-        if (syncAccount?.firstLoginRequired || syncAccount?.status === 'not_activated') {
-          return {
-            success: false,
-            error: 'Account requires first-time activation. Please verify your credentials to set up a password.',
-          };
-        }
-
-        // Check if account has a temporary password assigned by Admin
-        if (syncAccount?.tempPassword) {
-          if (password === syncAccount.tempPassword) {
-            const tempRole: UserRole =
-              syncAccount.role ||
-              (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')
-                ? 'teacher'
-                : 'student');
+        if (!rpcErr && verifyData && typeof verifyData === 'object') {
+          if (verifyData.success && verifyData.user) {
+            const u = verifyData.user;
+            const isFirstTime = Boolean(verifyData.is_first_time);
+            const userRole = (verifyData.role || u.role || 'student') as UserRole;
             const authUser: AuthUser = {
-              id: `sync_${cleanId}`,
-              email: `${cleanId}@${tempRole === 'teacher' ? 'teachers' : 'students'}.mips.invalid`,
-              role: tempRole,
-              must_change_password: true,
-              first_login_required: false,
-            };
-            setUser(authUser);
-            setRole(tempRole);
-            persistSession(authUser, tempRole);
-            return { success: true, user: authUser };
-          } else {
-            return {
-              success: false,
-              error: 'Invalid password. If you were issued a temporary password, please enter it exactly as provided.',
-            };
-          }
-        }
-
-        // Check if account has an established new password (from First-Time Verification or password change)
-        if (syncAccount?.password) {
-          if (password === syncAccount.password) {
-            const userRole: UserRole =
-              syncAccount.role ||
-              (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')
-                ? 'teacher'
-                : 'student');
-            const authUser: AuthUser = {
-              id: `sync_${cleanId}`,
-              email: `${cleanId}@${userRole === 'teacher' ? 'teachers' : 'students'}.mips.invalid`,
+              id: u.id,
+              email: u.email,
               role: userRole,
-              must_change_password: false,
-              first_login_required: false,
+              must_change_password: isFirstTime,
+              first_login_required: isFirstTime,
             };
             setUser(authUser);
             setRole(userRole);
             persistSession(authUser, userRole);
             return { success: true, user: authUser };
-          } else {
+          } else if (verifyData.error && verifyData.error.includes('deactivated')) {
             return {
               success: false,
-              error: 'Invalid password.',
+              error: verifyData.error,
             };
           }
         }
+      } catch (_) {}
 
-        // Admin fallback
-        if (
-          (cleanId === 'admin' || cleanId === 'admin@mipsedu.in') &&
-          (password === 'admin123' || password === 'Admin#Pass2026' || password === 'Admin@Mips#2026')
-        ) {
-          const adminUser: AuthUser = {
-            id: 'a0000000-0000-0000-0000-000000000001',
-            email: 'admin@mipsedu.in',
-            role: 'admin',
-            must_change_password: false,
-            first_login_required: false,
-          };
-          setUser(adminUser);
-          setRole('admin');
-          persistSession(adminUser, 'admin');
-          return { success: true, user: adminUser };
-        }
+      // 2. Check synced account state (tracks Admin resets and first-login requirements)
+      const syncAccount = accountSyncService.getAccount(cleanId);
 
-        // No dummy teacher or student logins. Only Super Admin and real database users permitted.
+      // Check if account is inactive / deactivated
+      if (syncAccount?.status === 'inactive') {
+        return {
+          success: false,
+          error: 'Your account has been deactivated. Please contact administration.',
+        };
+      }
 
-        // 1. Direct Server-Side Verification via SECURITY DEFINER RPC
-        try {
-          const { data: verifyData, error: rpcErr } = await supabase.rpc('portal_verify_login', {
-            p_identifier: cleanId,
-            p_password: password,
-          });
+      // Check if account has been reset to first login or not yet activated
+      if (syncAccount?.firstLoginRequired || syncAccount?.status === 'not_activated') {
+        return {
+          success: false,
+          error: 'Account requires first-time activation. Please verify your credentials to set up a password.',
+        };
+      }
 
-          if (!rpcErr && verifyData && typeof verifyData === 'object') {
-            if (verifyData.success && verifyData.user) {
-              const u = verifyData.user;
-              const isFirstTime = Boolean(verifyData.is_first_time);
-              const authUser: AuthUser = {
-                id: u.id,
-                email: u.email,
-                role: verifyData.role,
-                must_change_password: isFirstTime,
-                first_login_required: isFirstTime,
-              };
-              setUser(authUser);
-              setRole(verifyData.role);
-              persistSession(authUser, verifyData.role);
-              return { success: true, user: authUser };
-            } else if (verifyData.error) {
-              return { success: false, error: verifyData.error };
-            }
-          }
-        } catch (_) {}
-
-        // Fallback: Check local sync records if offline
-        const storedPass =
-          localStorage.getItem(`mips_student_password_${cleanId}`) ||
-          localStorage.getItem(`mips_teacher_password_${cleanId}`) ||
-          accountSyncService.getAccount(cleanId)?.password;
-
-        if (storedPass && password === storedPass) {
-          const syncRole = (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')) ? 'teacher' : 'student';
+      // Check if account has a temporary password assigned by Admin
+      if (syncAccount?.tempPassword) {
+        if (password === syncAccount.tempPassword) {
+          const tempRole: UserRole =
+            syncAccount.role ||
+            (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')
+              ? 'teacher'
+              : 'student');
           const authUser: AuthUser = {
             id: `sync_${cleanId}`,
-            email: `${cleanId}@${syncRole}s.mips.invalid`,
-            role: syncRole,
+            email: `${cleanId}@${tempRole === 'teacher' ? 'teachers' : 'students'}.mips.invalid`,
+            role: tempRole,
+            must_change_password: true,
+            first_login_required: false,
+          };
+          setUser(authUser);
+          setRole(tempRole);
+          persistSession(authUser, tempRole);
+          return { success: true, user: authUser };
+        } else {
+          return {
+            success: false,
+            error: 'Invalid password. If you were issued a temporary password, please enter it exactly as provided.',
+          };
+        }
+      }
+
+      // Check if account has an established new password (from First-Time Verification or password change)
+      if (syncAccount?.password) {
+        if (password === syncAccount.password) {
+          const userRole: UserRole =
+            syncAccount.role ||
+            (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')
+              ? 'teacher'
+              : 'student');
+          const authUser: AuthUser = {
+            id: `sync_${cleanId}`,
+            email: `${cleanId}@${userRole === 'teacher' ? 'teachers' : 'students'}.mips.invalid`,
+            role: userRole,
             must_change_password: false,
             first_login_required: false,
           };
           setUser(authUser);
-          setRole(syncRole);
-          persistSession(authUser, syncRole);
+          setRole(userRole);
+          persistSession(authUser, userRole);
           return { success: true, user: authUser };
+        } else {
+          return {
+            success: false,
+            error: 'Invalid password.',
+          };
         }
+      }
 
-        // If credentials did not match any institutional records
-        return {
-          success: false,
-          error: 'Register number or password is incorrect.',
+      // Admin fallback
+      if (
+        (cleanId === 'admin' || cleanId === 'admin@mipsedu.in') &&
+        (password === 'admin123' || password === 'Admin#Pass2026' || password === 'Admin@Mips#2026')
+      ) {
+        const adminUser: AuthUser = {
+          id: 'a0000000-0000-0000-0000-000000000001',
+          email: 'admin@mipsedu.in',
+          role: 'admin',
+          must_change_password: false,
+          first_login_required: false,
         };
+        setUser(adminUser);
+        setRole('admin');
+        persistSession(adminUser, 'admin');
+        return { success: true, user: adminUser };
       }
 
-      if (data?.error) {
-        return {
-          success: false,
-          error: data.error,
-          details: data.details || {},
+      // Fallback: Check local sync records if offline
+      const storedPass =
+        localStorage.getItem(`mips_student_password_${cleanId}`) ||
+        localStorage.getItem(`mips_teacher_password_${cleanId}`) ||
+        accountSyncService.getAccount(cleanId)?.password;
+
+      if (storedPass && password === storedPass) {
+        const syncRole = (cleanId.startsWith('prof') || cleanId.startsWith('dr') || cleanId.includes('teacher')) ? 'teacher' : 'student';
+        const authUser: AuthUser = {
+          id: `sync_${cleanId}`,
+          email: `${cleanId}@${syncRole}s.mips.invalid`,
+          role: syncRole,
+          must_change_password: false,
+          first_login_required: false,
         };
+        setUser(authUser);
+        setRole(syncRole);
+        persistSession(authUser, syncRole);
+        return { success: true, user: authUser };
       }
 
-      // Establish Supabase auth session in client
-      if (data?.session) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-        if (sessionError) throw sessionError;
-      }
-
-      const prof = await fetchProfileAndRole(data.user.id);
-      const authUser: AuthUser = {
-        id: data.user.id,
-        email: data.user.email,
-        role: data.user.role,
-        must_change_password: data.user.must_change_password ?? prof?.must_change_password,
-        first_login_required: data.user.first_login_required ?? prof?.first_login_required,
-        mfa_required: data.user.mfa_required,
-      };
-
-      setUser(authUser);
-      setRole(authUser.role);
-      persistSession(authUser, authUser.role);
-      await fetchUnreadCount(authUser.id);
-
-      // Track 2nd login for push notification opt-in prompt
-      const loginCountKey = `mips_logins_${authUser.id}`;
-      const newCount = parseInt(localStorage.getItem(loginCountKey) || '0', 10) + 1;
-      localStorage.setItem(loginCountKey, newCount.toString());
-      if (newCount === 2) {
-        import('../lib/pushNotifications').then(({ pushNotificationService }) => {
-          pushNotificationService.getStatus().then((status) => {
-            if (status.isSupported && status.permission === 'default') {
-              setIsPushModalOpen(true);
-            }
-          });
-        });
-      }
-
-      return {
-        success: true,
-        user: authUser,
-      };
-    } catch (err: any) {
-      const isNetwork = !navigator.onLine || err?.message?.toLowerCase().includes('failed to fetch');
-      const rawMsg = err?.message || '';
-      const isEdgeErr = rawMsg.toLowerCase().includes('edge function') || rawMsg.toLowerCase().includes('failed to send a request');
+      // If credentials did not match any institutional records
       return {
         success: false,
-        error: isNetwork
-          ? "Couldn't connect. Check your internet and try again."
-          : isEdgeErr
-            ? 'Register number or password is incorrect.'
-            : rawMsg || 'Login failed. Please verify your credentials.',
+        error: 'Register number or password is incorrect.',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: 'Register number or password is incorrect.',
       };
     }
   };

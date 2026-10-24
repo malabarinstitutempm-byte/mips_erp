@@ -176,7 +176,7 @@ class AdminUserService {
   }) async {
     await _ensureLoaded();
 
-    final cleanUsername = username.trim().toLowerCase();
+    final cleanUsername = username.trim().toLowerCase().replaceAll(RegExp(r'^@+'), '');
     final effectiveEmail = (email != null && email.trim().isNotEmpty)
         ? email.trim()
         : (cleanUsername.contains('@') ? cleanUsername : '$cleanUsername@mipsedu.in');
@@ -200,8 +200,20 @@ class AdminUserService {
     // Persist immediately to Supabase cloud 'admin_accounts' table for cross-device access
     try {
       final client = SupabaseService.instance.client;
-      await client.from('admin_accounts').upsert(newAdmin.toMap());
-    } catch (_) {}
+      await client.rpc('admin_save_account', params: {
+        'p_id': newAdmin.id,
+        'p_full_name': newAdmin.fullName,
+        'p_username': newAdmin.username,
+        'p_email': newAdmin.email,
+        'p_role': newAdmin.role,
+        'p_password': newAdmin.password,
+      });
+    } catch (_) {
+      try {
+        final client = SupabaseService.instance.client;
+        await client.from('admin_accounts').upsert(newAdmin.toMap());
+      } catch (_) {}
+    }
 
     return newAdmin;
   }
@@ -277,12 +289,16 @@ class AdminUserService {
   }
 
   Future<AdminAccount?> authenticate(String identifier, String password) async {
-    final clean = identifier.trim().toLowerCase();
+    final rawClean = identifier.trim().toLowerCase();
+    final clean = rawClean.replaceAll(RegExp(r'^@+'), '');
+    final withAt = '@$clean';
 
     // 1. Try local cache first for instant validation
     await _ensureLoaded();
     for (final a in _cachedAdmins) {
-      if (a.active && (a.username.toLowerCase() == clean || a.email.toLowerCase() == clean)) {
+      final aUname = a.username.toLowerCase().replaceAll(RegExp(r'^@+'), '');
+      final aEmail = a.email.toLowerCase();
+      if (a.active && (aUname == clean || aEmail == rawClean || aEmail == clean)) {
         if (a.password == password ||
             (clean == 'admin' && (password == 'admin123' || password == 'Admin#Pass2026' || password == 'Admin@Mips#2026')) ||
             (clean == 'office' && (password == 'office123' || password == 'Office#2026'))) {
@@ -291,13 +307,30 @@ class AdminUserService {
       }
     }
 
-    // 2. Query Supabase cloud directly so new devices (Device B, phones) authenticate immediately
+    // 2. Query Supabase RPC admin_verify_login for seamless cloud validation
+    try {
+      final client = SupabaseService.instance.client;
+      final res = await client.rpc('admin_verify_login', params: {
+        'p_identifier': clean,
+        'p_password': password,
+      });
+      if (res != null && res is Map && res['success'] == true) {
+        final accMap = Map<String, dynamic>.from(res['account'] as Map);
+        final a = AdminAccount.fromMap(accMap);
+        _cachedAdmins.removeWhere((x) => x.id == a.id || x.username.toLowerCase() == clean);
+        _cachedAdmins.add(a);
+        await _saveToStorage();
+        return a;
+      }
+    } catch (_) {}
+
+    // 3. Fallback table query directly from Supabase
     try {
       final client = SupabaseService.instance.client;
       final data = await client
           .from('admin_accounts')
           .select()
-          .or('username.ilike.$clean,email.ilike.$clean')
+          .or('username.ilike.$clean,username.ilike.$withAt,email.ilike.$clean,email.ilike.$rawClean')
           .eq('active', true)
           .maybeSingle();
 
@@ -306,10 +339,9 @@ class AdminUserService {
         if (a.password == password ||
             (clean == 'admin' && (password == 'admin123' || password == 'Admin#Pass2026' || password == 'Admin@Mips#2026')) ||
             (clean == 'office' && (password == 'office123' || password == 'Office#2026'))) {
-          if (!_cachedAdmins.any((x) => x.id == a.id)) {
-            _cachedAdmins.add(a);
-            await _saveToStorage();
-          }
+          _cachedAdmins.removeWhere((x) => x.id == a.id || x.username.toLowerCase() == clean);
+          _cachedAdmins.add(a);
+          await _saveToStorage();
           return a;
         }
       }
