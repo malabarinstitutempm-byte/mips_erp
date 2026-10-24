@@ -28,6 +28,8 @@ final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
+  static final _mobileScaffoldKey = GlobalKey<ScaffoldState>();
+
   Future<void> _confirmAndLogout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -97,7 +99,7 @@ class AppShell extends ConsumerWidget {
     final isMobile = Responsive.isPhone(context);
     final isDesktop = Responsive.isDesktop(context);
     final isCollapsed = !isDesktop || ref.watch(sidebarCollapsedProvider);
-    final scaffoldKey = GlobalKey<ScaffoldState>();
+    final scaffoldKey = _mobileScaffoldKey;
 
     // Mobile Phone Admin Shell
     if (isMobile) {
