@@ -2,6 +2,7 @@
 // Data services for Teacher Portal: Attendance Marking, Marks Entry, Personal Timetable & Profile
 
 import { supabase } from '../lib/supabase';
+import { accountSyncService } from './accountSyncService';
 
 export interface TeacherProfile {
   id: number;
@@ -147,14 +148,51 @@ export const teacherService = {
   // 1. Fetch Teacher Profile (Open access, no assignment restriction)
   async getTeacherProfile(userId: string): Promise<TeacherProfile> {
     try {
+      const cleanId = String(userId || '').trim();
+      const rawNum = cleanId.startsWith('t_') ? cleanId.replace('t_', '') : cleanId;
+      const numId = parseInt(rawNum, 10);
+
+      if (!isNaN(numId) && numId > 0) {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('get_portal_teacher_profile', {
+          p_teacher_id: numId,
+        });
+
+        if (!rpcErr && rpcData && !rpcData.error && rpcData.id) {
+          return {
+            id: rpcData.id,
+            userId,
+            name: rpcData.name,
+            loginUsername: rpcData.login_username,
+            phone: rpcData.phone || '',
+            status: rpcData.status || 'active',
+            assignedBatches: [],
+            assignedSubjects: [],
+          };
+        }
+      }
+
+      // Check local account sync
+      const syncTeacher = accountSyncService.findTeacher(cleanId) || accountSyncService.getAccount(cleanId);
+      if (syncTeacher) {
+        return {
+          id: syncTeacher.id || 1,
+          userId,
+          name: syncTeacher.name || syncTeacher.identifier,
+          loginUsername: syncTeacher.username || syncTeacher.identifier,
+          phone: syncTeacher.phone || '',
+          status: syncTeacher.status || 'active',
+          assignedBatches: [],
+          assignedSubjects: [],
+        };
+      }
+
       const { data: profileData, error: profileErr } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (profileErr) throw profileErr;
-      if (profileData && profileData.teacher_id) {
+      if (!profileErr && profileData && profileData.teacher_id) {
         const teacherId = profileData.teacher_id;
         const { data: teacher, error: teacherErr } = await supabase
           .from('teachers')
@@ -177,12 +215,13 @@ export const teacherService = {
       }
     } catch (_) {}
 
+    const cleanId = String(userId || '').trim();
     return {
-      id: 1,
+      id: 0,
       userId,
-      name: 'Prof. Suresh Kumar',
-      loginUsername: 'prof_kumar',
-      phone: '9876543210',
+      name: cleanId || 'Faculty Member',
+      loginUsername: cleanId || 'faculty',
+      phone: '',
       status: 'active',
       assignedBatches: [],
       assignedSubjects: [],
@@ -222,33 +261,7 @@ export const teacherService = {
       }
     } catch (_) {}
 
-    return [
-      {
-        courseId: 1,
-        courseName: 'Diploma in Medical Laboratory Technology [DMLT]',
-        courseCode: 'DMLT',
-        batches: [
-          { batchId: 1, batchName: 'Batch 2024-26 (A)', academicYear: '2024-26' },
-          { batchId: 2, batchName: 'Batch 2025-27 (B)', academicYear: '2025-27' },
-        ],
-      },
-      {
-        courseId: 2,
-        courseName: 'Diploma in Operation Theatre & Anaesthesia Technology [DOTAT]',
-        courseCode: 'DOTAT',
-        batches: [
-          { batchId: 3, batchName: 'Batch 2024-26', academicYear: '2024-26' },
-        ],
-      },
-      {
-        courseId: 3,
-        courseName: 'Diploma in X-Ray Technology [DXT]',
-        courseCode: 'DXT',
-        batches: [
-          { batchId: 4, batchName: 'Batch 2024-26', academicYear: '2024-26' },
-        ],
-      },
-    ];
+    return [];
   },
 
   // 3. Backward-compatible helper returning all active primary batches
@@ -379,6 +392,20 @@ export const teacherService = {
   // 5. Fetch Enrolled Students for Batch (Alphabetical by name)
   async getBatchStudents(batchId: number): Promise<{ id: number; name: string; registrationNumber: string | null; admissionNumber: string }[]> {
     try {
+      // 1. Dedicated SECURITY DEFINER RPC - excludes deleted/discontinued students
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_portal_batch_students', {
+        p_batch_id: batchId,
+      });
+
+      if (!rpcErr && Array.isArray(rpcData)) {
+        return rpcData.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          registrationNumber: s.registration_number,
+          admissionNumber: s.admission_number,
+        }));
+      }
+
       const { data, error } = await supabase
         .from('students_for_teacher')
         .select('id, name, registration_number, admission_number')
@@ -412,14 +439,7 @@ export const teacherService = {
       }
     } catch (_) {}
 
-    return [
-      { id: 1, name: 'Mohammed Shafi', registrationNumber: '2023MLT042', admissionNumber: 'ADM-2026-0001' },
-      { id: 2, name: 'Fathima Sana', registrationNumber: '2023MLT043', admissionNumber: 'ADM-2026-0002' },
-      { id: 3, name: 'Rahul Krishna', registrationNumber: '2023MLT044', admissionNumber: 'ADM-2026-0003' },
-      { id: 4, name: 'Aisha Nida', registrationNumber: '2023MLT045', admissionNumber: 'ADM-2026-0004' },
-      { id: 5, name: 'Vishnu Prasad', registrationNumber: '2023MLT046', admissionNumber: 'ADM-2026-0005' },
-      { id: 6, name: 'Ananya Ramesh', registrationNumber: '2023MLT047', admissionNumber: 'ADM-2026-0006' },
-    ];
+    return [];
   },
 
   // 6. Fetch Attendance Session for (batch, date, slot)

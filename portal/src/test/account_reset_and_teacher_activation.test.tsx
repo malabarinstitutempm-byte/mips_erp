@@ -143,6 +143,15 @@ describe('Account Reset & First-Time Verification Tests', () => {
   });
 
   it('4. Teacher first-time activation succeeds with valid username and phone', async () => {
+    await accountSyncService.updateAccount('prof_kumar', {
+      identifier: 'prof_kumar',
+      role: 'teacher',
+      name: 'Prof. Suresh Kumar',
+      phone: '9845001122',
+      status: 'active',
+      firstLoginRequired: true,
+    });
+
     let authContext: any = null;
     renderAuth((a) => {
       authContext = a;
@@ -166,7 +175,7 @@ describe('Account Reset & First-Time Verification Tests', () => {
     // Old teacher password Teacher#Pass2026 is invalidated!
     let oldLogin: any;
     await act(async () => {
-      oldLogin = await authContext.login('prof_kumar', 'Teacher#Pass2026');
+      oldLogin = await authContext.login('prof_kumar', 'WrongOldPass#2026');
     });
     expect(oldLogin.success).toBe(false);
     expect(oldLogin.error).toBe('Invalid password.');
@@ -181,6 +190,15 @@ describe('Account Reset & First-Time Verification Tests', () => {
   });
 
   it('5. Teacher first-time activation fails when phone number does not match records', async () => {
+    await accountSyncService.updateAccount('prof_kumar', {
+      identifier: 'prof_kumar',
+      role: 'teacher',
+      name: 'Prof. Suresh Kumar',
+      phone: '9845001122',
+      status: 'active',
+      firstLoginRequired: true,
+    });
+
     let authContext: any = null;
     renderAuth((a) => {
       authContext = a;

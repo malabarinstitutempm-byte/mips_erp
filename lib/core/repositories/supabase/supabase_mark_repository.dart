@@ -6,13 +6,8 @@ import '../interfaces/mark_repository_interface.dart';
 class SupabaseMarkRepository implements MarkRepository {
   SupabaseClient get _client => SupabaseService.instance.client;
 
-  static final Map<int, List<Mark>> _fallbackMarks = {
-    1: [
-      Mark(id: 1, examId: 1, studentId: 1, subjectId: 1, marksObtained: 85, isAbsent: false),
-      Mark(id: 2, examId: 1, studentId: 1, subjectId: 2, marksObtained: 78, isAbsent: false),
-      Mark(id: 3, examId: 1, studentId: 1, subjectId: 3, marksObtained: 92, isAbsent: false),
-    ],
-  };
+  // Clean fallback marks store (no mock/dummy marks)
+  static final Map<int, List<Mark>> _fallbackMarks = {};
 
   @override
   Future<List<Mark>> getMarksForExam(int examId) async {
@@ -22,11 +17,10 @@ class SupabaseMarkRepository implements MarkRepository {
           .select('*')
           .eq('exam_id', examId);
 
-      final list = (data as List).map((row) => Mark.fromMap(Map<String, dynamic>.from(row))).toList();
-      if (list.isNotEmpty) return list;
-    } catch (_) {}
-
-    return _fallbackMarks[examId] ?? [];
+      return (data as List).map((row) => Mark.fromMap(Map<String, dynamic>.from(row))).toList();
+    } catch (_) {
+      return _fallbackMarks[examId] ?? [];
+    }
   }
 
   @override

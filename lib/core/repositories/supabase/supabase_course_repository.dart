@@ -5,120 +5,16 @@ import '../../models/course.dart';
 import '../../models/course_subject.dart';
 import '../../services/supabase_service.dart';
 import '../interfaces/course_repository_interface.dart';
+import 'cascade_delete_helper.dart';
 import 'supabase_batch_repository.dart';
 
 class SupabaseCourseRepository implements CourseRepository {
   SupabaseClient get _client => SupabaseService.instance.client;
 
-  // In-memory fallback institutional courses store (ensures 100% uptime even if Supabase table is absent)
-  static final List<Course> _fallbackCourses = [
-    Course(
-      id: 1,
-      name: 'Diploma in Medical Laboratory Technology [DMLT]',
-      code: 'DMLT',
-      duration: '2 Years',
-      totalFee: 50000.0,
-      totalFeePaise: 5000000,
-      courseType: 'primary',
-      description: 'Comprehensive 2-year allied healthcare diploma in clinical laboratory testing, pathology, and biochemistry.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-    Course(
-      id: 2,
-      name: 'Diploma in Operation Theatre & Anaesthesia Technology [DOTAT]',
-      code: 'DOTAT',
-      duration: '2 Years',
-      totalFee: 55000.0,
-      totalFeePaise: 5500000,
-      courseType: 'primary',
-      description: 'Training in operation theatre management, sterilization techniques, and anesthesia assistance.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-    Course(
-      id: 3,
-      name: 'Diploma in X-Ray Technology [DXT]',
-      code: 'DXT',
-      duration: '2 Years',
-      totalFee: 50000.0,
-      totalFeePaise: 5000000,
-      courseType: 'primary',
-      description: 'Radiation physics, diagnostic radiography, and patient positioning diploma.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-    Course(
-      id: 4,
-      name: 'B.Sc Medical Laboratory Technology [B.Sc MLT]',
-      code: 'B.Sc MLT',
-      duration: '3 Years',
-      totalFee: 120000.0,
-      totalFeePaise: 12000000,
-      courseType: 'primary',
-      description: 'Degree program covering advanced diagnostic laboratory medicine.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-    Course(
-      id: 5,
-      name: 'Certificate in Phlebotomy',
-      code: 'CIP',
-      duration: '6 Months',
-      totalFee: 15000.0,
-      totalFeePaise: 1500000,
-      courseType: 'skill',
-      description: 'Professional venipuncture and specimen collection certified skill program.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-    Course(
-      id: 6,
-      name: 'Hospital Nursing Assistant',
-      code: 'HNA',
-      duration: '1 Year',
-      totalFee: 25000.0,
-      totalFeePaise: 2500000,
-      courseType: 'skill',
-      description: 'Bedside patient care, vital signs monitoring, and hospital assistance training.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-    Course(
-      id: 7,
-      name: 'Emergency Medical Technician',
-      code: 'EMT',
-      duration: '1 Year',
-      totalFee: 30000.0,
-      totalFeePaise: 3000000,
-      courseType: 'skill',
-      description: 'Pre-hospital emergency care and patient stabilization training.',
-      status: 'Active',
-      isDeleted: false,
-    ),
-  ];
-
+  // Clean fallback institutional courses store (no mock/dummy courses)
+  static final List<Course> _fallbackCourses = [];
   static List<Course> get fallbackCourses => List.unmodifiable(_fallbackCourses);
-
-  static final Map<int, List<CourseSubject>> _fallbackSubjects = {
-    1: [
-      CourseSubject(id: 101, courseId: 1, subjectName: 'Clinical Biochemistry', subjectCode: 'DMLT-101', maxMarks: 100, passMarks: 40),
-      CourseSubject(id: 102, courseId: 1, subjectName: 'Hematology & Blood Banking', subjectCode: 'DMLT-102', maxMarks: 100, passMarks: 40),
-      CourseSubject(id: 103, courseId: 1, subjectName: 'Microbiology & Pathology', subjectCode: 'DMLT-103', maxMarks: 100, passMarks: 40),
-    ],
-    2: [
-      CourseSubject(id: 201, courseId: 2, subjectName: 'Operation Theatre Techniques', subjectCode: 'OT-101', maxMarks: 100, passMarks: 40),
-      CourseSubject(id: 202, courseId: 2, subjectName: 'Anaesthesia Principles & Pharmacology', subjectCode: 'OT-102', maxMarks: 100, passMarks: 40),
-    ],
-    3: [
-      CourseSubject(id: 301, courseId: 3, subjectName: 'Radiation Physics & Radiobiology', subjectCode: 'DXT-101', maxMarks: 100, passMarks: 40),
-      CourseSubject(id: 302, courseId: 3, subjectName: 'Radiographic Techniques & Positioning', subjectCode: 'DXT-102', maxMarks: 100, passMarks: 40),
-    ],
-    4: [
-      CourseSubject(id: 401, courseId: 4, subjectName: 'Advanced Clinical Biochemistry', subjectCode: 'MLT-301', maxMarks: 100, passMarks: 50),
-      CourseSubject(id: 402, courseId: 4, subjectName: 'Immunology & Molecular Biology', subjectCode: 'MLT-302', maxMarks: 100, passMarks: 50),
-    ],
-  };
+  static final Map<int, List<CourseSubject>> _fallbackSubjects = {};
 
   @override
   Future<List<Course>> getCourses({bool includeDeleted = false}) async {
@@ -130,13 +26,11 @@ class SupabaseCourseRepository implements CourseRepository {
       }
 
       final data = await req.order('name', ascending: true);
-      final list = (data as List).map((row) => Course.fromMap(Map<String, dynamic>.from(row))).toList();
-      if (list.isNotEmpty) return list;
+      return (data as List).map((row) => Course.fromMap(Map<String, dynamic>.from(row))).toList();
     } catch (e) {
       debugPrint('SupabaseCourseRepository.getCourses fallback used: $e');
+      return [];
     }
-
-    return _fallbackCourses.where((c) => includeDeleted || !c.isDeleted).toList();
   }
 
   @override
@@ -290,12 +184,13 @@ class SupabaseCourseRepository implements CourseRepository {
           'p_id': id,
           'p_reason': 'Course deleted by administrator',
         });
-      } catch (_) {
-        await _client.from('courses').update({
-          'deleted_at': DateTime.now().toIso8601String(),
-          'deleted_by': _client.auth.currentUser?.id,
-        }).eq('id', id);
-      }
+      } catch (_) {}
+
+      await CascadeDeleteHelper.softDeleteCourse(
+        _client,
+        id,
+        actorId: _client.auth.currentUser?.id,
+      );
     } catch (e) {
       debugPrint('SupabaseCourseRepository.deleteCourse fallback used for id $id: $e');
       _fallbackCourses.removeWhere((c) => c.id == id);
@@ -378,13 +273,13 @@ class SupabaseCourseRepository implements CourseRepository {
   Future<bool> isCourseStructureLocked(int courseId) async {
     try {
       final exams = await _client.from('exams').select('id').eq('course_id', courseId).isFilter('deleted_at', null).limit(1);
-      if (exams is List && exams.isNotEmpty) return true;
+      if (exams.isNotEmpty) return true;
 
       final batches = await _client.from('batches').select('id').eq('course_id', courseId).isFilter('deleted_at', null);
-      if (batches is List && batches.isNotEmpty) {
-        final bIds = (batches as List).map((b) => b['id']).toList();
+      if (batches.isNotEmpty) {
+        final bIds = batches.map((b) => b['id']).toList();
         final sessions = await _client.from('attendance_sessions').select('id').inFilter('batch_id', bIds).limit(1);
-        if (sessions is List && sessions.isNotEmpty) return true;
+        if (sessions.isNotEmpty) return true;
       }
     } catch (e) {
       debugPrint('SupabaseCourseRepository.isCourseStructureLocked check error: $e');

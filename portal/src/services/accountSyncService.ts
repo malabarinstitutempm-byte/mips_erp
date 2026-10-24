@@ -17,65 +17,8 @@ export interface AccountSyncData {
 
 const STORAGE_KEY = 'mips_portal_synced_accounts';
 
-// Institutional defaults for local/dev fallback when Supabase tables are offline
-const INITIAL_DEFAULTS: Record<string, AccountSyncData> = {
-  '2023mlt042': {
-    identifier: '2023mlt042',
-    role: 'student',
-    name: 'Muhammed Nihal C',
-    status: 'active',
-    firstLoginRequired: false,
-    dob: '2004-08-15',
-  },
-  'adm-2026-0001': {
-    identifier: 'adm-2026-0001',
-    role: 'student',
-    name: 'Aisha K',
-    status: 'active',
-    firstLoginRequired: false,
-    dob: '2005-05-15',
-  },
-  'prof_kumar': {
-    identifier: 'prof_kumar',
-    role: 'teacher',
-    name: 'Prof. Suresh Kumar',
-    status: 'active',
-    firstLoginRequired: false,
-    phone: '9845001122',
-  },
-  'fatima_noor': {
-    identifier: 'fatima_noor',
-    role: 'teacher',
-    name: 'Dr. Fatima Noor',
-    status: 'active',
-    firstLoginRequired: false,
-    phone: '9845123456',
-  },
-  'ahmed_raza': {
-    identifier: 'ahmed_raza',
-    role: 'teacher',
-    name: 'Prof. Ahmed Raza',
-    status: 'active',
-    firstLoginRequired: false,
-    phone: '9876543210',
-  },
-  'zaid_t': {
-    identifier: 'zaid_t',
-    role: 'teacher',
-    name: 'Sheikh Zaid Tariq',
-    status: 'active',
-    firstLoginRequired: false,
-    phone: '9966332211',
-  },
-  'bilal_h': {
-    identifier: 'bilal_h',
-    role: 'teacher',
-    name: 'Usthad Bilal Hussain',
-    status: 'inactive',
-    firstLoginRequired: false,
-    phone: '9744112233',
-  },
-};
+// Clean synced accounts store (no mock/dummy data)
+const INITIAL_DEFAULTS: Record<string, AccountSyncData> = {};
 
 class AccountSyncService {
   private accounts: Record<string, AccountSyncData> = {};

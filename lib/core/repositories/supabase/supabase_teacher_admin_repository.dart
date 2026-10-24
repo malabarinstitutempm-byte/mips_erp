@@ -9,120 +9,16 @@ import '../interfaces/teacher_admin_repository_interface.dart';
 class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
   SupabaseClient get _client => SupabaseService.instance.client;
 
-  // Local fallback cache for resilient operation
-  static final List<Teacher> _localTeachers = [
-    Teacher(
-      id: 1,
-      name: 'Prof. Ahmed Raza',
-      phone: '9876543210',
-      loginUsername: 'ahmed_raza',
-      status: 'active',
-      profileActive: true,
-      sessionsMarkedCount: 42,
-      lastLoginAt: DateTime.now().subtract(const Duration(hours: 4)),
-      createdAt: DateTime.now().subtract(const Duration(days: 120)),
-    ),
-    Teacher(
-      id: 2,
-      name: 'Dr. Fatima Noor',
-      phone: '9845123456',
-      loginUsername: 'fatima_noor',
-      status: 'active',
-      profileActive: true,
-      sessionsMarkedCount: 35,
-      lastLoginAt: DateTime.now().subtract(const Duration(days: 1)),
-      createdAt: DateTime.now().subtract(const Duration(days: 90)),
-    ),
-    Teacher(
-      id: 3,
-      name: 'Usthad Bilal Hussain',
-      phone: '9744112233',
-      loginUsername: 'bilal_h',
-      status: 'inactive',
-      profileActive: false,
-      sessionsMarkedCount: 18,
-      lastLoginAt: DateTime.now().subtract(const Duration(days: 14)),
-      createdAt: DateTime.now().subtract(const Duration(days: 150)),
-    ),
-    Teacher(
-      id: 4,
-      name: 'Sheikh Zaid Tariq',
-      phone: '9966332211',
-      loginUsername: 'zaid_t',
-      status: 'active',
-      profileActive: true,
-      lockedAt: DateTime.now().subtract(const Duration(hours: 2)),
-      failedAttempts: 5,
-      sessionsMarkedCount: 27,
-      lastLoginAt: DateTime.now().subtract(const Duration(days: 2)),
-      createdAt: DateTime.now().subtract(const Duration(days: 60)),
-    ),
-  ];
-
-  static final Map<int, List<Map<String, dynamic>>> _localSessions = {
-    1: [
-      {
-        'id': 101,
-        'date': DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
-        'period': 'morning',
-        'status': 'submitted',
-        'batch_name': 'Afzal-ul-Ulama 2024-26',
-        'subject_name': 'Fiqh & Hadith',
-      },
-      {
-        'id': 98,
-        'date': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'period': 'evening',
-        'status': 'submitted',
-        'batch_name': 'Afzal-ul-Ulama 2024-26',
-        'subject_name': 'Arabic Grammar',
-      },
-    ],
-    2: [
-      {
-        'id': 95,
-        'date': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'period': 'morning',
-        'status': 'submitted',
-        'batch_name': 'B.A. Islamic Studies 2025',
-        'subject_name': 'Tafseer',
-      },
-    ],
-  };
-
-  static final Map<int, List<Map<String, dynamic>>> _localAudit = {
-    1: [
-      {
-        'id': 1,
-        'action': 'CREATE_TEACHER',
-        'actor': 'Admin',
-        'created_at': DateTime.now().subtract(const Duration(days: 120)).toIso8601String(),
-        'details': {'message': 'Account provisioned with initial credentials'},
-      },
-      {
-        'id': 2,
-        'action': 'RESET_TEACHER_PASSWORD',
-        'actor': 'Admin',
-        'created_at': DateTime.now().subtract(const Duration(days: 30)).toIso8601String(),
-        'details': {'mode': 'generate', 'action': 'Temporary password issued'},
-      },
-    ],
-    4: [
-      {
-        'id': 3,
-        'action': 'ACCOUNT_LOCKED',
-        'actor': 'System',
-        'created_at': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-        'details': {'reason': 'Exceeded maximum 5 consecutive failed login attempts'},
-      },
-    ],
-  };
+  // Clean local fallback caches (no mock/dummy data)
+  static final List<Teacher> _localTeachers = [];
+  static final Map<int, List<Map<String, dynamic>>> _localSessions = {};
+  static final Map<int, List<Map<String, dynamic>>> _localAudit = {};
 
   @override
   Future<List<Teacher>> getTeachers() async {
     try {
       final rpcRes = await _client.rpc('admin_get_all_teachers');
-      if (rpcRes is List && rpcRes.isNotEmpty) {
+      if (rpcRes is List) {
         return rpcRes.map((row) => Teacher.fromJson(Map<String, dynamic>.from(row as Map))).toList();
       }
     } catch (e) {
@@ -133,6 +29,7 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
       final data = await _client
           .from('teachers')
           .select('*, profiles(user_id, active, locked_at, failed_attempts, last_login_at)')
+          .isFilter('deleted_at', null)
           .order('id', ascending: true);
 
       final list = (data as List).map((row) => Teacher.fromJson(Map<String, dynamic>.from(row))).toList();
@@ -159,17 +56,28 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
       }
     } catch (e) {
       debugPrint('Supabase getTeachers fallback error: $e');
-      return List.from(_localTeachers);
+      return [];
     }
   }
 
   @override
   Future<Teacher?> getTeacherById(int teacherId) async {
+    // 1. Dedicated SECURITY DEFINER RPC - returns true teacher identity with no permission issues
+    try {
+      final rpcRes = await _client.rpc('admin_get_teacher_by_id', params: {'p_teacher_id': teacherId});
+      if (rpcRes != null && rpcRes is Map && rpcRes.isNotEmpty) {
+        return Teacher.fromJson(Map<String, dynamic>.from(rpcRes));
+      }
+    } catch (e) {
+      debugPrint('admin_get_teacher_by_id RPC error: $e');
+    }
+
     try {
       final data = await _client
           .from('teachers')
           .select('*, profiles(user_id, active, locked_at, failed_attempts, last_login_at)')
           .eq('id', teacherId)
+          .isFilter('deleted_at', null)
           .maybeSingle();
 
       if (data != null) {
@@ -189,11 +97,7 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
       debugPrint('Supabase getTeacherById error: $e');
     }
 
-    try {
-      return _localTeachers.firstWhere((t) => t.id == teacherId);
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   @override
@@ -609,16 +513,7 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
       }).toList();
     } catch (e) {
       debugPrint('getTeacherSessions fallback: $e');
-      return _localSessions[teacherId] ?? [
-        {
-          'id': 100,
-          'date': DateTime.now().toIso8601String(),
-          'period': 'morning',
-          'status': 'submitted',
-          'batch_name': 'General Batch',
-          'subject_name': 'Core Studies',
-        }
-      ];
+      return _localSessions[teacherId] ?? [];
     }
   }
 
@@ -646,15 +541,7 @@ class SupabaseTeacherAdminRepository implements TeacherAdminRepository {
       }).toList();
     } catch (e) {
       debugPrint('getTeacherAuditHistory fallback: $e');
-      return _localAudit[teacherId] ?? [
-        {
-          'id': 1,
-          'action': 'CREATE_TEACHER',
-          'actor': 'Administrator',
-          'created_at': DateTime.now().subtract(const Duration(days: 30)).toIso8601String(),
-          'details': {'action': 'Teacher account provisioned'},
-        }
-      ];
+      return _localAudit[teacherId] ?? [];
     }
   }
 }

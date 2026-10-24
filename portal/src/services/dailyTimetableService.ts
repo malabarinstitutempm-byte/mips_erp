@@ -71,70 +71,15 @@ export const dailyTimetableService = {
         p_date: dateStr,
       });
 
-      if (!rpcErr && rpcData && rpcData.status && rpcData.status !== 'not_created') {
-        if (rpcData.status !== 'published') {
-          return {
-            isPublished: false,
-            status: rpcData.status,
-            date: dateStr,
-            heading: rpcData.heading || heading,
-            entries: [],
-          };
-        }
-
-        const rawEntries = rpcData.entries || [];
-        return {
-          isPublished: true,
-          status: 'published',
-          date: dateStr,
-          heading: rpcData.heading || heading,
-          entries: rawEntries.map((e: any) => ({
-            id: e.id,
-            date: e.date,
-            courseName: e.course_name,
-            year: e.year || '1st Year',
-            teacherName: e.teacher_name,
-            subjectName: e.subject_name,
-            classRoom: e.class_room,
-            startTime: e.start_time,
-            endTime: e.end_time,
-            sortOrder: e.sort_order || 0,
-          })),
-        };
-      }
-
-      // Fallback: Check Supabase publication status
-      const { data: ttStatus, error: statusErr } = await supabase
-        .from('daily_timetables')
-        .select('*')
-        .eq('date', dateStr)
-        .maybeSingle();
-
-      if (!statusErr && ttStatus) {
-        if (ttStatus.status !== 'published') {
-          return {
-            isPublished: false,
-            status: ttStatus.status as any,
-            date: dateStr,
-            heading,
-            entries: [],
-          };
-        }
-
-        // Fetch entries
-        const { data: entriesData, error: entriesErr } = await supabase
-          .from('daily_timetable_entries')
-          .select('*')
-          .eq('date', dateStr)
-          .order('sort_order', { ascending: true });
-
-        if (!entriesErr && entriesData && entriesData.length > 0) {
+      if (!rpcErr && rpcData) {
+        if (rpcData.status === 'published') {
+          const rawEntries = rpcData.entries || [];
           return {
             isPublished: true,
             status: 'published',
             date: dateStr,
-            heading,
-            entries: entriesData.map((e: any) => ({
+            heading: rpcData.heading || heading,
+            entries: rawEntries.map((e: any) => ({
               id: e.id,
               date: e.date,
               courseName: e.course_name,
@@ -147,6 +92,63 @@ export const dailyTimetableService = {
               sortOrder: e.sort_order || 0,
             })),
           };
+        } else if (rpcData.status && rpcData.status !== 'not_created') {
+          return {
+            isPublished: false,
+            status: rpcData.status,
+            date: dateStr,
+            heading: rpcData.heading || heading,
+            entries: [],
+          };
+        }
+      }
+
+      // Fallback: Check Supabase publication status only if RPC errored
+      if (rpcErr) {
+        const { data: ttStatus, error: statusErr } = await supabase
+          .from('daily_timetables')
+          .select('*')
+          .eq('date', dateStr)
+          .maybeSingle();
+
+        if (!statusErr && ttStatus) {
+          if (ttStatus.status !== 'published') {
+            return {
+              isPublished: false,
+              status: ttStatus.status as any,
+              date: dateStr,
+              heading,
+              entries: [],
+            };
+          }
+
+          // Fetch entries
+          const { data: entriesData, error: entriesErr } = await supabase
+            .from('daily_timetable_entries')
+            .select('*')
+            .eq('date', dateStr)
+            .order('sort_order', { ascending: true });
+
+          if (!entriesErr && entriesData && entriesData.length > 0) {
+            return {
+              isPublished: true,
+              status: 'published',
+              date: dateStr,
+              heading,
+              entries: entriesData.map((e: any) => ({
+                id: e.id,
+                date: e.date,
+                courseName: e.course_name,
+                year: e.year || '1st Year',
+                teacherName: e.teacher_name,
+                subjectName: e.subject_name,
+                classRoom: e.class_room,
+                startTime: e.start_time,
+                endTime: e.end_time,
+                sortOrder: e.sort_order || 0,
+              })),
+            };
+          }
         }
       }
     } catch (e) {
@@ -189,100 +191,13 @@ export const dailyTimetableService = {
       }
     } catch (_) {}
 
-    // 3. Realistic default published timetable for demonstration & testing
-    const defaultSeed: DailyTimetableEntryItem[] = [
-      {
-        id: 1,
-        date: dateStr,
-        courseName: 'DMLT',
-        year: '1st Year',
-        teacherName: 'Prof. Suresh Kumar',
-        subjectName: 'Clinical Biochemistry',
-        classRoom: 'LH-1',
-        startTime: '09:00 AM',
-        endTime: '10:00 AM',
-        sortOrder: 1,
-      },
-      {
-        id: 2,
-        date: dateStr,
-        courseName: 'DRT',
-        year: '1st Year',
-        teacherName: 'Dr. Aysha Mariyam',
-        subjectName: 'Radiographic Anatomy',
-        classRoom: 'LH-2',
-        startTime: '09:00 AM',
-        endTime: '10:00 AM',
-        sortOrder: 2,
-      },
-      {
-        id: 3,
-        date: dateStr,
-        courseName: 'DMLT',
-        year: '1st Year',
-        teacherName: 'Dr. Priya Nair',
-        subjectName: 'Hematology & Blood Banking',
-        classRoom: 'Pathology Lab',
-        startTime: '10:15 AM',
-        endTime: '11:15 AM',
-        sortOrder: 3,
-      },
-      {
-        id: 4,
-        date: dateStr,
-        courseName: 'DRT',
-        year: '1st Year',
-        teacherName: 'Prof. Suresh Kumar',
-        subjectName: 'Radiation Physics',
-        classRoom: 'LH-2',
-        startTime: '10:15 AM',
-        endTime: '11:15 AM',
-        sortOrder: 4,
-      },
-      {
-        id: 5,
-        date: dateStr,
-        courseName: 'DOTT',
-        year: '1st Year',
-        teacherName: 'Dr. Zainab K.',
-        subjectName: 'Operation Theatre Techniques',
-        classRoom: 'OT-A',
-        startTime: '11:30 AM',
-        endTime: '12:30 PM',
-        sortOrder: 5,
-      },
-      {
-        id: 6,
-        date: dateStr,
-        courseName: 'DMLT',
-        year: '2nd Year',
-        teacherName: 'Prof. Rajesh V.',
-        subjectName: 'Clinical Microbiology',
-        classRoom: 'Micro Lab',
-        startTime: '02:00 PM',
-        endTime: '03:00 PM',
-        sortOrder: 6,
-      },
-      {
-        id: 7,
-        date: dateStr,
-        courseName: 'DRT',
-        year: '2nd Year',
-        teacherName: 'Dr. Aysha Mariyam',
-        subjectName: 'Special Radiographic Procedures',
-        classRoom: 'X-Ray Room 1',
-        startTime: '02:00 PM',
-        endTime: '03:00 PM',
-        sortOrder: 7,
-      },
-    ];
-
+    // 3. Clean fallback when no timetable has been created or published
     return {
-      isPublished: true,
-      status: 'published',
+      isPublished: false,
+      status: 'not_created',
       date: dateStr,
       heading,
-      entries: defaultSeed,
+      entries: [],
     };
   },
 };

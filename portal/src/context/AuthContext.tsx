@@ -548,41 +548,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return { success: true, user: adminUser };
         }
 
-        // Standard teacher default fallback (ONLY if not reset/modified in sync)
-        if (
-          (cleanId === 'prof_kumar' || cleanId === 'teacher' || cleanId === 'fatima' || cleanId === 'fatima_noor' || cleanId === 'ahmed_raza') &&
-          (password === 'Teacher#Pass2026' || password === 'teacher123' || password === 'password123' || password === 'admin123')
-        ) {
-          const teacherUser: AuthUser = {
-            id: 'a0000000-0000-0000-0000-000000000002',
-            email: `${cleanId}@teachers.mips.invalid`,
-            role: 'teacher',
-            must_change_password: false,
-            first_login_required: false,
-          };
-          setUser(teacherUser);
-          setRole('teacher');
-          persistSession(teacherUser, 'teacher');
-          return { success: true, user: teacherUser };
-        }
-
-        // Standard student default fallback (ONLY if not reset/modified in sync)
-        if (
-          (cleanId === '2023mlt042' || cleanId === 'adm-2026-0001' || cleanId === 'student') &&
-          (password === 'Student#Pass2026' || password === '2004-08-15' || password === '2005-05-15' || password === 'student123' || password === 'password123')
-        ) {
-          const studentUser: AuthUser = {
-            id: 'a0000000-0000-0000-0000-000000000003',
-            email: '2023mlt042@students.mips.invalid',
-            role: 'student',
-            must_change_password: false,
-            first_login_required: false,
-          };
-          setUser(studentUser);
-          setRole('student');
-          persistSession(studentUser, 'student');
-          return { success: true, user: studentUser };
-        }
+        // No dummy teacher or student logins. Only Super Admin and real database users permitted.
 
         // 1. Direct Server-Side Verification via SECURITY DEFINER RPC
         try {

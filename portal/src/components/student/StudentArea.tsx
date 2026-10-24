@@ -26,7 +26,7 @@ const STUDENT_TABS: TabItem[] = [
 ];
 
 export const StudentArea: React.FC = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('attendance');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
@@ -38,8 +38,8 @@ export const StudentArea: React.FC = () => {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ['studentProfile'],
-    queryFn: () => studentService.getStudentProfile(),
+    queryKey: ['studentProfile', user?.id],
+    queryFn: () => studentService.getStudentProfile(user?.id),
   });
 
   const todayStr = new Date().toISOString().split('T')[0];

@@ -13,92 +13,9 @@ class SupabaseAttendanceAdminRepository implements AttendanceAdminRepository {
     'leave_handling': 'excluded',
   };
 
-  static final List<Map<String, dynamic>> _fallbackSessions = [
-    {
-      'id': 1,
-      'date': '2026-10-17',
-      'batch_id': 1,
-      'slot': 'morning',
-      'status': 'submitted',
-      'marked_by': 1,
-      'submitted_at': '2026-10-17T09:30:00Z',
-      'batches': {
-        'id': 1,
-        'batch_name': 'DMLT Batch A (2024-26)',
-        'courses': {'name': 'Diploma in Medical Laboratory Technology [DMLT]'},
-      },
-      'teachers': {'name': 'Prof. Suresh Kumar'},
-    },
-    {
-      'id': 2,
-      'date': '2026-10-17',
-      'batch_id': 2,
-      'slot': 'morning',
-      'status': 'submitted',
-      'marked_by': 2,
-      'submitted_at': '2026-10-17T09:45:00Z',
-      'batches': {
-        'id': 2,
-        'batch_name': 'DOTAT Batch 2024-26',
-        'courses': {'name': 'Diploma in Operation Theatre Technology [DOTAT]'},
-      },
-      'teachers': {'name': 'Dr. K. Narayanan'},
-    },
-    {
-      'id': 3,
-      'date': '2026-10-17',
-      'batch_id': 3,
-      'slot': 'morning',
-      'status': 'no_class',
-      'marked_by': 1,
-      'submitted_at': '2026-10-17T10:00:00Z',
-      'batches': {
-        'id': 3,
-        'batch_name': 'DXT Batch 2024-26',
-        'courses': {'name': 'Diploma in X-Ray Technology [DXT]'},
-      },
-      'teachers': {'name': 'Prof. Suresh Kumar'},
-    },
-  ];
-
-  static final Map<int, List<Map<String, dynamic>>> _fallbackSessionRecords = {
-    1: [
-      {
-        'id': 101,
-        'session_id': 1,
-        'student_id': 1,
-        'status': 'present',
-        'students': {
-          'name': 'Mohammed Hamiz',
-          'admission_number': '2023MLT042',
-          'registration_number': 'MIPS/2023/MLT/042',
-        },
-      },
-      {
-        'id': 102,
-        'session_id': 1,
-        'student_id': 2,
-        'status': 'absent',
-        'students': {
-          'name': 'Amina Fathima',
-          'admission_number': '2024MLT015',
-          'registration_number': 'MIPS/2024/MLT/015',
-        },
-      },
-      {
-        'id': 103,
-        'session_id': 1,
-        'student_id': 3,
-        'status': 'late',
-        'students': {
-          'name': 'Rahul Varma',
-          'admission_number': '2024OTA008',
-          'registration_number': 'MIPS/2024/OTA/008',
-        },
-      },
-    ],
-  };
-
+  // Clean fallback stores (no mock/dummy attendance)
+  static final List<Map<String, dynamic>> _fallbackSessions = [];
+  static final Map<int, List<Map<String, dynamic>>> _fallbackSessionRecords = {};
   static final List<Map<String, dynamic>> _fallbackAttendanceChanges = [];
 
   @override
@@ -131,19 +48,11 @@ class SupabaseAttendanceAdminRepository implements AttendanceAdminRepository {
       }
 
       final data = await req.order('date', ascending: false).order('slot', ascending: true);
-      final list = (data as List).map((row) => Map<String, dynamic>.from(row)).toList();
-      if (list.isNotEmpty) return list;
+      return (data as List).map((row) => Map<String, dynamic>.from(row)).toList();
     } catch (e) {
       debugPrint('SupabaseAttendanceAdminRepository.getAttendanceSessions fallback used: $e');
+      return [];
     }
-
-    final dateStr = date != null ? date.toIso8601String().split('T')[0] : null;
-    return _fallbackSessions.where((s) {
-      if (dateStr != null && s['date'] != dateStr) return false;
-      if (batchId != null && s['batch_id'] != batchId) return false;
-      if (status != null && status.isNotEmpty && s['status'] != status) return false;
-      return true;
-    }).toList();
   }
 
   @override
@@ -151,40 +60,26 @@ class SupabaseAttendanceAdminRepository implements AttendanceAdminRepository {
     try {
       final data = await _client
           .from('attendance_records')
-          .select('*, students(name, admission_number, registration_number)')
+          .select('*, students(name, admission_number, registration_number, deleted_at, status)')
           .eq('session_id', sessionId)
           .order('id', ascending: true);
 
-      final list = (data as List).map((row) => Map<String, dynamic>.from(row)).toList();
-      if (list.isNotEmpty) return list;
+      final list = (data as List)
+          .map((row) => Map<String, dynamic>.from(row))
+          .where((row) {
+            final student = row['students'];
+            if (student is Map) {
+              if (student['deleted_at'] != null) return false;
+              if (student['status'] == 'discontinued' || student['status'] == 'inactive') return false;
+            }
+            return true;
+          })
+          .toList();
+      return list;
     } catch (e) {
       debugPrint('SupabaseAttendanceAdminRepository.getSessionRecords fallback used: $e');
+      return [];
     }
-
-    return _fallbackSessionRecords[sessionId] ?? [
-      {
-        'id': sessionId * 100 + 1,
-        'session_id': sessionId,
-        'student_id': 1,
-        'status': 'present',
-        'students': {
-          'name': 'Mohammed Hamiz',
-          'admission_number': '2023MLT042',
-          'registration_number': 'MIPS/2023/MLT/042',
-        },
-      },
-      {
-        'id': sessionId * 100 + 2,
-        'session_id': sessionId,
-        'student_id': 2,
-        'status': 'absent',
-        'students': {
-          'name': 'Amina Fathima',
-          'admission_number': '2024MLT015',
-          'registration_number': 'MIPS/2024/MLT/015',
-        },
-      },
-    ];
   }
 
   @override

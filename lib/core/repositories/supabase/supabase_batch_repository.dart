@@ -1,96 +1,24 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/batch.dart';
 import '../../services/supabase_service.dart';
 import '../interfaces/batch_repository_interface.dart';
+import 'cascade_delete_helper.dart';
 
 class SupabaseBatchRepository implements BatchRepository {
   SupabaseClient get _client => SupabaseService.instance.client;
 
+  // Clean fallback batches store (no mock/dummy batches)
+  static final List<Batch> _fallbackBatches = [];
   static List<Batch> get fallbackBatches => _fallbackBatches;
-
-  static final List<Batch> _fallbackBatches = [
-    Batch(id: 1, courseId: 1, batchName: 'Batch 2024-26 (A)', startYear: 2024, endYear: 2026, currentSemester: 1),
-    Batch(id: 2, courseId: 1, batchName: 'Batch 2025-27 (B)', startYear: 2025, endYear: 2027, currentSemester: 1),
-    Batch(id: 3, courseId: 2, batchName: 'Batch 2024-26', startYear: 2024, endYear: 2026, currentSemester: 2),
-    Batch(id: 4, courseId: 3, batchName: 'Batch 2024-26', startYear: 2024, endYear: 2026, currentSemester: 3),
-    Batch(id: 5, courseId: 4, batchName: 'Batch 2023-26', startYear: 2023, endYear: 2026, currentSemester: 4),
-    Batch(id: 6, courseId: 5, batchName: 'Skill Batch 2025-A', startYear: 2025, endYear: 2025, currentSemester: 1),
-    Batch(id: 7, courseId: 6, batchName: 'Skill Batch 2025-B', startYear: 2025, endYear: 2026, currentSemester: 1),
-    Batch(id: 8, courseId: 7, batchName: 'Skill Batch 2025-C', startYear: 2025, endYear: 2026, currentSemester: 1),
-  ];
-
-  static final Map<int, List<Map<String, dynamic>>> _fallbackSemesters = {
-    1: [
-      {'id': 1, 'batch_id': 1, 'semester_no': 1, 'start_date': '2024-06-01', 'end_date': null, 'status': 'active'},
-    ],
-    2: [
-      {'id': 2, 'batch_id': 2, 'semester_no': 1, 'start_date': '2025-06-01', 'end_date': null, 'status': 'active'},
-    ],
-    3: [
-      {'id': 3, 'batch_id': 3, 'semester_no': 1, 'start_date': '2024-06-01', 'end_date': '2024-12-15', 'status': 'closed'},
-      {'id': 4, 'batch_id': 3, 'semester_no': 2, 'start_date': '2025-01-05', 'end_date': null, 'status': 'active'},
-    ],
-  };
-
-  static const String _batchesStorageKey = 'mips_persisted_fallback_batches_v1';
-  static const String _semestersStorageKey = 'mips_persisted_fallback_semesters_v1';
-  static bool _fallbackLoaded = false;
+  static final Map<int, List<Map<String, dynamic>>> _fallbackSemesters = {};
 
   static Future<void> ensureLoaded() => _ensureFallbackLoaded();
 
-  static Future<void> _ensureFallbackLoaded() async {
-    if (_fallbackLoaded) return;
-    try {
-      final prefs = await SharedPreferences.getInstance().timeout(const Duration(milliseconds: 200));
-      final bJson = prefs.getString(_batchesStorageKey);
-      if (bJson != null && bJson.isNotEmpty) {
-        final List decoded = jsonDecode(bJson);
-        final loaded = decoded.map((e) => Batch.fromMap(Map<String, dynamic>.from(e))).toList();
-        if (loaded.isNotEmpty) {
-          _fallbackBatches.clear();
-          _fallbackBatches.addAll(loaded);
-        }
-      }
-      final sJson = prefs.getString(_semestersStorageKey);
-      if (sJson != null && sJson.isNotEmpty) {
-        final Map<String, dynamic> decoded = jsonDecode(sJson);
-        _fallbackSemesters.clear();
-        decoded.forEach((key, val) {
-          final bId = int.tryParse(key);
-          if (bId != null && val is List) {
-            _fallbackSemesters[bId] = val.map((item) => Map<String, dynamic>.from(item as Map)).toList();
-          }
-        });
-      }
-      _fallbackLoaded = true;
-    } catch (e) {
-      debugPrint('Error loading persisted fallback batches: $e');
-      _fallbackLoaded = true;
-    }
-  }
+  static Future<void> _ensureFallbackLoaded() async {}
 
-  static Future<void> _persistFallbackBatches() async {
-    try {
-      final prefs = await SharedPreferences.getInstance().timeout(const Duration(milliseconds: 200));
-      final jsonList = _fallbackBatches.map((b) => b.toMap()).toList();
-      await prefs.setString(_batchesStorageKey, jsonEncode(jsonList));
-    } catch (e) {
-      debugPrint('Error saving persisted batches: $e');
-    }
-  }
-
-  static Future<void> _persistFallbackSemesters() async {
-    try {
-      final prefs = await SharedPreferences.getInstance().timeout(const Duration(milliseconds: 200));
-      final mapToStore = _fallbackSemesters.map((k, v) => MapEntry(k.toString(), v));
-      await prefs.setString(_semestersStorageKey, jsonEncode(mapToStore));
-    } catch (e) {
-      debugPrint('Error saving persisted semesters: $e');
-    }
-  }
+  static Future<void> _persistFallbackBatches() async {}
+  static Future<void> _persistFallbackSemesters() async {}
 
   @override
   Future<List<Batch>> getBatches({
@@ -98,7 +26,6 @@ class SupabaseBatchRepository implements BatchRepository {
     bool includeDeleted = false,
     bool includeCompleted = false,
   }) async {
-    await _ensureFallbackLoaded();
     try {
       var req = _client.from('batches').select('*');
 
@@ -113,35 +40,11 @@ class SupabaseBatchRepository implements BatchRepository {
       }
 
       final data = await req.order('id', ascending: false);
-      final list = (data as List).map((row) => Batch.fromMap(Map<String, dynamic>.from(row))).toList();
-      if (list.isNotEmpty) return list;
+      return (data as List).map((row) => Batch.fromMap(Map<String, dynamic>.from(row))).toList();
     } catch (e) {
       debugPrint('SupabaseBatchRepository.getBatches fallback used: $e');
+      return [];
     }
-
-    var result = _fallbackBatches.where((b) {
-      if (!includeDeleted && b.isDeleted) return false;
-      if (!includeCompleted && b.status == 'completed') return false;
-      if (courseId != null && b.courseId != courseId) return false;
-      return true;
-    }).toList();
-
-    // If a custom or new course has no batches yet, generate a default active batch
-    if (result.isEmpty && courseId != null) {
-      final defaultBatch = Batch(
-        id: 100 + courseId,
-        courseId: courseId,
-        batchName: 'Batch ${DateTime.now().year}-${(DateTime.now().year + 2).toString().substring(2)}',
-        startYear: DateTime.now().year,
-        endYear: DateTime.now().year + 2,
-        currentSemester: 1,
-      );
-      _fallbackBatches.add(defaultBatch);
-      await _persistFallbackBatches();
-      result = [defaultBatch];
-    }
-
-    return result;
   }
 
   @override
@@ -261,10 +164,19 @@ class SupabaseBatchRepository implements BatchRepository {
     try {
       SupabaseService.instance.assertCanWrite('delete batch');
 
-      await _client
-          .from('batches')
-          .update({'deleted_at': DateTime.now().toIso8601String()})
-          .eq('id', id);
+      try {
+        await _client.rpc('soft_delete', params: {
+          'p_table': 'batches',
+          'p_id': id,
+          'p_reason': 'Batch deleted by administrator',
+        });
+      } catch (_) {}
+
+      await CascadeDeleteHelper.softDeleteBatch(
+        _client,
+        id,
+        actorId: _client.auth.currentUser?.id,
+      );
     } catch (e) {
       debugPrint('SupabaseBatchRepository.deleteBatch fallback used: $e');
       _fallbackBatches.removeWhere((b) => b.id == id);
@@ -553,7 +465,7 @@ class SupabaseBatchRepository implements BatchRepository {
           .eq('batch_id', batchId)
           .order('semester_no', ascending: true);
 
-      if (data is List && data.isNotEmpty) {
+      if (data.isNotEmpty) {
         return (data as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
       }
     } catch (e) {
@@ -713,7 +625,7 @@ class SupabaseBatchRepository implements BatchRepository {
         query = query.eq('period_type', periodType);
       }
       final data = await query.order('period_no', ascending: true);
-      if (data is List && data.isNotEmpty) {
+      if (data.isNotEmpty) {
         return (data as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
       }
     } catch (e) {

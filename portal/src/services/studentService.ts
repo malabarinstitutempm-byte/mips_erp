@@ -2,6 +2,7 @@
 // Student Portal Data Fetching Layer with RLS Compliance & Lazy Loading
 
 import { supabase } from '../lib/supabase';
+import { accountSyncService } from './accountSyncService';
 import type { AttendanceSummary, NotificationItem, StudentProfile, SemesterSummary } from '../types';
 
 export interface ExamResultRecord {
@@ -115,24 +116,57 @@ export interface TimetableSchedule {
 
 export const studentService = {
   // 1. Student Profile & Enrolled Batches
-  async getStudentProfile(): Promise<{ profile: StudentProfile; enrollments: StudentEnrollmentInfo[] }> {
+  async getStudentProfile(studentIdInput?: string | number): Promise<{ profile: StudentProfile; enrollments: StudentEnrollmentInfo[] }> {
     try {
-      // O3 Optimization: Consolidated RPC gets profile + enrollments in 1 fast query
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_student_portal_overview');
-      if (!rpcErr && rpcData && !rpcData.error && rpcData.profile) {
+      let targetStudentId: number | null = null;
+      if (studentIdInput !== undefined && studentIdInput !== null) {
+        const cleanStr = String(studentIdInput).replace('s_', '');
+        const n = parseInt(cleanStr, 10);
+        if (!isNaN(n) && n > 0) targetStudentId = n;
+      }
+      if (!targetStudentId) {
+        try {
+          const stored = localStorage.getItem('mips_portal_user');
+          if (stored) {
+            const u = JSON.parse(stored);
+            const cleanStr = String(u.id || '').replace('s_', '');
+            const n = parseInt(cleanStr, 10);
+            if (!isNaN(n) && n > 0) targetStudentId = n;
+          }
+        } catch (_) {}
+      }
+
+      let rpcData: any = null;
+      if (targetStudentId) {
+        const { data, error } = await supabase.rpc('get_portal_student_overview', {
+          p_student_id: targetStudentId,
+        });
+        if (!error && data && !data.error && data.profile) {
+          rpcData = data;
+        }
+      }
+
+      if (!rpcData) {
+        const { data, error } = await supabase.rpc('get_student_portal_overview');
+        if (!error && data && !data.error && data.profile) {
+          rpcData = data;
+        }
+      }
+
+      if (rpcData && rpcData.profile) {
         const profileView = rpcData.profile;
         const rawEnrollments = rpcData.enrollments || [];
         const enrollments: StudentEnrollmentInfo[] = rawEnrollments.map((e: any) => {
           const sem = Number(e.current_semester || 1);
           const yr = Number(e.current_year || (sem > 0 ? Math.ceil(sem / 2) : 1));
           return {
-            enrollmentId: e.enrollment_id,
+            enrollmentId: e.enrollment_id || 0,
             courseId: e.course_id,
             courseName: e.course_name || profileView.course_name || 'Course',
             courseType: (e.course_type || 'primary') as 'primary' | 'skill',
             courseStructure: (e.course_structure || 'semester') as 'semester' | 'year' | 'single',
             attendanceBasis: (e.attendance_basis || e.course_structure || 'semester') as 'semester' | 'year' | 'none',
-            durationYears: Number(e.duration_years || 1),
+            durationYears: Number(e.duration_years || 2),
             batchId: e.batch_id,
             batchName: e.batch_name || profileView.batch_name || 'Batch',
             status: e.status || 'active',
@@ -294,59 +328,69 @@ export const studentService = {
       }
     } catch (_) {}
 
-    // Robust local fallback for live student portal testing
-    const fallbackProfile: StudentProfile = {
-      id: 1,
-      admission_number: 'ADM-2026-0001',
-      registration_number: '2023MLT042',
-      name: 'Mohammed Shafi',
+    // Synced account fallback for offline or local dev testing
+    try {
+      const stored = localStorage.getItem('mips_portal_user');
+      let u: any = null;
+      if (stored) u = JSON.parse(stored);
+      const cleanId = (u?.email || u?.identifier || u?.id || '').split('@')[0].replace('s_', '').toLowerCase();
+      const sync = accountSyncService.getAccount(cleanId);
+      if (sync) {
+        return {
+          profile: {
+            id: sync.id || 1,
+            admission_number: sync.identifier?.toUpperCase() || 'ADM-2026-0001',
+            registration_number: sync.registrationNumber || sync.identifier?.toUpperCase() || null,
+            name: sync.name || 'Student Member',
+            dob: sync.dob || null,
+            phone: sync.phone || '',
+            gender: sync.gender || 'Not Specified',
+            course_id: sync.courseId || 1,
+            batch_id: sync.batchId || 1,
+            course_name: sync.courseName || 'Paramedical Sciences',
+            batch_name: sync.batchName || 'Batch A',
+            batch_status: 'active',
+            status: sync.status || 'active',
+            completed_on: null,
+            access_until: null,
+            current_semester: 1,
+            current_year: 1,
+          },
+          enrollments: [],
+        };
+      }
+    } catch (_) {}
+
+    let userIdentifier = 'Student Member';
+    try {
+      const stored = localStorage.getItem('mips_portal_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        userIdentifier = (u?.email || u?.identifier || u?.id || '').split('@')[0].replace('s_', '').toUpperCase() || 'Student Member';
+      }
+    } catch (_) {}
+
+    const cleanProfile: StudentProfile = {
+      id: 0,
+      admission_number: userIdentifier,
+      registration_number: null,
+      name: userIdentifier,
       dob: null,
-      phone: '9876543210',
-      gender: 'Male',
-      course_id: 1,
-      batch_id: 1,
-      course_name: 'Diploma in Medical Laboratory Technology [DMLT]',
-      batch_name: 'Batch 2024-26 (A)',
+      phone: '',
+      gender: 'Not Specified',
+      course_id: 0,
+      batch_id: 0,
+      course_name: '',
+      batch_name: '',
       batch_status: 'active',
       status: 'active',
       completed_on: null,
       access_until: null,
-      skill_course_id: 2,
-      skill_course_name: 'Phlebotomy Technician Certification',
-      skill_batch_id: 3,
-      skill_batch_name: 'Batch PT-2024',
-      current_semester: 2,
+      current_semester: 1,
       current_year: 1,
     };
 
-    const fallbackEnrollments: StudentEnrollmentInfo[] = [
-      {
-        enrollmentId: 1,
-        courseId: 1,
-        courseName: 'Diploma in Medical Laboratory Technology [DMLT]',
-        courseType: 'primary',
-        batchId: 1,
-        batchName: 'Batch 2024-26 (A)',
-        status: 'active',
-        completedOn: null,
-        currentSemester: 2,
-        currentYear: 1,
-      },
-      {
-        enrollmentId: 2,
-        courseId: 2,
-        courseName: 'Phlebotomy Technician Certification',
-        courseType: 'skill',
-        batchId: 3,
-        batchName: 'Batch PT-2024',
-        status: 'active',
-        completedOn: null,
-        currentSemester: 1,
-        currentYear: 1,
-      },
-    ];
-
-    return { profile: fallbackProfile, enrollments: fallbackEnrollments };
+    return { profile: cleanProfile, enrollments: [] };
   },
 
   // 2. Examination Results

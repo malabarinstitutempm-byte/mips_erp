@@ -25,13 +25,7 @@ class SupabaseFeeRepository implements FeeRepository {
       }
     } catch (_) {}
 
-    return Fee(
-      id: studentId,
-      studentId: studentId,
-      totalFeePaise: 5000000,
-      paidAmountPaise: 3500000,
-      pendingAmountPaise: 1500000,
-    );
+    return null;
   }
 
   @override
@@ -52,15 +46,10 @@ class SupabaseFeeRepository implements FeeRepository {
       }
 
       final data = await req;
-      final list = (data as List).map((row) => Fee.fromMap(Map<String, dynamic>.from(row))).toList();
-      if (list.isNotEmpty) return list;
+      return (data as List).map((row) => Fee.fromMap(Map<String, dynamic>.from(row))).toList();
     } catch (_) {}
 
-    return [
-      Fee(id: 1, studentId: 1, totalFeePaise: 5000000, paidAmountPaise: 3500000, pendingAmountPaise: 1500000),
-      Fee(id: 2, studentId: 2, totalFeePaise: 5000000, paidAmountPaise: 2500000, pendingAmountPaise: 2500000),
-      Fee(id: 3, studentId: 3, totalFeePaise: 5500000, paidAmountPaise: 3000000, pendingAmountPaise: 2500000),
-    ];
+    return [];
   }
 
   @override

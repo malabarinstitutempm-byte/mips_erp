@@ -9,60 +9,9 @@ import '../interfaces/exam_repository_interface.dart';
 class SupabaseExamRepository implements ExamRepository {
   SupabaseClient get _client => SupabaseService.instance.client;
 
-  static final List<Exam> _fallbackExams = [
-    Exam(
-      id: 1,
-      name: 'First Terminal Examination 2026',
-      academicYearId: 1,
-      courseId: 1,
-      batchId: 1,
-      semester: 'Year 1',
-      examDate: '2026-03-15',
-      publishDate: '2026-03-25',
-      status: 'published',
-      isDeleted: false,
-    ),
-    Exam(
-      id: 2,
-      name: 'Annual Practical Examination 2026',
-      academicYearId: 1,
-      courseId: 2,
-      batchId: 3,
-      semester: 'Year 1',
-      examDate: '2026-04-10',
-      status: 'draft',
-      isDeleted: false,
-    ),
-    Exam(
-      id: 3,
-      name: 'Mid-Term Theory Assessment 2026',
-      academicYearId: 1,
-      courseId: 3,
-      batchId: 4,
-      semester: 'Year 1',
-      examDate: '2026-02-20',
-      publishDate: '2026-03-01',
-      status: 'published',
-      isDeleted: false,
-    ),
-  ];
-
-  static final Map<int, List<Subject>> _fallbackSubjects = {
-    1: [
-      Subject(id: 1, examId: 1, name: 'Clinical Biochemistry', code: 'DMLT-101', maxMarks: 100, passMarks: 40),
-      Subject(id: 2, examId: 1, name: 'Hematology & Blood Banking', code: 'DMLT-102', maxMarks: 100, passMarks: 40),
-      Subject(id: 3, examId: 1, name: 'Microbiology & Pathology', code: 'DMLT-103', maxMarks: 100, passMarks: 40),
-    ],
-    2: [
-      Subject(id: 4, examId: 2, name: 'Operation Theatre Techniques', code: 'OT-101', maxMarks: 100, passMarks: 40),
-      Subject(id: 5, examId: 2, name: 'Anaesthesia Principles', code: 'OT-102', maxMarks: 100, passMarks: 40),
-    ],
-    3: [
-      Subject(id: 6, examId: 3, name: 'Radiation Physics & Radiobiology', code: 'DXT-101', maxMarks: 100, passMarks: 40),
-      Subject(id: 7, examId: 3, name: 'Radiographic Techniques', code: 'DXT-102', maxMarks: 100, passMarks: 40),
-    ],
-  };
-
+  // Clean fallback exams store (no mock/dummy exams)
+  static final List<Exam> _fallbackExams = [];
+  static final Map<int, List<Subject>> _fallbackSubjects = {};
   static final List<Mark> _fallbackMarks = [];
 
   static void updateFallbackSubjectMarks(int examId, int subjectId, double maxMarks, double passMarks) {
@@ -106,19 +55,11 @@ class SupabaseExamRepository implements ExamRepository {
       }
 
       final data = await req.order('date', ascending: false);
-      final list = (data as List).map((row) => Exam.fromMap(Map<String, dynamic>.from(row))).toList();
-      if (list.isNotEmpty) return list;
+      return (data as List).map((row) => Exam.fromMap(Map<String, dynamic>.from(row))).toList();
     } catch (e) {
       debugPrint('SupabaseExamRepository.getExams fallback used: $e');
+      return [];
     }
-
-    return _fallbackExams.where((e) {
-      if (e.isDeleted) return false;
-      if (courseId != null && e.courseId != courseId) return false;
-      if (batchId != null && e.batchId != batchId) return false;
-      if (academicYearId != null && e.academicYearId != academicYearId) return false;
-      return true;
-    }).toList();
   }
 
   @override
@@ -137,8 +78,7 @@ class SupabaseExamRepository implements ExamRepository {
       debugPrint('SupabaseExamRepository.getExamById fallback used: $e');
     }
 
-    final match = _fallbackExams.where((e) => e.id == id).toList();
-    return match.isNotEmpty ? match.first : null;
+    return null;
   }
 
   @override

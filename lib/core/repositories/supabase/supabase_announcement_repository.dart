@@ -8,38 +8,8 @@ import '../interfaces/announcement_repository_interface.dart';
 class SupabaseAnnouncementRepository implements AnnouncementRepository {
   SupabaseClient get _client => SupabaseService.instance.client;
 
-  static final List<Announcement> _fallbackAnnouncements = [
-    Announcement(
-      id: 1,
-      category: 'fee_reminder',
-      title: 'Tuition Fee Due Reminder - Term 2',
-      body: 'Dear Students, please clear your outstanding tuition fees for Term 2 before the 25th of this month to avoid late fee penalties.',
-      audienceType: 'all_students',
-      recipientCount: 52,
-      readCount: 38,
-      createdAt: '2026-03-01T10:00:00Z',
-    ),
-    Announcement(
-      id: 2,
-      category: 'exam',
-      title: 'First Terminal Examination Schedule Released',
-      body: 'The timetable for the First Terminal Examination 2026 has been published. All students are requested to verify their dates.',
-      audienceType: 'all_students',
-      recipientCount: 52,
-      readCount: 46,
-      createdAt: '2026-02-20T14:30:00Z',
-    ),
-    Announcement(
-      id: 3,
-      category: 'general',
-      title: 'College Annual Sports Meet 2026',
-      body: 'Annual sports day will be conducted next Friday. Registrations for track and field events are open at the PE department.',
-      audienceType: 'all_students',
-      recipientCount: 52,
-      readCount: 50,
-      createdAt: '2026-02-10T09:15:00Z',
-    ),
-  ];
+  // Clean announcements store (no mock/dummy data)
+  static final List<Announcement> _fallbackAnnouncements = [];
 
   @override
   Future<Map<String, dynamic>> sendAnnouncement({
@@ -170,9 +140,9 @@ class SupabaseAnnouncementRepository implements AnnouncementRepository {
         rowMap['read_count'] = readCount;
         list.add(Announcement.fromMap(rowMap));
       }
-      if (list.isNotEmpty) return list;
-    } catch (_) {}
-
-    return List.unmodifiable(_fallbackAnnouncements);
+      return list;
+    } catch (_) {
+      return [];
+    }
   }
 }

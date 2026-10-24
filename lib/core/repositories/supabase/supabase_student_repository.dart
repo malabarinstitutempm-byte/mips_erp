@@ -10,6 +10,7 @@ import '../../models/student_record.dart';
 import '../../models/student_record_audit.dart';
 import '../../services/supabase_service.dart';
 import '../interfaces/student_repository_interface.dart';
+import 'cascade_delete_helper.dart';
 import 'supabase_batch_repository.dart';
 
 class SupabaseStudentRepository implements StudentRepository {
@@ -38,78 +39,8 @@ class SupabaseStudentRepository implements StudentRepository {
     return s;
   }
 
-  static final List<Student> _fallbackStudents = [
-    Student(
-      id: 1,
-      name: 'Mohammed Hamiz',
-      admissionNumber: '2023MLT042',
-      registrationNumber: 'MIPS/2023/MLT/042',
-      courseId: 1,
-      batchId: 1,
-      phone: '9847123456',
-      gender: 'Male',
-      dob: '2004-05-15',
-      admissionDate: '2023-08-01',
-      status: 'active',
-      isDeleted: false,
-    ),
-    Student(
-      id: 2,
-      name: 'Amina Fathima',
-      admissionNumber: '2024MLT015',
-      registrationNumber: 'MIPS/2024/MLT/015',
-      courseId: 1,
-      batchId: 1,
-      phone: '9847234567',
-      gender: 'Female',
-      dob: '2005-02-18',
-      admissionDate: '2024-08-05',
-      status: 'active',
-      isDeleted: false,
-    ),
-    Student(
-      id: 3,
-      name: 'Rahul Varma',
-      admissionNumber: '2024OTA008',
-      registrationNumber: 'MIPS/2024/OTA/008',
-      courseId: 2,
-      batchId: 3,
-      phone: '9847345678',
-      gender: 'Male',
-      dob: '2004-11-20',
-      admissionDate: '2024-08-10',
-      status: 'active',
-      isDeleted: false,
-    ),
-    Student(
-      id: 4,
-      name: 'Sneha Krishna',
-      admissionNumber: '2024DXT012',
-      registrationNumber: 'MIPS/2024/DXT/012',
-      courseId: 3,
-      batchId: 4,
-      phone: '9847456789',
-      gender: 'Female',
-      dob: '2005-07-08',
-      admissionDate: '2024-08-12',
-      status: 'active',
-      isDeleted: false,
-    ),
-    Student(
-      id: 5,
-      name: 'Anas Bilal',
-      admissionNumber: '2023BML003',
-      registrationNumber: 'MIPS/2023/BML/003',
-      courseId: 4,
-      batchId: 5,
-      phone: '9847567890',
-      gender: 'Male',
-      dob: '2003-09-25',
-      admissionDate: '2023-08-01',
-      status: 'active',
-      isDeleted: false,
-    ),
-  ];
+  // Clean fallback cache (no mock/dummy students)
+  static final List<Student> _fallbackStudents = [];
 
   static const String _studentsStorageKey = 'mips_persisted_fallback_students_v1';
   static bool _fallbackLoaded = false;
@@ -238,68 +169,7 @@ class SupabaseStudentRepository implements StudentRepository {
     ),
   ];
 
-  static final List<StudentRecord> _fallbackStudentRecords = [
-    StudentRecord(
-      id: 'rec-init-001',
-      studentId: 1,
-      recordTypeId: 1,
-      filePath: 'records/1/aadhaar.pdf',
-      originalFilename: 'Aadhaar_Card_Verified.pdf',
-      extension: 'pdf',
-      sizeBytes: 245760,
-      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      documentNumber: 'XXXX-XXXX-4589',
-      issueDate: '2021-05-12',
-      status: 'current',
-      uploadedAt: '2024-06-15T10:30:00Z',
-      uploadedBy: 'Admin',
-    ),
-    StudentRecord(
-      id: 'rec-init-002',
-      studentId: 1,
-      recordTypeId: 3,
-      filePath: 'records/1/sslc_marksheet.pdf',
-      originalFilename: 'SSLC_Original_Certificate.pdf',
-      extension: 'pdf',
-      sizeBytes: 512000,
-      sha256: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
-      documentNumber: 'SSLC-2021-8849',
-      issueDate: '2021-06-20',
-      status: 'current',
-      uploadedAt: '2024-06-15T10:35:00Z',
-      uploadedBy: 'Admin',
-    ),
-    StudentRecord(
-      id: 'rec-init-003',
-      studentId: 2,
-      recordTypeId: 1,
-      filePath: 'records/2/aadhaar.pdf',
-      originalFilename: 'Aadhaar_Card.pdf',
-      extension: 'pdf',
-      sizeBytes: 198000,
-      sha256: 'b2c3d4e5f6a17890123456789abcdef0123456789abcdef0123456789abcdef0',
-      documentNumber: 'XXXX-XXXX-9124',
-      issueDate: '2020-08-14',
-      status: 'current',
-      uploadedAt: '2024-06-16T11:00:00Z',
-      uploadedBy: 'Admin',
-    ),
-    StudentRecord(
-      id: 'rec-init-004',
-      studentId: 3,
-      recordTypeId: 1,
-      filePath: 'records/3/aadhaar.pdf',
-      originalFilename: 'Aadhaar_Card.pdf',
-      extension: 'pdf',
-      sizeBytes: 210000,
-      sha256: 'c3d4e5f6a1b27890123456789abcdef0123456789abcdef0123456789abcdef0',
-      documentNumber: 'XXXX-XXXX-3341',
-      issueDate: '2022-01-10',
-      status: 'current',
-      uploadedAt: '2024-08-11T09:15:00Z',
-      uploadedBy: 'Admin',
-    ),
-  ];
+  static final List<StudentRecord> _fallbackStudentRecords = [];
 
   @override
   Future<List<Student>> getStudents({
@@ -354,64 +224,11 @@ class SupabaseStudentRepository implements StudentRepository {
           .map((row) => _mergeCachedPhoto(Student.fromMap(Map<String, dynamic>.from(row))))
           .toList();
 
-      final remoteIds = list.map((s) => s.id).toSet();
-      final remoteAdms = list.map((s) => s.admissionNumber).toSet();
-      final localOnly = _fallbackStudents.where((s) {
-        if (remoteIds.contains(s.id) || remoteAdms.contains(s.admissionNumber)) return false;
-        if (status == 'deleted') {
-          if (s.deletedAt == null && !s.isDeleted) return false;
-        } else {
-          if (!includeDeleted && (s.deletedAt != null || s.isDeleted)) return false;
-          if (status != null && status.isNotEmpty && s.status != status) return false;
-        }
-        if (courseId != null && s.courseId != courseId) return false;
-        if (batchId != null && s.batchId != batchId) return false;
-        if (year != null) {
-          final batch = SupabaseBatchRepository.fallbackBatches.where((b) => b.id == s.batchId).firstOrNull;
-          if (batch == null || batch.currentYear != year) return false;
-        }
-        if (query != null && query.trim().isNotEmpty) {
-          final q = query.trim().toLowerCase();
-          final matches = s.name.toLowerCase().contains(q) ||
-              (s.admissionNumber?.toLowerCase().contains(q) ?? false) ||
-              (s.registrationNumber?.toLowerCase().contains(q) ?? false);
-          if (!matches) return false;
-        }
-        return true;
-      }).toList();
-
-      final combined = [...localOnly, ...list].map(_mergeCachedPhoto).toList();
-      if (combined.isNotEmpty) return combined;
+      return list;
     } catch (e) {
       debugPrint('SupabaseStudentRepository.getStudents fallback used: $e');
+      return [];
     }
-
-    var filtered = _fallbackStudents.where((s) {
-      if (status == 'deleted') {
-        if (s.deletedAt == null && !s.isDeleted) return false;
-      } else {
-        if (!includeDeleted && (s.deletedAt != null || s.isDeleted)) return false;
-        if (status != null && status.isNotEmpty && status != 'all' && s.status != status) return false;
-      }
-      if (courseId != null && s.courseId != courseId) return false;
-      if (batchId != null && s.batchId != batchId) return false;
-      if (year != null) {
-        final batch = SupabaseBatchRepository.fallbackBatches.where((b) => b.id == s.batchId).firstOrNull;
-        if (batch == null || batch.currentYear != year) return false;
-      }
-      if (query != null && query.trim().isNotEmpty) {
-        final q = query.trim().toLowerCase();
-        final match = s.name.toLowerCase().contains(q) ||
-            (s.admissionNumber?.toLowerCase().contains(q) ?? false) ||
-            (s.registrationNumber?.toLowerCase().contains(q) ?? false);
-        if (!match) return false;
-      }
-      return true;
-    }).toList();
-
-    if (offset >= filtered.length) return [];
-    final end = (offset + limit < filtered.length) ? offset + limit : filtered.length;
-    return filtered.sublist(offset, end).map(_mergeCachedPhoto).toList();
   }
 
   @override
@@ -423,7 +240,6 @@ class SupabaseStudentRepository implements StudentRepository {
     String? query,
     bool includeDeleted = false,
   }) async {
-    await _ensureFallbackLoaded();
     try {
       var req = _client.from('students').select('id');
 
@@ -458,44 +274,31 @@ class SupabaseStudentRepository implements StudentRepository {
       }
 
       final countRes = await req.count(CountOption.exact);
-      final count = countRes.count;
-      return count > _fallbackStudents.length ? count : _fallbackStudents.length;
+      return countRes.count;
     } catch (e) {
       debugPrint('SupabaseStudentRepository.getStudentsCount fallback used: $e');
+      return 0;
     }
-
-    return _fallbackStudents.where((s) {
-      if (status == 'deleted') {
-        if (s.deletedAt == null && !s.isDeleted) return false;
-      } else {
-        if (!includeDeleted && (s.deletedAt != null || s.isDeleted)) return false;
-        if (status != null && status.isNotEmpty && s.status != status) return false;
-      }
-      if (courseId != null && s.courseId != courseId) return false;
-      if (batchId != null && s.batchId != batchId) return false;
-      if (year != null) {
-        final batch = SupabaseBatchRepository.fallbackBatches.where((b) => b.id == s.batchId).firstOrNull;
-        if (batch == null || batch.currentYear != year) return false;
-      }
-      if (query != null && query.trim().isNotEmpty) {
-        final q = query.trim().toLowerCase();
-        final match = s.name.toLowerCase().contains(q) ||
-            (s.admissionNumber?.toLowerCase().contains(q) ?? false) ||
-            (s.registrationNumber?.toLowerCase().contains(q) ?? false);
-        if (!match) return false;
-      }
-      return true;
-    }).length;
   }
 
   @override
   Future<Student?> getStudentById(int id) async {
-    await _ensureFallbackLoaded();
+    // 1. Dedicated SECURITY DEFINER RPC - returns true student identity with no permission issues
+    try {
+      final rpcRes = await _client.rpc('admin_get_student_by_id', params: {'p_student_id': id});
+      if (rpcRes != null && rpcRes is Map && rpcRes.isNotEmpty) {
+        return _mergeCachedPhoto(Student.fromMap(Map<String, dynamic>.from(rpcRes)));
+      }
+    } catch (e) {
+      debugPrint('admin_get_student_by_id RPC error: $e');
+    }
+
     try {
       final data = await _client
           .from('students')
           .select('*')
           .eq('id', id)
+          .isFilter('deleted_at', null)
           .maybeSingle();
 
       if (data != null) {
@@ -505,8 +308,7 @@ class SupabaseStudentRepository implements StudentRepository {
       debugPrint('SupabaseStudentRepository.getStudentById fallback used for id $id: $e');
     }
 
-    final match = _fallbackStudents.where((s) => s.id == id).toList();
-    return match.isNotEmpty ? _mergeCachedPhoto(match.first) : null;
+    return null;
   }
 
   @override
@@ -680,13 +482,13 @@ class SupabaseStudentRepository implements StudentRepository {
           'p_id': id,
           'p_reason': reason,
         });
-      } catch (_) {
-        // Direct update fallback if RPC unavailable
-        await _client.from('students').update({
-          'deleted_at': DateTime.now().toIso8601String(),
-          'deleted_by': _client.auth.currentUser?.id,
-        }).eq('id', id);
-      }
+      } catch (_) {}
+
+      await CascadeDeleteHelper.softDeleteStudent(
+        _client,
+        id,
+        actorId: _client.auth.currentUser?.id,
+      );
     } catch (e) {
       debugPrint('SupabaseStudentRepository.softDeleteStudent fallback used for id $id: $e');
       final idx = _fallbackStudents.indexWhere((s) => s.id == id);
