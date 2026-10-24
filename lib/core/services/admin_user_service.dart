@@ -112,7 +112,7 @@ class AdminUserService {
     // 1. Dedicated PostgreSQL RPC (Security definer, fast, zero RLS issues)
     try {
       final client = SupabaseService.instance.client;
-      final rpcData = await client.rpc('admin_get_all_accounts');
+      final rpcData = await client.rpc('admin_get_all_accounts').timeout(const Duration(seconds: 4));
       if (rpcData != null && rpcData is List && rpcData.isNotEmpty) {
         _cachedAdmins = rpcData.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
         await _saveToStorage();
@@ -124,7 +124,7 @@ class AdminUserService {
     // 2. Direct table select fallback
     try {
       final client = SupabaseService.instance.client;
-      final data = await client.from('admin_accounts').select().order('created_at', ascending: true);
+      final data = await client.from('admin_accounts').select().order('created_at', ascending: true).timeout(const Duration(seconds: 4));
       final List remoteList = data as List;
       if (remoteList.isNotEmpty) {
         _cachedAdmins = remoteList.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
@@ -134,9 +134,9 @@ class AdminUserService {
       }
     } catch (_) {}
 
-    // 2. Fallback to local storage if offline
+    // 3. Fallback to local storage if offline
     try {
-      final jsonStr = await _storage.read(key: _storageKey);
+      final jsonStr = await _storage.read(key: _storageKey).timeout(const Duration(seconds: 1));
       if (jsonStr != null && jsonStr.isNotEmpty) {
         final List list = jsonDecode(jsonStr);
         _cachedAdmins = list.map((m) => AdminAccount.fromMap(Map<String, dynamic>.from(m))).toList();
@@ -145,7 +145,7 @@ class AdminUserService {
       }
     } catch (_) {}
 
-    // 3. Fallback to default Super Admin seed
+    // 4. Fallback to default Super Admin seed
     _cachedAdmins = List.from(_seedAdmins);
     await _saveToStorage();
     _isLoaded = true;
@@ -154,7 +154,7 @@ class AdminUserService {
   Future<void> _saveToStorage() async {
     try {
       final jsonStr = jsonEncode(_cachedAdmins.map((a) => a.toMap()).toList());
-      await _storage.write(key: _storageKey, value: jsonStr);
+      await _storage.write(key: _storageKey, value: jsonStr).timeout(const Duration(seconds: 1));
     } catch (_) {}
   }
 
@@ -171,7 +171,7 @@ class AdminUserService {
     String? email,
     String role = 'Super Administrator',
   }) async {
-    final cleanUsername = username.trim().toLowerCase().replaceAll(RegExp(r'^@+'), '');
+    final cleanUsername = username.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_').replaceAll(RegExp(r'^@+'), '');
     final effectiveEmail = (email != null && email.trim().isNotEmpty)
         ? email.trim()
         : (cleanUsername.contains('@') ? cleanUsername : '$cleanUsername@mipsedu.in');
@@ -198,11 +198,11 @@ class AdminUserService {
         'p_email': newAdmin.email,
         'p_role': newAdmin.role,
         'p_password': newAdmin.password,
-      });
+      }).timeout(const Duration(seconds: 5));
     } catch (_) {
       try {
         final client = SupabaseService.instance.client;
-        await client.from('admin_accounts').upsert(newAdmin.toMap(), onConflict: 'username');
+        await client.from('admin_accounts').upsert(newAdmin.toMap(), onConflict: 'username').timeout(const Duration(seconds: 5));
       } catch (_) {}
     }
 
