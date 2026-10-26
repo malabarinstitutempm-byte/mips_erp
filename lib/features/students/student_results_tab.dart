@@ -6,7 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../shared/widgets/section_card.dart';
 
-final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, studentId) async {
+final studentResultsProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, int>((ref, studentId) async {
   try {
     final client = SupabaseService.instance.client;
 
@@ -20,12 +20,20 @@ final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>,
 
     final List<Map<String, dynamic>> finalData = [];
 
-    for (final r in results as List) {
-      final exam = r['exams'] as Map<String, dynamic>?;
-      final examId = r['exam_id'] as int;
+    for (final r in (results as List)) {
+      final rMap = r is Map ? Map<String, dynamic>.from(r) : <String, dynamic>{};
+      final rawExam = rMap['exams'];
+      Map<String, dynamic>? exam;
+      if (rawExam is Map) {
+        exam = Map<String, dynamic>.from(rawExam);
+      } else if (rawExam is List && rawExam.isNotEmpty && rawExam.first is Map) {
+        exam = Map<String, dynamic>.from(rawExam.first as Map);
+      }
 
-      final periodType = r['period_type']?.toString() ?? exam?['period_type']?.toString();
-      final periodNo = (r['period_no'] as num?)?.toInt() ?? (exam?['period_no'] as num?)?.toInt();
+      final examId = (rMap['exam_id'] as num?)?.toInt() ?? (exam?['id'] as num?)?.toInt() ?? 0;
+
+      final periodType = rMap['period_type']?.toString() ?? exam?['period_type']?.toString();
+      final periodNo = (rMap['period_no'] as num?)?.toInt() ?? (exam?['period_no'] as num?)?.toInt();
       final sem = exam?['semester']?.toString();
       final periodDisplay = (periodType == 'year' && periodNo != null)
           ? 'Year $periodNo'
@@ -42,14 +50,25 @@ final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>,
           .isFilter('deleted_at', null);
 
       final marksList = (marks as List).map((m) {
-        final sub = m['exam_subjects'] as Map<String, dynamic>?;
-        final marksObt = m['marks_obtained'];
-        final isAbsent = m['is_absent'] == true;
+        final mMap = m is Map ? Map<String, dynamic>.from(m) : <String, dynamic>{};
+        final rawSub = mMap['exam_subjects'];
+        Map<String, dynamic>? sub;
+        if (rawSub is Map) {
+          sub = Map<String, dynamic>.from(rawSub);
+        } else if (rawSub is List && rawSub.isNotEmpty && rawSub.first is Map) {
+          sub = Map<String, dynamic>.from(rawSub.first as Map);
+        }
+
+        final marksObt = mMap['marks_obtained'];
+        final isAbsent = mMap['is_absent'] == true;
         final passMarks = (sub?['pass_marks'] as num?)?.toDouble() ?? 40.0;
-        final isPass = !isAbsent && marksObt != null && ((marksObt as num).toDouble() >= passMarks);
+        final obtNum = marksObt == null
+            ? null
+            : (marksObt is num ? marksObt.toDouble() : double.tryParse(marksObt.toString()));
+        final isPass = !isAbsent && obtNum != null && obtNum >= passMarks;
 
         return {
-          'marks_obtained': isAbsent ? 'Absent' : (marksObt?.toString() ?? '-'),
+          'marks_obtained': isAbsent ? 'Absent' : (obtNum != null ? (obtNum % 1 == 0 ? obtNum.toInt().toString() : obtNum.toString()) : (marksObt?.toString() ?? '-')),
           'status': isAbsent ? 'Absent' : (isPass ? 'PASS' : 'FAIL'),
           'is_pass': isPass,
           'subject_name': sub?['name']?.toString() ?? 'N/A',
@@ -65,18 +84,19 @@ final studentResultsProvider = FutureProvider.family<List<Map<String, dynamic>>,
           'period_type': periodType,
           'period_no': periodNo,
           'period_display': periodDisplay,
-          'total_marks': r['total_marks'] ?? 0.0,
-          'percentage': (r['percentage'] as num?)?.toDouble() ?? 0.0,
-          'grade': r['grade']?.toString() ?? 'N/A',
-          'status': r['status']?.toString() ?? 'DRAFT',
-          'rank': r['rank'],
+          'total_marks': rMap['total_marks'] ?? 0.0,
+          'percentage': (rMap['percentage'] as num?)?.toDouble() ?? 0.0,
+          'grade': rMap['grade']?.toString() ?? 'N/A',
+          'status': rMap['status']?.toString() ?? 'DRAFT',
+          'rank': rMap['rank'],
         },
         'marks': marksList,
       });
     }
 
     return finalData;
-  } catch (_) {
+  } catch (e) {
+    debugPrint('Error loading student results: $e');
     return [];
   }
 });
@@ -144,52 +164,54 @@ class StudentResultsTab extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Container(
+                    width: double.infinity,
                     decoration: BoxDecoration(
                       border: Border.all(color: AppColors.border),
                       borderRadius: BorderRadius.circular(AppRadius.control),
                     ),
-                    child: DataTable(
-                      headingRowColor: const WidgetStatePropertyAll(Color(0xFFF8FAFC)),
-                      columns: const [
-                        DataColumn(label: Text('Subject')),
-                        DataColumn(label: Text('Max Marks')),
-                        DataColumn(label: Text('Pass Marks')),
-                        DataColumn(label: Text('Obtained')),
-                        DataColumn(label: Text('Status')),
-                      ],
-                      rows: marks.map((m) {
-                        final subStatus = m['status']?.toString() ?? 'N/A';
-                        final subPass = m['is_pass'] == true;
-                        return DataRow(
-                          cells: [
-                            DataCell(Text(m['subject_name'].toString())),
-                            DataCell(Text(m['max_marks'].toString())),
-                            DataCell(Text(m['pass_marks'].toString())),
-                            DataCell(Text(m['marks_obtained']?.toString() ?? '-')),
-                            DataCell(Text(
-                              subStatus,
-                              style: TextStyle(
-                                color: subPass ? AppColors.success.base : AppColors.danger.base,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            )),
-                          ],
-                        );
-                      }).toList(),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        headingRowColor: const WidgetStatePropertyAll(Color(0xFFF8FAFC)),
+                        columns: const [
+                          DataColumn(label: Text('Subject')),
+                          DataColumn(label: Text('Max Marks')),
+                          DataColumn(label: Text('Pass Marks')),
+                          DataColumn(label: Text('Obtained')),
+                          DataColumn(label: Text('Status')),
+                        ],
+                        rows: marks.map((m) {
+                          final subStatus = m['status']?.toString() ?? 'N/A';
+                          final subPass = m['is_pass'] == true;
+                          return DataRow(
+                            cells: [
+                              DataCell(Text(m['subject_name'].toString())),
+                              DataCell(Text(m['max_marks'].toString())),
+                              DataCell(Text(m['pass_marks'].toString())),
+                              DataCell(Text(m['marks_obtained']?.toString() ?? '-')),
+                              DataCell(Text(
+                                subStatus,
+                                style: TextStyle(
+                                  color: subPass ? AppColors.success.base : AppColors.danger.base,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )),
+                            ],
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.sm,
                     children: [
-                      if (r['rank'] != null) ...[
+                      if (r['rank'] != null)
                         _StatBadge('Rank', '#${r['rank']}'),
-                        const SizedBox(width: AppSpacing.md),
-                      ],
                       _StatBadge('Total Marks', '$totalMarks'),
-                      const SizedBox(width: AppSpacing.md),
                       _StatBadge('Percentage', '${percentage.toStringAsFixed(2)}%'),
-                      const SizedBox(width: AppSpacing.md),
                       _StatBadge('Grade', grade, isGrade: true),
                     ],
                   ),

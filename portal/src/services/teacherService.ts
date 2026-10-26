@@ -653,7 +653,6 @@ export const teacherService = {
       .select(`
         id,
         name,
-        exam_code,
         course_id,
         batch_id,
         status,
@@ -670,7 +669,7 @@ export const teacherService = {
     return (data || []).map((e: any) => ({
       id: e.id,
       name: e.name,
-      examCode: e.exam_code || `EX-${e.id}`,
+      examCode: `EX-${e.id}`,
       courseId: e.course_id,
       courseName: e.courses?.name || 'Course',
       batchId: e.batch_id,

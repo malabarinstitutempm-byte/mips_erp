@@ -412,7 +412,6 @@ export const studentService = {
           exams (
             id,
             name,
-            exam_code,
             course_id,
             batch_id,
             status,
@@ -472,7 +471,7 @@ export const studentService = {
               };
             });
 
-            const examCode = r.exams?.exam_code || `EX-${r.exam_id}`;
+            const examCode = `EX-${r.exam_id}`;
             const resultCode = `${examCode}-S${studentId}`;
             const courseStructure = (r.exams?.courses?.structure || 'semester') as 'semester' | 'year' | 'single';
             const periodType = (r.period_type || r.exams?.period_type || (courseStructure === 'year' ? 'year' : 'semester')) as 'semester' | 'year' | 'single';

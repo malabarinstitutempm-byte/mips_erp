@@ -4,6 +4,7 @@ import 'student_documents_tab.dart';
 import 'student_results_tab.dart';
 import 'student_fees_tab.dart';
 import 'student_account_tab.dart';
+import '../fees/fees_provider.dart';
 import '../../shared/widgets/student_hero_photo.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/models/student.dart';
@@ -46,6 +47,9 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
     ref.invalidate(allBatchesProvider);
     ref.invalidate(batchesMapProvider);
     if (_student.id != null) {
+      ref.invalidate(studentResultsProvider(_student.id!));
+      ref.invalidate(studentFeeDetailsProvider(_student.id!));
+      ref.invalidate(studentPaymentsProvider(_student.id!));
       final updated = await ref.read(studentRepositoryProvider).getStudentById(_student.id!);
       if (updated != null && mounted) {
         setState(() {
@@ -612,11 +616,13 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                 // Tabs
                 TabBar(
                   controller: _tabController,
+                  isScrollable: isMobile,
+                  tabAlignment: isMobile ? TabAlignment.start : TabAlignment.center,
                   labelColor: AppColors.brandDark,
                   unselectedLabelColor: AppColors.textMuted,
                   indicatorColor: AppColors.brand,
                   indicatorWeight: 3,
-                  labelStyle: TextStyle(fontWeight: FontWeight.w600),
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600),
                   tabs: const [
                     Tab(text: 'Overview'),
                     Tab(text: 'Fees'),
