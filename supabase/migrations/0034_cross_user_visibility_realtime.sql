@@ -161,9 +161,9 @@ BEGIN
         SELECT coalesce(name, 'Teacher') INTO v_teacher_name FROM public.teachers WHERE id = NEW.marked_by;
     END IF;
 
-    PERFORM emit_app_event('admins', 'attendance', NEW.id, 'submit', v_teacher_name, jsonb_build_object('batch_id', NEW.batch_id, 'date', NEW.date, 'slot', NEW.slot, 'no_class', NEW.no_class));
-    PERFORM emit_app_event('teachers', 'attendance', NEW.id, 'submit', v_teacher_name, jsonb_build_object('batch_id', NEW.batch_id, 'date', NEW.date, 'slot', NEW.slot, 'no_class', NEW.no_class));
-    PERFORM emit_app_event('batch:' || NEW.batch_id::text, 'attendance', NEW.id, 'submit', v_teacher_name, jsonb_build_object('date', NEW.date, 'slot', NEW.slot, 'no_class', NEW.no_class));
+    PERFORM emit_app_event('admins', 'attendance', NEW.id, 'submit', v_teacher_name, jsonb_build_object('batch_id', NEW.batch_id, 'date', NEW.date, 'slot', NEW.slot, 'no_class_reason', NEW.no_class_reason));
+    PERFORM emit_app_event('teachers', 'attendance', NEW.id, 'submit', v_teacher_name, jsonb_build_object('batch_id', NEW.batch_id, 'date', NEW.date, 'slot', NEW.slot, 'no_class_reason', NEW.no_class_reason));
+    PERFORM emit_app_event('batch:' || NEW.batch_id::text, 'attendance', NEW.id, 'submit', v_teacher_name, jsonb_build_object('date', NEW.date, 'slot', NEW.slot, 'no_class_reason', NEW.no_class_reason));
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
