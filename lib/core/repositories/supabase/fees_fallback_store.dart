@@ -50,9 +50,9 @@ class FeesFallbackStore {
       pending += (s['pending'] as num?)?.toDouble() ?? 0.0;
     }
     return {
-      'total': total > 0 ? total + 1800000.0 : 2480000.0,
-      'collected': collected > 0 ? collected + 1800000.0 : 1840000.0,
-      'pending': pending > 0 ? pending : 640000.0,
+      'total': total,
+      'collected': collected,
+      'pending': pending,
     };
   }
 }

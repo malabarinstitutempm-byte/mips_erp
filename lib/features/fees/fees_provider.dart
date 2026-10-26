@@ -44,13 +44,11 @@ final pendingFeesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) asy
       });
     }
 
-    if (results.isNotEmpty) return results;
+    return results;
   } catch (e) {
-    debugPrint('pendingFeesProvider fallback used: $e');
+    debugPrint('pendingFeesProvider error: $e');
+    return [];
   }
-
-  // Institutional fallback pending fees
-  return FeesFallbackStore.pendingFees.map((e) => Map<String, dynamic>.from(e)).toList();
 });
 
 final recentPaymentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
@@ -90,13 +88,11 @@ final recentPaymentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) 
       });
     }
 
-    if (results.isNotEmpty) return results;
+    return results;
   } catch (e) {
-    debugPrint('recentPaymentsProvider fallback used: $e');
+    debugPrint('recentPaymentsProvider error: $e');
+    return [];
   }
-
-  // Institutional fallback recent payments
-  return FeesFallbackStore.recentPayments.map((e) => Map<String, dynamic>.from(e)).toList();
 });
 
 final feeMetricsProvider = FutureProvider<Map<String, double>>((ref) async {
@@ -118,18 +114,19 @@ final feeMetricsProvider = FutureProvider<Map<String, double>>((ref) async {
       pendingPaise += (row['pending_amount_paise'] as num?)?.toInt() ?? 0;
     }
 
-    if (totalPaise > 0) {
-      return {
-        'total': totalPaise / 100.0,
-        'collected': collectedPaise / 100.0,
-        'pending': pendingPaise / 100.0,
-      };
-    }
+    return {
+      'total': totalPaise / 100.0,
+      'collected': collectedPaise / 100.0,
+      'pending': pendingPaise / 100.0,
+    };
   } catch (e) {
-    debugPrint('feeMetricsProvider fallback used: $e');
+    debugPrint('feeMetricsProvider error: $e');
+    return {
+      'total': 0.0,
+      'collected': 0.0,
+      'pending': 0.0,
+    };
   }
-
-  return FeesFallbackStore.getMetrics();
 });
 
 final studentPaymentsProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, studentId) async {
@@ -169,33 +166,11 @@ final studentPaymentsProvider = FutureProvider.family<List<Map<String, dynamic>>
       });
     }
 
-    if (results.isNotEmpty) return results;
+    return results;
   } catch (e) {
-    debugPrint('studentPaymentsProvider fallback used: $e');
+    debugPrint('studentPaymentsProvider error: $e');
+    return [];
   }
-
-  return [
-    {
-      'id': 101,
-      'amount': 20000.0,
-      'mode': 'UPI',
-      'payment_mode': 'UPI',
-      'date': '2024-08-01',
-      'ref': 'UPI-REF-09871',
-      'receipt': 'MIPS/REC/2024/001',
-      'is_cancelled': 0,
-    },
-    {
-      'id': 102,
-      'amount': 15000.0,
-      'mode': 'Cash',
-      'payment_mode': 'Cash',
-      'date': '2025-01-15',
-      'ref': 'CASH-REC',
-      'receipt': 'MIPS/REC/2025/089',
-      'is_cancelled': 0,
-    },
-  ];
 });
 
 final studentFeeDetailsProvider = FutureProvider.family<Map<String, dynamic>, int>((ref, studentId) async {
@@ -209,12 +184,12 @@ final studentFeeDetailsProvider = FutureProvider.family<Map<String, dynamic>, in
         .eq('id', studentId)
         .maybeSingle();
 
-    String courseName = 'Course Tuition Fee';
-    int courseDefaultFeePaise = 5000000;
+    String courseName = 'Not Enrolled';
+    int courseDefaultFeePaise = 0;
     if (studentRes != null && studentRes['courses'] != null) {
       final c = studentRes['courses'] as Map<String, dynamic>;
-      courseName = c['name']?.toString() ?? courseName;
-      courseDefaultFeePaise = (c['total_fee_paise'] as num?)?.toInt() ?? 5000000;
+      courseName = c['name']?.toString() ?? 'Not Enrolled';
+      courseDefaultFeePaise = (c['total_fee_paise'] as num?)?.toInt() ?? 0;
     }
 
     // 2. Fetch student fee ledger from fees table
@@ -260,22 +235,21 @@ final studentFeeDetailsProvider = FutureProvider.family<Map<String, dynamic>, in
       'installments': <Map<String, dynamic>>[],
     };
   } catch (e) {
-    debugPrint('studentFeeDetailsProvider fallback used: $e');
+    debugPrint('studentFeeDetailsProvider error: $e');
+    return {
+      'total': 0.0,
+      'paid': 0.0,
+      'pending': 0.0,
+      'primary_total': 0.0,
+      'primary_paid': 0.0,
+      'primary_pending': 0.0,
+      'skill_total': 0.0,
+      'skill_paid': 0.0,
+      'skill_pending': 0.0,
+      'has_skill': false,
+      'course_name': 'Unknown Course',
+      'fee_items': <Map<String, dynamic>>[],
+      'installments': <Map<String, dynamic>>[],
+    };
   }
-
-  return {
-    'total': 50000.0,
-    'paid': 35000.0,
-    'pending': 15000.0,
-    'primary_total': 50000.0,
-    'primary_paid': 35000.0,
-    'primary_pending': 15000.0,
-    'skill_total': 0.0,
-    'skill_paid': 0.0,
-    'skill_pending': 0.0,
-    'has_skill': false,
-    'course_name': 'Diploma in Medical Laboratory Technology [DMLT]',
-    'fee_items': <Map<String, dynamic>>[],
-    'installments': <Map<String, dynamic>>[],
-  };
 });
