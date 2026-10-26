@@ -9,7 +9,6 @@ import '../../core/models/grading_scheme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/services/supabase_service.dart';
-import '../../core/repositories/supabase/supabase_exam_repository.dart';
 import 'exam_provider.dart';
 import 'grading_provider.dart';
 import '../courses/course_provider.dart';
@@ -125,13 +124,7 @@ final markEntryDataProvider = FutureProvider.family<Map<String, dynamic>, int>((
       }
     } catch (_) {}
   }
-  if (subjects.isEmpty) {
-    subjects = [
-      Subject(id: 1, examId: examId, name: 'Clinical Biochemistry', code: 'DMLT-101', maxMarks: 100, passMarks: 40),
-      Subject(id: 2, examId: examId, name: 'Hematology & Blood Banking', code: 'DMLT-102', maxMarks: 100, passMarks: 40),
-      Subject(id: 3, examId: examId, name: 'Microbiology & Pathology', code: 'DMLT-103', maxMarks: 100, passMarks: 40),
-    ];
-  }
+
 
   final studentRepo = ref.read(studentRepositoryProvider);
   List<Student> students = [];
@@ -451,21 +444,7 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
         };
       }).toList();
 
-      try {
-        await client.from('exam_subjects').insert(subjectsToAdd);
-      } catch (e) {
-        debugPrint('Direct insert to exam_subjects failed, using local fallback: $e');
-        for (final s in subjectsToAdd) {
-          SupabaseExamRepository.addFallbackSubject(examId, Subject(
-            id: DateTime.now().millisecondsSinceEpoch % 100000 + subjectsToAdd.indexOf(s),
-            examId: examId,
-            name: s['name'] as String,
-            code: s['code'] as String,
-            maxMarks: (s['max_marks'] as num).toDouble(),
-            passMarks: (s['pass_marks'] as num).toDouble(),
-          ));
-        }
-      }
+      await client.from('exam_subjects').insert(subjectsToAdd);
       ref.invalidate(markEntryDataProvider(examId));
       ref.invalidate(examDashboardProvider);
 
@@ -585,27 +564,15 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                   final maxM = double.parse(maxCtrl.text.trim());
                   final passM = double.parse(passCtrl.text.trim());
 
-                  try {
-                    await client.from('exam_subjects').insert({
-                      'exam_id': examId,
-                      'name': subName,
-                      'code': subCode,
-                      'max_marks': maxM,
-                      'pass_marks': passM,
-                      'theory_marks': maxM,
-                      'practical_marks': 0.0,
-                    });
-                  } catch (e) {
-                    debugPrint('Add subject insert failed, using fallback: $e');
-                    SupabaseExamRepository.addFallbackSubject(examId, Subject(
-                      id: DateTime.now().millisecondsSinceEpoch % 100000,
-                      examId: examId,
-                      name: subName,
-                      code: subCode,
-                      maxMarks: maxM,
-                      passMarks: passM,
-                    ));
-                  }
+                  await client.from('exam_subjects').insert({
+                    'exam_id': examId,
+                    'name': subName,
+                    'code': subCode,
+                    'max_marks': maxM,
+                    'pass_marks': passM,
+                    'theory_marks': maxM,
+                    'practical_marks': 0.0,
+                  });
 
                   ref.invalidate(markEntryDataProvider(examId));
                   ref.invalidate(examDashboardProvider);
@@ -671,13 +638,15 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: Row(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             const Text(
                               'Apply to All Subjects:',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textStrong),
                             ),
-                            const SizedBox(width: 8),
                             _buildDialogPresetChip('100 / 40', () {
                               setDialogState(() {
                                 for (var s in subjects) {
@@ -686,7 +655,6 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                                 }
                               });
                             }),
-                            const SizedBox(width: 6),
                             _buildDialogPresetChip('100 / 50', () {
                               setDialogState(() {
                                 for (var s in subjects) {
@@ -695,7 +663,6 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                                 }
                               });
                             }),
-                            const SizedBox(width: 6),
                             _buildDialogPresetChip('50 / 20', () {
                               setDialogState(() {
                                 for (var s in subjects) {
@@ -704,7 +671,6 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                                 }
                               });
                             }),
-                            const SizedBox(width: 6),
                             _buildDialogPresetChip('75 / 30', () {
                               setDialogState(() {
                                 for (var s in subjects) {
@@ -841,15 +807,10 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                             final newPass = double.tryParse(passControllers[sub.id!]?.text ?? '') ?? sub.passMarks;
 
                             if (newMax != sub.maxMarks || newPass != sub.passMarks) {
-                              try {
-                                await client.from('exam_subjects').update({
-                                  'max_marks': newMax,
-                                  'pass_marks': newPass,
-                                }).eq('id', sub.id!);
-                              } catch (e) {
-                                debugPrint('Update exam_subject failed, updating fallback: $e');
-                                SupabaseExamRepository.updateFallbackSubjectMarks(widget.examId, sub.id!, newMax, newPass);
-                              }
+                              await client.from('exam_subjects').update({
+                                'max_marks': newMax,
+                                'pass_marks': newPass,
+                              }).eq('id', sub.id!);
                             }
                           }
 
@@ -893,50 +854,88 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final dataAsync = ref.watch(markEntryDataProvider(widget.examId));
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('Mark Entry Spreadsheet'),
+        title: Text(isMobile ? 'Mark Entry' : 'Mark Entry Spreadsheet'),
         actions: [
           dataAsync.maybeWhen(
-            data: (data) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _showEditMarksDialog(data['subjects']),
-                  icon: const Icon(LucideIcons.sliders, size: 16),
-                  label: const Text('Edit Total & Pass Marks'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandDark,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            data: (data) {
+              final subjects = data['subjects'] as List<Subject>;
+              final students = data['students'] as List<Student>;
+              if (isMobile) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Add Subject',
+                      icon: const Icon(LucideIcons.plusCircle, color: Colors.purple, size: 22),
+                      onPressed: () => _showAddSubjectDialog(widget.examId),
+                    ),
+                    if (subjects.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Edit Marks',
+                        icon: const Icon(LucideIcons.sliders, size: 20),
+                        onPressed: () => _showEditMarksDialog(subjects),
+                      ),
+                    if (students.isNotEmpty && subjects.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Save Marks',
+                        icon: _isSaving
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(LucideIcons.save, size: 20, color: AppColors.brandDark),
+                        onPressed: _isSaving ? null : () => _saveAll(students, subjects),
+                      ),
+                    const SizedBox(width: 8),
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _showEditMarksDialog(subjects),
+                    icon: const Icon(LucideIcons.sliders, size: 16),
+                    label: const Text('Edit Total & Pass Marks'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.brandDark,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _showAddSubjectDialog(widget.examId),
-                  icon: const Icon(LucideIcons.plus, size: 15),
-                  label: const Text('Add Subject'),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: ElevatedButton.icon(
-                    onPressed: _isSaving ? null : () => _saveAll(data['students'], data['subjects']),
-                    icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(LucideIcons.save, size: 18),
-                    label: const Text('Save All'),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                    onPressed: () => _showAddSubjectDialog(widget.examId),
+                    icon: const Icon(LucideIcons.plus, size: 15),
+                    label: const Text('Add Subject'),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: AppSpacing.md),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: ElevatedButton.icon(
+                      onPressed: _isSaving ? null : () => _saveAll(students, subjects),
+                      icon: _isSaving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(LucideIcons.save, size: 18),
+                      label: const Text('Save All'),
+                    ),
+                  ),
+                ],
+              );
+            },
             orElse: () => const SizedBox(),
-          )
+          ),
         ],
       ),
       body: dataAsync.when(
         data: (data) {
+          final examData = data['exam'] as Map<String, dynamic>? ?? {};
           final subjects = data['subjects'] as List<Subject>;
           final students = data['students'] as List<Student>;
           final marks = data['marks'] as List<Mark>;
@@ -945,8 +944,99 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
           if (subjects.isEmpty) {
             if (courseSubjects.isNotEmpty) {
               return Center(
+                child: SingleChildScrollView(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 580),
+                    margin: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.brandDark.withOpacity(0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(LucideIcons.bookOpen, size: 36, color: AppColors.brandDark),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        const Text(
+                          'Load Subjects for Mark Entry',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'This exam currently has no subjects configured, but ${courseSubjects.length} subject(s) exist in the course curriculum with default total and pass marks.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: courseSubjects.map((cs) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Icon(LucideIcons.checkCircle2, size: 14, color: AppColors.success.base),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${cs['name'] ?? cs['subject_name']} (${cs['code'] ?? cs['subject_code'] ?? 'Paper'})',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Max: ${(cs['max_marks'] as num?)?.toInt() ?? 100} | Pass: ${(cs['pass_marks'] as num?)?.toInt() ?? 40}',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                  ),
+                                ],
+                              ),
+                            )).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _isSaving ? null : () => _importCourseSubjects(widget.examId, courseSubjects),
+                              icon: const Icon(LucideIcons.downloadCloud, size: 16),
+                              label: Text('Import All ${courseSubjects.length} Subjects'),
+                            ),
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                              onPressed: () => _showAddSubjectDialog(widget.examId),
+                              icon: const Icon(LucideIcons.plus, size: 16),
+                              label: const Text('Add Custom Subject'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Center(
+              child: SingleChildScrollView(
                 child: Container(
-                  constraints: const BoxConstraints(maxWidth: 580),
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  margin: const EdgeInsets.all(AppSpacing.md),
                   padding: const EdgeInsets.all(AppSpacing.xxl),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -956,226 +1046,329 @@ class _MarkEntryScreenState extends ConsumerState<MarkEntryScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.brandDark.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(LucideIcons.bookOpen, size: 36, color: AppColors.brandDark),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
+                      Icon(LucideIcons.bookOpen, size: 36, color: AppColors.textMuted.withOpacity(0.5)),
+                      const SizedBox(height: AppSpacing.md),
                       const Text(
-                        'Load Subjects for Mark Entry',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                        'No Subjects Configured',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'This exam currently has no subjects configured, but ${courseSubjects.length} subject(s) exist in the course curriculum with default total and pass marks.',
+                      const SizedBox(height: AppSpacing.xs),
+                      const Text(
+                        'Add subjects to this exam with total and pass marks to begin entering student marks.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                       ),
                       const SizedBox(height: AppSpacing.lg),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: courseSubjects.map((cs) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Icon(LucideIcons.checkCircle2, size: 14, color: AppColors.success.base),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${cs['name'] ?? cs['subject_name']} (${cs['code'] ?? cs['subject_code'] ?? 'Paper'})',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Text(
-                                  'Max: ${(cs['max_marks'] as num?)?.toInt() ?? 100} | Pass: ${(cs['pass_marks'] as num?)?.toInt() ?? 40}',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                                ),
-                              ],
-                            ),
-                          )).toList(),
-                        ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                        onPressed: () => _showAddSubjectDialog(widget.examId),
+                        icon: const Icon(LucideIcons.plus, size: 16),
+                        label: const Text('Add Subject & Set Total/Pass Marks'),
                       ),
-                      const SizedBox(height: AppSpacing.xl),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: _isSaving ? null : () => _importCourseSubjects(widget.examId, courseSubjects),
-                            icon: const Icon(LucideIcons.downloadCloud, size: 16),
-                            label: Text('Import All ${courseSubjects.length} Subjects & Enter Marks'),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (students.isEmpty) {
+            return Padding(
+              padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.info, size: 20, color: Colors.amber.shade900),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No Active Students Enrolled Yet',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'You can configure subjects and maximum/pass marks now. Once students are admitted to this batch, they will appear here automatically.',
+                                style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          OutlinedButton.icon(
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Exam Subjects (${subjects.length})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                        onPressed: () => _showAddSubjectDialog(widget.examId),
+                        icon: const Icon(LucideIcons.plus, size: 16),
+                        label: const Text('Add Subject'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: subjects.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (ctx, i) {
+                        final s = subjects[i];
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Code: ${s.code} • Max Marks: ${s.maxMarks.toInt()} • Pass Marks: ${s.passMarks.toInt()}',
+                                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => _showEditMarksDialog(subjects, initialSubjectId: s.id),
+                                icon: const Icon(LucideIcons.edit2, size: 14),
+                                label: const Text('Edit'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          _initControllers(students, subjects, marks);
+
+          return Padding(
+            padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Responsive Top Toolbar
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(LucideIcons.award, size: 18, color: Colors.purple),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                examData['name'] ?? 'Exam #${widget.examId}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              Text(
+                                '${students.length} Student(s) • ${subjects.length} Subject(s)',
+                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(backgroundColor: Colors.purple),
                             onPressed: () => _showAddSubjectDialog(widget.examId),
-                            icon: const Icon(LucideIcons.plus, size: 16),
-                            label: const Text('Add Custom Subject'),
+                            icon: const Icon(LucideIcons.plusCircle, size: 16),
+                            label: const Text('Add Subject'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _showEditMarksDialog(subjects),
+                            icon: const Icon(LucideIcons.sliders, size: 16),
+                            label: const Text('Edit Marks'),
+                          ),
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(backgroundColor: AppColors.brandDark),
+                            onPressed: _isSaving ? null : () => _saveAll(students, subjects),
+                            icon: _isSaving
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(LucideIcons.save, size: 16),
+                            label: const Text('Save Marks'),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-              );
-            }
+                const SizedBox(height: AppSpacing.sm),
 
-            return Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 480),
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(LucideIcons.bookOpen, size: 36, color: AppColors.textMuted.withOpacity(0.5)),
-                    const SizedBox(height: AppSpacing.md),
-                    const Text(
-                      'No Subjects Configured',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                // Table Container
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(color: AppColors.border),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    const Text(
-                      'Add subjects to this exam with total and pass marks to begin entering student marks.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddSubjectDialog(widget.examId),
-                      icon: const Icon(LucideIcons.plus, size: 16),
-                      label: const Text('Add Subject & Set Total/Pass Marks'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          if (students.isEmpty) return const Center(child: Text('No active students found enrolled for this course/batch.'));
-          
-          _initControllers(students, subjects, marks);
-
-          return Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(AppColors.surface),
-                    columns: [
-                      const DataColumn(label: Text('Adm No', style: TextStyle(fontWeight: FontWeight.bold))),
-                      const DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold))),
-                      ...subjects.map((sub) => DataColumn(
-                        label: InkWell(
-                          onTap: () => _showEditMarksDialog(subjects, initialSubjectId: sub.id),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    const SizedBox(width: 4),
-                                    const Icon(LucideIcons.edit2, size: 12, color: AppColors.brandDark),
-                                  ],
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          headingRowColor: WidgetStateProperty.all(AppColors.surface),
+                          columns: [
+                            const DataColumn(label: Text('Adm No', style: TextStyle(fontWeight: FontWeight.bold))),
+                            const DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold))),
+                            ...subjects.map((sub) => DataColumn(
+                              label: InkWell(
+                                onTap: () => _showEditMarksDialog(subjects, initialSubjectId: sub.id),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 4),
+                                          const Icon(LucideIcons.edit2, size: 12, color: AppColors.brandDark),
+                                        ],
+                                      ),
+                                      Text(
+                                        'Max: ${sub.maxMarks.toInt()} | Pass: ${sub.passMarks.toInt()}',
+                                        style: const TextStyle(fontSize: 10, color: AppColors.brandDark, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                Text(
-                                  'Max: ${sub.maxMarks.toInt()} | Pass: ${sub.passMarks.toInt()} (Click to edit)',
-                                  style: const TextStyle(fontSize: 10, color: AppColors.brandDark, fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )),
-                      const DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold))),
-                      const DataColumn(label: Text('%', style: TextStyle(fontWeight: FontWeight.bold))),
-                      const DataColumn(label: Text('Result', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                    rows: students.map((s) {
-                      double studentTotal = 0.0;
-                      double maxTotal = 0.0;
-                      bool hasFailingMark = false;
-                      int marksEntered = 0;
-                      
-                      List<DataCell> cells = [
-                        DataCell(Text(s.admissionNumber ?? 'N/A')),
-                        DataCell(Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-                      ];
-                      
-                      for (var sub in subjects) {
-                        final key = '${s.id}_${sub.id}';
-                        final valText = _controllers[key]?.text ?? '';
-                        final val = double.tryParse(valText);
-                        
-                        if (val != null) {
-                          studentTotal += val;
-                          marksEntered++;
-                          if (val < sub.passMarks) hasFailingMark = true;
-                        }
-                        maxTotal += sub.maxMarks;
-                        
-                        cells.add(DataCell(
-                          SizedBox(
-                            width: 80,
-                            child: TextFormField(
-                              controller: _controllers[key],
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                               ),
-                              onChanged: (v) {
-                                setState(() {});
-                              },
+                            )),
+                            DataColumn(
+                              label: TextButton.icon(
+                                onPressed: () => _showAddSubjectDialog(widget.examId),
+                                icon: const Icon(LucideIcons.plus, size: 14, color: Colors.purple),
+                                label: const Text('Add Subject', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple)),
+                              ),
                             ),
-                          ),
-                        ));
-                      }
-                      
-                      final pct = maxTotal > 0 ? (studentTotal / maxTotal) * 100 : 0.0;
-                      final isComplete = marksEntered == subjects.length;
-                      
-                      cells.addAll([
-                        DataCell(Text(studentTotal.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataCell(Text('${pct.toStringAsFixed(1)}%')),
-                        DataCell(
-                          isComplete
-                            ? (hasFailingMark 
-                                ? Text('FAIL', style: TextStyle(color: AppColors.danger.base, fontWeight: FontWeight.bold))
-                                : Text('PASS', style: TextStyle(color: AppColors.success.base, fontWeight: FontWeight.bold)))
-                            : const Text('Pending', style: TextStyle(color: AppColors.textMuted)),
+                            const DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold))),
+                            const DataColumn(label: Text('%', style: TextStyle(fontWeight: FontWeight.bold))),
+                            const DataColumn(label: Text('Result', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                          rows: students.map((s) {
+                            double studentTotal = 0.0;
+                            double maxTotal = 0.0;
+                            bool hasFailingMark = false;
+                            int marksEntered = 0;
+
+                            List<DataCell> cells = [
+                              DataCell(Text(s.admissionNumber ?? 'N/A')),
+                              DataCell(Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                            ];
+
+                            for (var sub in subjects) {
+                              final key = '${s.id}_${sub.id}';
+                              final valText = _controllers[key]?.text ?? '';
+                              final val = double.tryParse(valText);
+
+                              if (val != null) {
+                                studentTotal += val;
+                                marksEntered++;
+                                if (val < sub.passMarks) hasFailingMark = true;
+                              }
+                              maxTotal += sub.maxMarks;
+
+                              cells.add(DataCell(
+                                SizedBox(
+                                  width: 80,
+                                  child: TextFormField(
+                                    controller: _controllers[key],
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ),
+                                    onChanged: (v) {
+                                      setState(() {});
+                                    },
+                                  ),
+                                ),
+                              ));
+                            }
+
+                            // Empty cell for the "Add Subject" column
+                            cells.add(const DataCell(SizedBox()));
+
+                            final pct = maxTotal > 0 ? (studentTotal / maxTotal) * 100 : 0.0;
+                            final isComplete = marksEntered == subjects.length;
+
+                            cells.addAll([
+                              DataCell(Text(studentTotal.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataCell(Text('${pct.toStringAsFixed(1)}%')),
+                              DataCell(
+                                isComplete
+                                    ? (hasFailingMark
+                                        ? Text('FAIL', style: TextStyle(color: AppColors.danger.base, fontWeight: FontWeight.bold))
+                                        : Text('PASS', style: TextStyle(color: AppColors.success.base, fontWeight: FontWeight.bold)))
+                                    : const Text('Pending', style: TextStyle(color: AppColors.textMuted)),
+                              ),
+                            ]);
+
+                            return DataRow(cells: cells);
+                          }).toList(),
                         ),
-                      ]);
-                      
-                      return DataRow(cells: cells);
-                    }).toList(),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           );
         },

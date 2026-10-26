@@ -114,14 +114,23 @@ class _AddExamDialogState extends ConsumerState<AddExamDialog> {
         _selectedPeriodNo! > batchCurrentPeriod;
 
     final String periodLabel = selectedCourse?.periodTypeLabel ?? 'Semester';
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isMobile = screenWidth < 768;
 
     return Dialog(
       backgroundColor: AppColors.surface,
+      insetPadding: isMobile
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 14)
+          : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radius14)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 760),
+        constraints: BoxConstraints(
+          maxWidth: isMobile ? double.infinity : 880,
+          maxHeight: isMobile ? (screenHeight * 0.94) : 760,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
+          padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
           child: Form(
             key: _formKey,
             child: Column(
@@ -152,178 +161,187 @@ class _AddExamDialogState extends ConsumerState<AddExamDialog> {
                 ),
                 const SizedBox(height: AppSpacing.md),
 
-                // 3-Step Selection Row: Course -> Batch -> Semester/Year (NEVER auto-selected)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Step 1: Course Selector
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: '1. Course *',
-                          hintText: 'Select course...',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                // 3-Step Selection: Course -> Batch -> Semester/Year (NEVER auto-selected)
+                Builder(
+                  builder: (context) {
+                    final courseSelector = DropdownButtonFormField<int>(
+                      decoration: const InputDecoration(
+                        labelText: '1. Course *',
+                        hintText: 'Select course...',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      value: _selectedCourseId,
+                      isExpanded: true,
+                      items: courses.map((c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(
+                          '${c.name} (${c.structure.toUpperCase()})',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
                         ),
-                        value: _selectedCourseId,
-                        isExpanded: true,
-                        items: courses.map((c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(
-                            '${c.name} (${c.structure.toUpperCase()})',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        )).toList(),
-                        onChanged: (v) async {
-                          if (v == null) return;
-                          setState(() {
-                            _selectedCourseId = v;
-                            _selectedBatchId = null; // EXPLICIT: NEVER AUTO-SELECTED
-                            _selectedPeriodNo = null; // EXPLICIT: NEVER AUTO-SELECTED
-                            _batches = [];
-                            _courseSubjects = [];
-                            _subjects.clear();
-                            _overrideReasonCtrl.clear();
-                            _isLoadingBatches = true;
-                          });
+                      )).toList(),
+                      onChanged: (v) async {
+                        if (v == null) return;
+                        setState(() {
+                          _selectedCourseId = v;
+                          _selectedBatchId = null; // EXPLICIT: NEVER AUTO-SELECTED
+                          _selectedPeriodNo = null; // EXPLICIT: NEVER AUTO-SELECTED
+                          _batches = [];
+                          _courseSubjects = [];
+                          _subjects.clear();
+                          _overrideReasonCtrl.clear();
+                          _isLoadingBatches = true;
+                        });
 
-                          try {
-                            final list = await ref.read(courseRepositoryProvider).getBatchesForCourse(v);
-                            final csList = await ref.read(courseRepositoryProvider).getSubjectsForCourse(v);
-                            if (mounted) {
-                              setState(() {
-                                _batches = list.where((b) => b.status != 'completed').toList();
-                                _courseSubjects = csList;
-                                _isLoadingBatches = false;
-                              });
-                            }
-                          } catch (_) {
-                            if (mounted) setState(() => _isLoadingBatches = false);
+                        try {
+                          final list = await ref.read(courseRepositoryProvider).getBatchesForCourse(v);
+                          final csList = await ref.read(courseRepositoryProvider).getSubjectsForCourse(v);
+                          if (mounted) {
+                            setState(() {
+                              _batches = list.where((b) => b.status != 'completed').toList();
+                              _courseSubjects = csList;
+                              _isLoadingBatches = false;
+                            });
                           }
-                        },
-                        validator: (v) => v == null ? 'Select a course' : null,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
+                        } catch (_) {
+                          if (mounted) setState(() => _isLoadingBatches = false);
+                        }
+                      },
+                      validator: (v) => v == null ? 'Select a course' : null,
+                    );
 
-                    // Step 2: Batch Selector
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<int>(
-                        decoration: InputDecoration(
-                          labelText: '2. Batch *',
-                          hintText: _isLoadingBatches
-                              ? 'Loading batches...'
-                              : (_selectedCourseId == null ? 'Select course first' : 'Select batch...'),
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        ),
-                        value: _selectedBatchId,
-                        isExpanded: true,
-                        items: _batches.map((b) => DropdownMenuItem(
-                          value: b.id,
-                          child: Text(
-                            '${b.batchName} (${b.currentPeriodLabel(selectedCourse)})',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        )).toList(),
-                        onChanged: _selectedCourseId == null
-                            ? null
-                            : (v) {
-                                setState(() {
-                                  _selectedBatchId = v;
-                                  _selectedPeriodNo = null; // EXPLICIT: NEVER AUTO-SELECTED
-                                  _subjects.clear();
-                                  _overrideReasonCtrl.clear();
-                                });
-                              },
-                        validator: (v) => v == null ? 'Select a batch' : null,
+                    final batchSelector = DropdownButtonFormField<int>(
+                      decoration: InputDecoration(
+                        labelText: '2. Batch *',
+                        hintText: _isLoadingBatches
+                            ? 'Loading batches...'
+                            : (_selectedCourseId == null ? 'Select course first' : 'Select batch...'),
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-
-                    // Step 3: Semester or Year Selector (Per Course Structure)
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<int>(
-                        decoration: InputDecoration(
-                          labelText: '3. $periodLabel *',
-                          hintText: _selectedBatchId == null
-                              ? 'Select batch first'
-                              : 'Select $periodLabel...',
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          helperText: selectedBatch != null
-                              ? 'Batch current: ${selectedBatch.currentPeriodLabel(selectedCourse)}'
-                              : null,
-                          helperStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      value: _selectedBatchId,
+                      isExpanded: true,
+                      items: _batches.map((b) => DropdownMenuItem(
+                        value: b.id,
+                        child: Text(
+                          '${b.batchName} (${b.currentPeriodLabel(selectedCourse)})',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
                         ),
-                        value: _selectedPeriodNo,
-                        isExpanded: true,
-                        items: selectedCourse == null
-                            ? []
-                            : List.generate(
+                      )).toList(),
+                      onChanged: _selectedCourseId == null
+                          ? null
+                          : (v) {
+                              setState(() {
+                                _selectedBatchId = v;
+                                _selectedPeriodNo = null; // EXPLICIT: NEVER AUTO-SELECTED
+                                _subjects.clear();
+                                _overrideReasonCtrl.clear();
+                              });
+                            },
+                      validator: (v) => v == null ? 'Select a batch' : null,
+                    );
+
+                    final periodSelector = DropdownButtonFormField<int>(
+                      decoration: InputDecoration(
+                        labelText: '3. $periodLabel *',
+                        hintText: _selectedBatchId == null
+                            ? 'Select batch first'
+                            : 'Select $periodLabel...',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        helperText: selectedBatch != null
+                            ? 'Batch current: ${selectedBatch.currentPeriodLabel(selectedCourse)}'
+                            : null,
+                        helperStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      ),
+                      value: _selectedPeriodNo,
+                      isExpanded: true,
+                      items: selectedCourse == null
+                          ? []
+                          : List.generate(
+                              selectedCourse.isYearWise
+                                  ? selectedCourse.durationYears
+                                  : (selectedCourse.isSingle ? 1 : selectedCourse.periodsCount),
+                              (i) => i + 1,
+                            ).map((p) => DropdownMenuItem(
+                              value: p,
+                              child: Text(
                                 selectedCourse.isYearWise
-                                    ? selectedCourse.durationYears
-                                    : (selectedCourse.isSingle ? 1 : selectedCourse.periodsCount),
-                                (i) => i + 1,
-                              ).map((p) => DropdownMenuItem(
-                                value: p,
-                                child: Text(
-                                  selectedCourse.isYearWise
-                                      ? 'Year $p'
-                                      : (selectedCourse.isSingle ? 'Single Period (1)' : 'Semester $p'),
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              )).toList(),
-                        onChanged: _selectedBatchId == null
-                            ? null
-                            : (v) {
-                                if (v == null) return;
-                                setState(() {
-                                  _selectedPeriodNo = v;
-                                  _subjects.clear();
+                                    ? 'Year $p'
+                                    : (selectedCourse.isSingle ? 'Single Period (1)' : 'Semester $p'),
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            )).toList(),
+                      onChanged: _selectedBatchId == null
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setState(() {
+                                _selectedPeriodNo = v;
+                                _subjects.clear();
 
-                                  // Load subjects belonging to this period
-                                  List<CourseSubject> periodSubjects = [];
-                                  if (selectedCourse?.isYearWise == true) {
-                                    // For YEAR-wise course, subjects belong to that academic year
-                                    periodSubjects = _courseSubjects.where((cs) => cs.periodNo == v).toList();
-                                    // If no subjects tagged with period_no, also fall back to unassigned
-                                    if (periodSubjects.isEmpty) {
-                                      periodSubjects = _courseSubjects.where((cs) => cs.periodNo == null).toList();
-                                    }
-                                  } else if (selectedCourse?.isSingle == true) {
-                                    periodSubjects = _courseSubjects;
-                                  } else {
-                                    // Semester-wise
-                                    periodSubjects = _courseSubjects.where((cs) => cs.periodNo == v).toList();
-                                    if (periodSubjects.isEmpty) {
-                                      periodSubjects = _courseSubjects.where((cs) => cs.periodNo == null).toList();
-                                    }
-                                  }
-
-                                  for (final cs in periodSubjects) {
-                                    _addSubject(
-                                      name: cs.subjectName,
-                                      code: cs.subjectCode ?? '',
-                                      max: cs.maxMarks,
-                                      pass: cs.passMarks,
-                                    );
-                                  }
-
+                                // Load subjects belonging to this period
+                                List<CourseSubject> periodSubjects = [];
+                                if (selectedCourse?.isYearWise == true) {
+                                  // For YEAR-wise course, subjects belong to that academic year
+                                  periodSubjects = _courseSubjects.where((cs) => cs.periodNo == v).toList();
+                                  // If no subjects tagged with period_no, also fall back to unassigned
                                   if (periodSubjects.isEmpty) {
-                                    _addSubject();
+                                    periodSubjects = _courseSubjects.where((cs) => cs.periodNo == null).toList();
                                   }
-                                });
-                              },
-                        validator: (v) => v == null ? 'Select $periodLabel' : null,
-                      ),
-                    ),
-                  ],
+                                } else if (selectedCourse?.isSingle == true) {
+                                  periodSubjects = _courseSubjects;
+                                } else {
+                                  // Semester-wise
+                                  periodSubjects = _courseSubjects.where((cs) => cs.periodNo == v).toList();
+                                  if (periodSubjects.isEmpty) {
+                                    periodSubjects = _courseSubjects.where((cs) => cs.periodNo == null).toList();
+                                  }
+                                }
+
+                                for (final cs in periodSubjects) {
+                                  _addSubject(
+                                    name: cs.subjectName,
+                                    code: cs.subjectCode ?? '',
+                                    max: cs.maxMarks,
+                                    pass: cs.passMarks,
+                                  );
+                                }
+
+                                if (periodSubjects.isEmpty) {
+                                  _addSubject();
+                                }
+                              });
+                            },
+                      validator: (v) => v == null ? 'Select $periodLabel' : null,
+                    );
+
+                    if (isMobile) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          courseSelector,
+                          const SizedBox(height: AppSpacing.sm),
+                          batchSelector,
+                          const SizedBox(height: AppSpacing.sm),
+                          periodSelector,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 3, child: courseSelector),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(flex: 3, child: batchSelector),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(flex: 3, child: periodSelector),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.sm),
 
@@ -346,7 +364,7 @@ class _AddExamDialogState extends ConsumerState<AddExamDialog> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Audited Override Required: Selected $periodLabel $_selectedPeriodNo is ahead of batch current ${selectedBatch!.currentPeriodLabel(selectedCourse)}.',
+                                'Audited Override Required: Selected $periodLabel $_selectedPeriodNo is ahead of batch current ${selectedBatch.currentPeriodLabel(selectedCourse)}.',
                                 style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
                               ),
                             ),
@@ -409,9 +427,13 @@ class _AddExamDialogState extends ConsumerState<AddExamDialog> {
                         ),
                       ],
                     ),
-                    TextButton.icon(
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
                       onPressed: () => _addSubject(),
-                      icon: const Icon(LucideIcons.plus, size: 16),
+                      icon: const Icon(LucideIcons.plusCircle, size: 16),
                       label: const Text('Add Subject'),
                     ),
                   ],
@@ -447,62 +469,124 @@ class _AddExamDialogState extends ConsumerState<AddExamDialog> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 4,
-                                          child: TextFormField(
-                                            controller: sub.nameCtrl,
-                                            decoration: const InputDecoration(labelText: 'Subject Name', isDense: true),
-                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                    if (isMobile) ...[
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextFormField(
+                                              controller: sub.nameCtrl,
+                                              decoration: const InputDecoration(labelText: 'Subject Name', isDense: true),
+                                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.sm),
-                                        Expanded(
-                                          flex: 2,
-                                          child: TextFormField(
-                                            controller: sub.codeCtrl,
-                                            decoration: const InputDecoration(labelText: 'Code', isDense: true),
-                                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                          if (_subjects.length > 1)
+                                            IconButton(
+                                              icon: Icon(LucideIcons.trash2, color: AppColors.danger.base, size: 18),
+                                              onPressed: () => _removeSubject(i),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
+                                              controller: sub.codeCtrl,
+                                              decoration: const InputDecoration(labelText: 'Code', isDense: true),
+                                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.sm),
-                                        Expanded(
-                                          flex: 2,
-                                          child: TextFormField(
-                                            controller: sub.maxCtrl,
-                                            decoration: const InputDecoration(labelText: 'Max Marks', isDense: true),
-                                            keyboardType: TextInputType.number,
-                                            validator: (v) {
-                                              final num = int.tryParse(v ?? '');
-                                              if (num == null || num <= 0) return 'Invalid';
-                                              return null;
-                                            },
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              controller: sub.maxCtrl,
+                                              decoration: const InputDecoration(labelText: 'Max Marks', isDense: true),
+                                              keyboardType: TextInputType.number,
+                                              validator: (v) {
+                                                final num = int.tryParse(v ?? '');
+                                                if (num == null || num <= 0) return 'Invalid';
+                                                return null;
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.sm),
-                                        Expanded(
-                                          flex: 2,
-                                          child: TextFormField(
-                                            controller: sub.passCtrl,
-                                            decoration: const InputDecoration(labelText: 'Pass Marks', isDense: true),
-                                            keyboardType: TextInputType.number,
-                                            validator: (v) {
-                                              final pass = int.tryParse(v ?? '');
-                                              final max = int.tryParse(sub.maxCtrl.text);
-                                              if (pass == null || pass < 0) return 'Invalid';
-                                              if (max != null && pass > max) return '> Max';
-                                              return null;
-                                            },
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              controller: sub.passCtrl,
+                                              decoration: const InputDecoration(labelText: 'Pass Marks', isDense: true),
+                                              keyboardType: TextInputType.number,
+                                              validator: (v) {
+                                                final pass = int.tryParse(v ?? '');
+                                                final max = int.tryParse(sub.maxCtrl.text);
+                                                if (pass == null || pass < 0) return 'Invalid';
+                                                if (max != null && pass > max) return '> Max';
+                                                return null;
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                        if (_subjects.length > 1)
-                                          IconButton(
-                                            icon: Icon(LucideIcons.trash2, color: AppColors.danger.base, size: 18),
-                                            onPressed: () => _removeSubject(i),
+                                        ],
+                                      ),
+                                    ] else ...[
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 4,
+                                            child: TextFormField(
+                                              controller: sub.nameCtrl,
+                                              decoration: const InputDecoration(labelText: 'Subject Name', isDense: true),
+                                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                            ),
                                           ),
-                                      ],
-                                    ),
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              controller: sub.codeCtrl,
+                                              decoration: const InputDecoration(labelText: 'Code', isDense: true),
+                                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                            ),
+                                          ),
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              controller: sub.maxCtrl,
+                                              decoration: const InputDecoration(labelText: 'Max Marks', isDense: true),
+                                              keyboardType: TextInputType.number,
+                                              validator: (v) {
+                                                final num = int.tryParse(v ?? '');
+                                                if (num == null || num <= 0) return 'Invalid';
+                                                return null;
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              controller: sub.passCtrl,
+                                              decoration: const InputDecoration(labelText: 'Pass Marks', isDense: true),
+                                              keyboardType: TextInputType.number,
+                                              validator: (v) {
+                                                final pass = int.tryParse(v ?? '');
+                                                final max = int.tryParse(sub.maxCtrl.text);
+                                                if (pass == null || pass < 0) return 'Invalid';
+                                                if (max != null && pass > max) return '> Max';
+                                                return null;
+                                              },
+                                            ),
+                                          ),
+                                          if (_subjects.length > 1)
+                                            IconButton(
+                                              icon: Icon(LucideIcons.trash2, color: AppColors.danger.base, size: 18),
+                                              onPressed: () => _removeSubject(i),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4, left: 2),
                                       child: Row(
