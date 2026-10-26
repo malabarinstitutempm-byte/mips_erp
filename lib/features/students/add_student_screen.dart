@@ -691,7 +691,7 @@ class _AddStudentPanelState extends ConsumerState<AddStudentPanel> {
         dob: _dobCtrl.text.trim().isEmpty ? null : _dobCtrl.text.trim(),
         gender: _selectedGender,
         courseId: _selectedCourseId!,
-        batchId: _selectedBatchId ?? widget.existingStudent?.batchId ?? 1, 
+        batchId: _selectedBatchId ?? widget.existingStudent?.batchId, 
         universityId: widget.existingStudent?.universityId ?? 1, 
         academicYearId: widget.existingStudent?.academicYearId ?? 1,
         status: widget.existingStudent?.status ?? 'active',

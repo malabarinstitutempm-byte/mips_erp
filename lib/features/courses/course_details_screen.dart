@@ -108,6 +108,7 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
     final studentsAsync = _course.id != null
         ? ref.watch(courseStudentsProvider(_course.id!))
         : const AsyncValue.data(<Student>[]);
@@ -123,57 +124,96 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
         elevation: 0,
         centerTitle: false,
         shape: const Border(bottom: BorderSide(color: AppColors.border)),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.md),
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                await showDialog(
-                  context: context,
-                  builder: (context) => AddCourseDialog(existingCourse: _course),
-                );
-                if (_course.id != null) {
-                  ref.invalidate(courseSubjectsProvider(_course.id!));
-                }
-                _refreshCourse();
-              },
-              icon: const Icon(LucideIcons.edit3, size: 16),
-              label: const Text('Edit Course'),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.md),
-            child: OutlinedButton.icon(
-              onPressed: _confirmDeleteCourse,
-              icon: Icon(LucideIcons.trash2, size: 15, color: AppColors.danger.base),
-              label: Text('Delete Course', style: TextStyle(color: AppColors.danger.base, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppColors.danger.base.withValues(alpha: 0.5)),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.xl),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await AddStudentPanel.show(context, courseId: _course.id);
-                if (_course.id != null) {
-                  ref.invalidate(courseStudentsProvider(_course.id!));
-                  ref.invalidate(studentsProvider);
-                }
-              },
-              icon: const Icon(LucideIcons.userPlus, size: 16),
-              label: const Text('Admit Student'),
-            ),
-          ),
-        ],
+        actions: isMobile
+            ? [
+                IconButton(
+                  tooltip: 'Edit Course',
+                  icon: const Icon(LucideIcons.edit3, size: 18),
+                  onPressed: () async {
+                    await showDialog(
+                      context: context,
+                      builder: (context) => AddCourseDialog(existingCourse: _course),
+                    );
+                    if (_course.id != null) {
+                      ref.invalidate(courseSubjectsProvider(_course.id!));
+                    }
+                    _refreshCourse();
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Delete Course',
+                  icon: Icon(LucideIcons.trash2, size: 18, color: AppColors.danger.base),
+                  onPressed: _confirmDeleteCourse,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.md),
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await AddStudentPanel.show(context, courseId: _course.id);
+                      if (_course.id != null) {
+                        ref.invalidate(courseStudentsProvider(_course.id!));
+                        ref.invalidate(studentsProvider);
+                      }
+                    },
+                    icon: const Icon(LucideIcons.userPlus, size: 15),
+                    label: const Text('Admit', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    ),
+                  ),
+                ),
+              ]
+            : [
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.md),
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await showDialog(
+                        context: context,
+                        builder: (context) => AddCourseDialog(existingCourse: _course),
+                      );
+                      if (_course.id != null) {
+                        ref.invalidate(courseSubjectsProvider(_course.id!));
+                      }
+                      _refreshCourse();
+                    },
+                    icon: const Icon(LucideIcons.edit3, size: 16),
+                    label: const Text('Edit Course'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.md),
+                  child: OutlinedButton.icon(
+                    onPressed: _confirmDeleteCourse,
+                    icon: Icon(LucideIcons.trash2, size: 15, color: AppColors.danger.base),
+                    label: Text('Delete Course', style: TextStyle(color: AppColors.danger.base, fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppColors.danger.base.withValues(alpha: 0.5)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.xl),
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await AddStudentPanel.show(context, courseId: _course.id);
+                      if (_course.id != null) {
+                        ref.invalidate(courseStudentsProvider(_course.id!));
+                        ref.invalidate(studentsProvider);
+                      }
+                    },
+                    icon: const Icon(LucideIcons.userPlus, size: 16),
+                    label: const Text('Admit Student'),
+                  ),
+                ),
+              ],
       ),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1440),
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
+            padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -181,7 +221,7 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
                 SectionCard(
                   padding: EdgeInsets.zero,
                   child: Container(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -233,53 +273,75 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
                         const SizedBox(height: AppSpacing.xl),
                         const Divider(height: 1),
                         const SizedBox(height: AppSpacing.lg),
-                        // Quick Metric Stats
-                        Row(
-                          children: [
-                            _buildMetricItem(
-                              icon: LucideIcons.clock,
-                              label: 'Duration',
-                              value: _course.duration?.isNotEmpty == true ? _course.duration! : 'Not specified',
-                            ),
-                            _buildDivider(),
-                            _buildMetricItem(
-                              icon: LucideIcons.indianRupee,
-                              label: 'Total Fee',
-                              value: '₹${_course.totalFee.toStringAsFixed(0)}',
-                            ),
-                            _buildDivider(),
-                            studentsAsync.maybeWhen(
-                              data: (students) => _buildMetricItem(
+                        // Quick Metric Stats (Responsive)
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final admittedStudentsText = studentsAsync.maybeWhen(
+                              data: (students) => '${students.length} Students',
+                              orElse: () => '...',
+                            );
+                            final subjectsText = subjectsAsync.maybeWhen(
+                              data: (subs) => '${subs.length} Subjects',
+                              orElse: () => '...',
+                            );
+
+                            final metricItems = [
+                              (
+                                icon: LucideIcons.clock,
+                                label: 'Duration',
+                                value: _course.duration?.isNotEmpty == true ? _course.duration! : 'Not specified',
+                              ),
+                              (
+                                icon: LucideIcons.indianRupee,
+                                label: 'Total Fee',
+                                value: '₹${_course.totalFee.toStringAsFixed(0)}',
+                              ),
+                              (
                                 icon: LucideIcons.users,
                                 label: 'Admitted Students',
-                                value: '${students.length} Students',
+                                value: admittedStudentsText,
                               ),
-                              orElse: () => _buildMetricItem(
-                                icon: LucideIcons.users,
-                                label: 'Admitted Students',
-                                value: 'Loading...',
+                              (
+                                icon: LucideIcons.layers,
+                                label: 'Program Code',
+                                value: _course.code,
                               ),
-                            ),
-                            _buildDivider(),
-                            _buildMetricItem(
-                              icon: LucideIcons.layers,
-                              label: 'Program Code',
-                              value: _course.code,
-                            ),
-                            _buildDivider(),
-                            subjectsAsync.maybeWhen(
-                              data: (subs) => _buildMetricItem(
+                              (
                                 icon: LucideIcons.bookOpen,
                                 label: 'Subjects',
-                                value: '${subs.length} Subjects',
+                                value: subjectsText,
                               ),
-                              orElse: () => _buildMetricItem(
-                                icon: LucideIcons.bookOpen,
-                                label: 'Subjects',
-                                value: '...',
-                              ),
-                            ),
-                          ],
+                            ];
+
+                            if (constraints.maxWidth < 750) {
+                              // Mobile / Tablet Clean 2-Column Responsive Cards
+                              return Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: metricItems.map((m) {
+                                  final cardWidth = (constraints.maxWidth - 10) / 2;
+                                  return SizedBox(
+                                    width: cardWidth > 140 ? cardWidth : constraints.maxWidth,
+                                    child: _buildMetricCard(icon: m.icon, label: m.label, value: m.value),
+                                  );
+                                }).toList(),
+                              );
+                            }
+
+                            // Desktop Horizontal Row with Dividers
+                            return Row(
+                              children: [
+                                for (int i = 0; i < metricItems.length; i++) ...[
+                                  if (i > 0) _buildDivider(),
+                                  _buildMetricItem(
+                                    icon: metricItems[i].icon,
+                                    label: metricItems[i].label,
+                                    value: metricItems[i].value,
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                         subjectsAsync.maybeWhen(
                           data: (subs) {
@@ -402,45 +464,79 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
                       children: [
                         // Toolbar
                         Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: Row(
-                            children: [
-                              studentsAsync.maybeWhen(
-                                data: (students) => Row(
+                          padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
+                          child: isMobile
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      'Admitted Students',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          'Admitted Students',
+                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                                        ),
+                                        const SizedBox(width: AppSpacing.sm),
+                                        studentsAsync.maybeWhen(
+                                          data: (students) => Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.brandDark.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              '${students.length}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                                            ),
+                                          ),
+                                          orElse: () => const SizedBox.shrink(),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: AppSpacing.sm),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.brandDark.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
+                                    const SizedBox(height: 10),
+                                    SearchField(
+                                      hint: 'Search by name, admission no...',
+                                      onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    studentsAsync.maybeWhen(
+                                      data: (students) => Row(
+                                        children: [
+                                          const Text(
+                                            'Admitted Students',
+                                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                                          ),
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.brandDark.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              '${students.length}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      child: Text(
-                                        '${students.length}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.brandDark),
+                                      orElse: () => const Text(
+                                        'Admitted Students',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textStrong),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    SizedBox(
+                                      width: 340,
+                                      child: SearchField(
+                                        hint: 'Search by name, admission no, or phone...',
+                                        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
                                       ),
                                     ),
                                   ],
                                 ),
-                                orElse: () => const Text(
-                                  'Admitted Students',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textStrong),
-                                ),
-                              ),
-                              const Spacer(),
-                              SizedBox(
-                                width: 340,
-                                child: SearchField(
-                                  hint: 'Search by name, admission no, or phone...',
-                                  onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
 
                         const Divider(height: 1),
@@ -485,6 +581,70 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
                                 columns: const ['Adm. No', 'Student', 'University Reg No', 'DOB', 'Status', 'Actions'],
                                 flexes: const [2, 4, 3, 2, 2, 2],
                                 data: filtered,
+                                cardBuilder: (context, s) {
+                                  return InkWell(
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => StudentProfileScreen(student: s)),
+                                      );
+                                      if (_course.id != null) {
+                                        ref.invalidate(courseStudentsProvider(_course.id!));
+                                        ref.invalidate(studentsProvider);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(AppRadius.card),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(AppSpacing.md),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surface,
+                                        borderRadius: BorderRadius.circular(AppRadius.card),
+                                        border: Border.all(color: AppColors.border),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              AppAvatar(name: s.name, radius: 18),
+                                              const SizedBox(width: AppSpacing.md),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      s.name,
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textStrong),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      s.admissionNumber != null ? 'Adm: ${s.admissionNumber}' : 'No Adm No',
+                                                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              StatusBadge(text: s.status.toUpperCase(), status: BadgeStatus.success),
+                                            ],
+                                          ),
+                                          if (s.phone != null && s.phone!.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                const Icon(LucideIcons.phone, size: 14, color: AppColors.textMuted),
+                                                const SizedBox(width: 6),
+                                                Text(s.phone!, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                                const Spacer(),
+                                                const Text('View Profile →', style: TextStyle(fontSize: 12, color: AppColors.brandDark, fontWeight: FontWeight.w600)),
+                                              ],
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                                 rowBuilder: (context, s) {
                                   return InkWell(
                                     onTap: () async {
@@ -594,6 +754,50 @@ class _CourseDetailsScreenState extends ConsumerState<CourseDetailsScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMetricCard({required IconData icon, required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.control),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.brandDark),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(color: AppColors.textStrong, fontSize: 13, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
