@@ -197,10 +197,44 @@ class SupabaseStudentRepository implements StudentRepository {
         }
       }
       if (courseId != null) {
-        req = req.eq('course_id', courseId);
+        Set<int> enrolledStudentIds = {};
+        try {
+          final enrRows = await _client
+              .from('student_enrollments')
+              .select('student_id')
+              .eq('course_id', courseId)
+              .isFilter('deleted_at', null);
+          enrolledStudentIds = (enrRows as List)
+              .map((r) => r['student_id'])
+              .whereType<int>()
+              .toSet();
+        } catch (_) {}
+
+        if (enrolledStudentIds.isNotEmpty) {
+          req = req.or('course_id.eq.$courseId,id.in.(${enrolledStudentIds.join(',')})');
+        } else {
+          req = req.eq('course_id', courseId);
+        }
       }
       if (batchId != null) {
-        req = req.eq('batch_id', batchId);
+        Set<int> enrolledStudentIds = {};
+        try {
+          final enrRows = await _client
+              .from('student_enrollments')
+              .select('student_id')
+              .eq('batch_id', batchId)
+              .isFilter('deleted_at', null);
+          enrolledStudentIds = (enrRows as List)
+              .map((r) => r['student_id'])
+              .whereType<int>()
+              .toSet();
+        } catch (_) {}
+
+        if (enrolledStudentIds.isNotEmpty) {
+          req = req.or('batch_id.eq.$batchId,id.in.(${enrolledStudentIds.join(',')})');
+        } else {
+          req = req.eq('batch_id', batchId);
+        }
       }
       if (year != null) {
         final bRows = await _client.from('batches').select('id').eq('current_year', year);
@@ -254,10 +288,44 @@ class SupabaseStudentRepository implements StudentRepository {
         }
       }
       if (courseId != null) {
-        req = req.eq('course_id', courseId);
+        Set<int> enrolledStudentIds = {};
+        try {
+          final enrRows = await _client
+              .from('student_enrollments')
+              .select('student_id')
+              .eq('course_id', courseId)
+              .isFilter('deleted_at', null);
+          enrolledStudentIds = (enrRows as List)
+              .map((r) => r['student_id'])
+              .whereType<int>()
+              .toSet();
+        } catch (_) {}
+
+        if (enrolledStudentIds.isNotEmpty) {
+          req = req.or('course_id.eq.$courseId,id.in.(${enrolledStudentIds.join(',')})');
+        } else {
+          req = req.eq('course_id', courseId);
+        }
       }
       if (batchId != null) {
-        req = req.eq('batch_id', batchId);
+        Set<int> enrolledStudentIds = {};
+        try {
+          final enrRows = await _client
+              .from('student_enrollments')
+              .select('student_id')
+              .eq('batch_id', batchId)
+              .isFilter('deleted_at', null);
+          enrolledStudentIds = (enrRows as List)
+              .map((r) => r['student_id'])
+              .whereType<int>()
+              .toSet();
+        } catch (_) {}
+
+        if (enrolledStudentIds.isNotEmpty) {
+          req = req.or('batch_id.eq.$batchId,id.in.(${enrolledStudentIds.join(',')})');
+        } else {
+          req = req.eq('batch_id', batchId);
+        }
       }
       if (year != null) {
         final bRows = await _client.from('batches').select('id').eq('current_year', year);

@@ -132,7 +132,12 @@ final nextAdmissionNumberProvider = FutureProvider<String>((ref) async {
   return await repo.getNextAdmissionNumber();
 });
 
-final courseStudentsProvider = FutureProvider.family<List<Student>, int>((ref, courseId) async {
+final courseStudentsProvider = FutureProvider.autoDispose.family<List<Student>, int>((ref, courseId) async {
   final repo = ref.read(studentRepositoryProvider);
   return await repo.getStudents(courseId: courseId);
+});
+
+final studentEnrollmentsProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, int>((ref, studentId) async {
+  final repo = ref.read(studentRepositoryProvider);
+  return await repo.getStudentEnrollments(studentId);
 });

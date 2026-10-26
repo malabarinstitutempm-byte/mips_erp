@@ -50,6 +50,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
       ref.invalidate(studentResultsProvider(_student.id!));
       ref.invalidate(studentFeeDetailsProvider(_student.id!));
       ref.invalidate(studentPaymentsProvider(_student.id!));
+      ref.invalidate(studentEnrollmentsProvider(_student.id!));
       final updated = await ref.read(studentRepositoryProvider).getStudentById(_student.id!);
       if (updated != null && mounted) {
         setState(() {
@@ -303,6 +304,14 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
       orElse: () => null,
     );
 
+    final enrollmentsAsync = _student.id != null
+        ? ref.watch(studentEnrollmentsProvider(_student.id!))
+        : const AsyncValue.data(<Map<String, dynamic>>[]);
+    final skillEnrollments = enrollmentsAsync.maybeWhen(
+      data: (list) => list.where((e) => e['kind'] == 'skill').toList(),
+      orElse: () => <Map<String, dynamic>>[],
+    );
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -398,6 +407,19 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                                               Text(
                                                 '(${_student.completedOn})',
                                                 style: const TextStyle(color: Colors.purple, fontSize: 11, fontWeight: FontWeight.bold),
+                                              ),
+                                            for (final skill in skillEnrollments)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.purple.withValues(alpha: 0.1),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                                                ),
+                                                child: Text(
+                                                  '+ ${skill['courses']?['name'] ?? 'Skill'}',
+                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple),
+                                                ),
                                               ),
                                           ],
                                         ),
@@ -529,6 +551,19 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                                             '(${_student.completedOn})',
                                             style: const TextStyle(color: Colors.purple, fontSize: 12, fontWeight: FontWeight.bold),
                                           ),
+                                        for (final skill in skillEnrollments)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.purple.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                                            ),
+                                            child: Text(
+                                              '+ ${skill['courses']?['name'] ?? 'Skill'} (Skill)',
+                                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.purple),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                     const SizedBox(height: AppSpacing.sm),
@@ -639,7 +674,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildOverviewTab(courseName, batch),
+                      _buildOverviewTab(courseName, batch, skillEnrollments),
                       StudentFeesTab(student: _student),
                       StudentDocumentsTab(
                         student: _student,
@@ -658,8 +693,73 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
     );
   }
 
-  Widget _buildOverviewTab(String courseName, Batch? batch) {
+  Widget _buildOverviewTab(String courseName, Batch? batch, List<Map<String, dynamic>> skillEnrollments) {
     final isMobile = MediaQuery.of(context).size.width < 800;
+
+    final skillCard = skillEnrollments.isNotEmpty
+        ? SectionCard(
+            title: 'Skill Courses & Certifications',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: skillEnrollments.map((e) {
+                final cMap = e['courses'] as Map<String, dynamic>?;
+                final bMap = e['batches'] as Map<String, dynamic>?;
+                final cName = cMap?['name']?.toString() ?? 'Skill Course';
+                final bName = bMap?['batch_name']?.toString() ?? 'Batch';
+                final enrDate = e['enrolled_on']?.toString() ?? 'N/A';
+                final status = e['status']?.toString().toUpperCase() ?? 'ACTIVE';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(AppRadius.control),
+                    border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(LucideIcons.sparkles, color: Colors.purple, size: 20),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(cName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Text('Batch: $bName • Enrolled: $enrDate', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: status == 'ACTIVE' ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: status == 'ACTIVE' ? Colors.green : Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          )
+        : null;
 
     final personalCard = SectionCard(
       title: 'Personal Details',
@@ -698,14 +798,27 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                 personalCard,
                 const SizedBox(height: AppSpacing.lg),
                 academicCard,
+                if (skillCard != null) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  skillCard,
+                ],
               ],
             )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: personalCard),
-                const SizedBox(width: AppSpacing.xl),
-                Expanded(child: academicCard),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: personalCard),
+                    const SizedBox(width: AppSpacing.xl),
+                    Expanded(child: academicCard),
+                  ],
+                ),
+                if (skillCard != null) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  skillCard,
+                ],
               ],
             ),
     );
@@ -857,6 +970,13 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                       batchId: selectedBatchId,
                       feePaise: feePaise > 0 ? feePaise : null,
                     );
+
+                    if (_student.id != null) {
+                      ref.invalidate(studentEnrollmentsProvider(_student.id!));
+                      ref.invalidate(courseStudentsProvider(selectedCourseId!));
+                      ref.invalidate(studentsProvider);
+                      ref.invalidate(studentFeeDetailsProvider(_student.id!));
+                    }
 
                     await _refreshStudent();
                     if (mounted) {
