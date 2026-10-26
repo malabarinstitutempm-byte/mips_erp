@@ -46,6 +46,11 @@ class Exam {
   }
 
   Map<String, dynamic> toMap() {
+    String? formattedDate = examDate;
+    if (formattedDate != null && formattedDate.contains('T')) {
+      formattedDate = formattedDate.split('T').first;
+    }
+
     return {
       if (id != null) 'id': id,
       'name': name,
@@ -56,14 +61,11 @@ class Exam {
       'period_no': periodNo,
       if (overrideReason != null) 'override_reason': overrideReason,
       if (semester != null) 'semester': semester,
-      if (examDate != null) 'date': examDate,
-      if (examDate != null) 'exam_date': examDate,
+      if (formattedDate != null) 'exam_date': formattedDate,
       if (publishDate != null) 'published_at': publishDate,
-      if (publishDate != null) 'publish_date': publishDate,
       'status': status.toLowerCase(),
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
-      if (deletedAt != null) 'deleted_at': deletedAt,
     };
   }
 

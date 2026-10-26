@@ -34,6 +34,14 @@ class ExamsScreen extends ConsumerWidget {
           title: 'Examinations',
           subtitle: 'Manage term exams, mark entries, and publish results',
           actions: [
+            IconButton(
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              tooltip: 'Refresh exams',
+              onPressed: () {
+                ref.invalidate(examDashboardProvider);
+                ref.invalidate(examsProvider);
+              },
+            ),
             OutlinedButton.icon(
               onPressed: () {
                 showDialog(

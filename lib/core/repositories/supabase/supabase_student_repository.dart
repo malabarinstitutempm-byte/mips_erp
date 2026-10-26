@@ -848,24 +848,20 @@ class SupabaseStudentRepository implements StudentRepository {
   Future<Map<String, dynamic>> addSkillCourse({
     required int studentId,
     required int courseId,
-    required int batchId,
+    int? batchId,
     int? feePaise,
   }) async {
-    try {
-      SupabaseService.instance.assertCanWrite('add skill course');
+    SupabaseService.instance.assertCanWrite('add skill course');
 
-      final res = await _client.rpc('add_student_skill_course', params: {
-        'p_student_id': studentId,
-        'p_course_id': courseId,
-        'p_batch_id': batchId,
-        'p_fee_paise': feePaise,
-      });
+    final params = <String, dynamic>{
+      'p_student_id': studentId,
+      'p_course_id': courseId,
+    };
+    if (batchId != null) params['p_batch_id'] = batchId;
+    if (feePaise != null) params['p_fee_paise'] = feePaise;
 
-      return Map<String, dynamic>.from(res as Map);
-    } catch (e) {
-      debugPrint('SupabaseStudentRepository.addSkillCourse fallback: $e');
-      return {'success': true, 'student_id': studentId, 'course_id': courseId, 'batch_id': batchId};
-    }
+    final res = await _client.rpc('add_student_skill_course', params: params);
+    return Map<String, dynamic>.from(res as Map);
   }
 
   @override

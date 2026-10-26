@@ -83,119 +83,77 @@ class SupabaseExamRepository implements ExamRepository {
 
   @override
   Future<Exam> createExam(Exam exam, List<Subject> subjects) async {
-    try {
-      SupabaseService.instance.assertCanWrite('create exam');
+    SupabaseService.instance.assertCanWrite('create exam');
 
-      final payload = exam.toMap();
-      payload.remove('id');
-      payload.remove('is_deleted');
-      payload.remove('created_at');
-      payload.remove('updated_at');
+    final payload = exam.toMap();
+    payload.remove('id');
+    payload.remove('date');
+    payload.remove('publish_date');
+    payload.remove('is_deleted');
+    payload.remove('created_at');
+    payload.remove('updated_at');
 
-      final data = await _client
-          .from('exams')
-          .insert(payload)
-          .select()
-          .single();
+    final data = await _client
+        .from('exams')
+        .insert(payload)
+        .select()
+        .single();
 
-      final newExam = Exam.fromMap(Map<String, dynamic>.from(data));
+    final newExam = Exam.fromMap(Map<String, dynamic>.from(data));
 
-      if (subjects.isNotEmpty && newExam.id != null) {
-        final subjectRows = subjects.map((s) {
-          final m = s.toMap();
-          m['exam_id'] = newExam.id;
-          m.remove('id');
-          return m;
-        }).toList();
+    if (subjects.isNotEmpty && newExam.id != null) {
+      final subjectRows = subjects.map((s) {
+        final m = s.toMap();
+        m['exam_id'] = newExam.id;
+        m.remove('id');
+        return m;
+      }).toList();
 
-        await _client.from('exam_subjects').insert(subjectRows);
-      }
-
-      return newExam;
-    } catch (e) {
-      debugPrint('SupabaseExamRepository.createExam fallback used: $e');
-      final newId = DateTime.now().millisecondsSinceEpoch % 100000;
-      final localExam = Exam(
-        id: newId,
-        name: exam.name,
-        academicYearId: exam.academicYearId,
-        courseId: exam.courseId,
-        batchId: exam.batchId,
-        semester: exam.semester,
-        examDate: exam.examDate,
-        publishDate: exam.publishDate,
-        status: exam.status,
-        isDeleted: false,
-      );
-      _fallbackExams.insert(0, localExam);
-
-      if (subjects.isNotEmpty) {
-        final localSubjects = subjects.map((s) {
-          return Subject(
-            id: DateTime.now().millisecondsSinceEpoch % 100000 + subjects.indexOf(s),
-            examId: newId,
-            name: s.name,
-            code: s.code,
-            maxMarks: s.maxMarks,
-            passMarks: s.passMarks,
-          );
-        }).toList();
-        _fallbackSubjects[newId] = localSubjects;
-      }
-
-      return localExam;
+      await _client.from('exam_subjects').insert(subjectRows);
     }
+
+    return newExam;
   }
 
   @override
   Future<Exam> updateExam(Exam exam, List<Subject> subjects) async {
-    try {
-      SupabaseService.instance.assertCanWrite('update exam');
+    SupabaseService.instance.assertCanWrite('update exam');
 
-      if (exam.id == null) {
-        throw ArgumentError('Exam ID is required for update.');
-      }
-
-      final payload = exam.toMap();
-      payload.remove('id');
-      payload.remove('is_deleted');
-      payload.remove('created_at');
-      payload['updated_at'] = DateTime.now().toIso8601String();
-
-      final data = await _client
-          .from('exams')
-          .update(payload)
-          .eq('id', exam.id!)
-          .select()
-          .single();
-
-      final updatedExam = Exam.fromMap(Map<String, dynamic>.from(data));
-
-      // Update exam subjects
-      await _client.from('exam_subjects').delete().eq('exam_id', exam.id!);
-      if (subjects.isNotEmpty) {
-        final subjectRows = subjects.map((s) {
-          final m = s.toMap();
-          m['exam_id'] = exam.id;
-          m.remove('id');
-          return m;
-        }).toList();
-
-        await _client.from('exam_subjects').insert(subjectRows);
-      }
-
-      return updatedExam;
-    } catch (e) {
-      debugPrint('SupabaseExamRepository.updateExam fallback used: $e');
-      final idx = _fallbackExams.indexWhere((e) => e.id == exam.id);
-      if (idx != -1) {
-        _fallbackExams[idx] = exam;
-      }
-      if (subjects.isNotEmpty && exam.id != null) {
-        _fallbackSubjects[exam.id!] = List.from(subjects);
-      }
-      return exam;
+    if (exam.id == null) {
+      throw ArgumentError('Exam ID is required for update.');
     }
+
+    final payload = exam.toMap();
+    payload.remove('id');
+    payload.remove('date');
+    payload.remove('publish_date');
+    payload.remove('is_deleted');
+    payload.remove('created_at');
+    payload['updated_at'] = DateTime.now().toIso8601String();
+
+    final data = await _client
+        .from('exams')
+        .update(payload)
+        .eq('id', exam.id!)
+        .select()
+        .single();
+
+    final updatedExam = Exam.fromMap(Map<String, dynamic>.from(data));
+
+    // Update exam subjects
+    await _client.from('exam_subjects').delete().eq('exam_id', exam.id!);
+    if (subjects.isNotEmpty) {
+      final subjectRows = subjects.map((s) {
+        final m = s.toMap();
+        m['exam_id'] = exam.id;
+        m.remove('id');
+        return m;
+      }).toList();
+
+      await _client.from('exam_subjects').insert(subjectRows);
+    }
+
+    return updatedExam;
   }
 
   @override

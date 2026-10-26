@@ -509,33 +509,7 @@ export const studentService = {
       }
     } catch (_) {}
 
-    // Fallback published transcript for live testing
-    return [
-      {
-        id: 1,
-        examId: 1,
-        examName: 'First Year Final Examination - March 2026',
-        examCode: 'EXAM-2026-DMLT-1',
-        courseId: 1,
-        courseName: 'Diploma in Medical Laboratory Technology',
-        courseType: 'primary',
-        batchName: 'Batch 2024-26 (A)',
-        publishedAt: '2026-04-10T10:00:00Z',
-        totalMarks: 412,
-        maxMarks: 500,
-        percentage: 82.4,
-        grade: 'A+',
-        status: 'PASS',
-        resultCode: `MIPS-2026-DMLT-00${studentId}`,
-        subjects: [
-          { subjectId: 1, subjectName: 'Clinical Biochemistry', subjectCode: 'DMLT-101', obtainedMarks: 85, maxMarks: 100, passMarks: 40, isPass: true, isAbsent: false },
-          { subjectId: 2, subjectName: 'Hematology & Blood Banking', subjectCode: 'DMLT-102', obtainedMarks: 88, maxMarks: 100, passMarks: 40, isPass: true, isAbsent: false },
-          { subjectId: 3, subjectName: 'Medical Microbiology', subjectCode: 'DMLT-103', obtainedMarks: 78, maxMarks: 100, passMarks: 40, isPass: true, isAbsent: false },
-          { subjectId: 4, subjectName: 'Clinical Pathology', subjectCode: 'DMLT-104', obtainedMarks: 81, maxMarks: 100, passMarks: 40, isPass: true, isAbsent: false },
-          { subjectId: 5, subjectName: 'Practical & Viva Voce', subjectCode: 'DMLT-105', obtainedMarks: 80, maxMarks: 100, passMarks: 40, isPass: true, isAbsent: false },
-        ],
-      },
-    ];
+    return [];
   },
 
   // 3. Fees Ledger & Receipts
@@ -705,53 +679,20 @@ export const studentService = {
       }
     } catch (_) {}
 
-    // Fallback fee ledger for live testing
     return {
       summary: {
-        totalFeePaise: 4500000,
-        paidAmountPaise: 1000000,
-        pendingAmountPaise: 3500000,
-        primaryFeePaise: 4500000,
-        primaryPaidPaise: 1000000,
-        primaryPendingPaise: 3500000,
+        totalFeePaise: 0,
+        paidAmountPaise: 0,
+        pendingAmountPaise: 0,
+        primaryFeePaise: 0,
+        primaryPaidPaise: 0,
+        primaryPendingPaise: 0,
         skillFeePaise: 0,
         skillPaidPaise: 0,
         skillPendingPaise: 0,
       },
-      items: [
-        {
-          id: 1,
-          title: 'Admission & First Term Tuition',
-          kind: 'tuition',
-          courseName: 'Diploma in Medical Laboratory Technology',
-          amountPaise: 2500000,
-          paidAmountPaise: 1000000,
-          pendingAmountPaise: 1500000,
-          dueDate: '2026-06-30',
-          status: 'Due',
-        },
-        {
-          id: 2,
-          title: 'Second Term Tuition & Clinical Lab Fee',
-          kind: 'tuition',
-          courseName: 'Diploma in Medical Laboratory Technology',
-          amountPaise: 2000000,
-          paidAmountPaise: 0,
-          pendingAmountPaise: 2000000,
-          dueDate: '2026-12-31',
-          status: 'Due',
-        },
-      ],
-      payments: [
-        {
-          id: 1,
-          receiptNumber: 'REC-2026-0001',
-          date: '2026-06-10',
-          amountPaise: 1000000,
-          paymentMode: 'Bank Transfer / UPI',
-          referenceNumber: 'UPI-9823482734',
-        },
-      ],
+      items: [],
+      payments: [],
       lastUpdated: new Date().toISOString(),
     };
   },
@@ -986,153 +927,39 @@ export const studentService = {
       }
     } catch (_) {}
 
-    // Fallback attendance metrics for live testing
-    const fallbackSemesters: SemesterSummary[] = [
-      {
-        semester_no: 1,
-        academic_year: 1,
-        start_date: '2025-08-01',
-        end_date: '2025-12-31',
-        is_current: false,
-        sessions_held: 120,
-        present: 106,
-        late: 4,
-        absent: 8,
-        leave: 2,
-        percentage: 90.0,
-        met_minimum: true,
-        semester_status: 'closed',
-      },
-      {
-        semester_no: 2,
-        academic_year: 1,
-        start_date: '2026-01-05',
-        end_date: '2026-06-30',
-        is_current: true,
-        sessions_held: 60,
-        present: 52,
-        late: 2,
-        absent: 5,
-        leave: 1,
-        percentage: 88.33,
-        met_minimum: true,
-        semester_status: 'active',
-      },
-    ];
-
-    const currentSemester = 2;
-    const activeSem = semesterNo || currentSemester;
-    const isCurrent = activeSem === currentSemester;
-
-    let fallbackSummary: AttendanceSummary;
-    let fallbackCalendar: CalendarSessionDay[] = [];
-
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-
-    if (activeSem === 1) {
-      fallbackSummary = {
-        student_id: studentId,
-        enrollment_id: enrollmentId || 1,
-        course_name: 'Diploma in Medical Laboratory Technology',
-        batch_name: 'Batch 2024-26 (A)',
-        semester_no: 1,
-        met_minimum: true,
-        is_current: false,
-        sessions_held: 120,
-        present: 106,
-        late: 4,
-        absent: 8,
-        leave: 2,
-        weighted_present: 108.0,
-        percentage: 90.0,
-        status_band: 'ok',
-        can_miss_more: 15,
-        recover_sessions: 0,
-        morning_held: 60,
-        morning_present: 54,
-        morning_percentage: 90,
-        evening_held: 60,
-        evening_present: 54,
-        evening_percentage: 90,
-        deduction_absent_pts: 6.67,
-        deduction_late_pts: 1.67,
-      };
-      fallbackCalendar = [
-        { date: '2025-12-15', slot: 'morning', status: 'present' },
-        { date: '2025-12-15', slot: 'evening', status: 'present' },
-        { date: '2025-12-14', slot: 'morning', status: 'present' },
-        { date: '2025-12-14', slot: 'evening', status: 'late' },
-        { date: '2025-12-13', slot: 'morning', status: 'present' },
-        { date: '2025-12-13', slot: 'evening', status: 'present' },
-      ];
-    } else {
-      fallbackSummary = {
-        student_id: studentId,
-        enrollment_id: enrollmentId || 1,
-        course_name: 'Diploma in Medical Laboratory Technology',
-        batch_name: 'Batch 2024-26 (A)',
-        semester_no: 2,
-        met_minimum: true,
-        is_current: true,
-        sessions_held: 60,
-        present: 52,
-        late: 2,
-        absent: 5,
-        leave: 1,
-        weighted_present: 53.0,
-        percentage: 88.33,
-        status_band: 'ok',
-        can_miss_more: 8,
-        recover_sessions: 0,
-        morning_held: 30,
-        morning_present: 27,
-        morning_percentage: 90,
-        evening_held: 30,
-        evening_present: 26,
-        evening_percentage: 87,
-        deduction_absent_pts: 8.33,
-        deduction_late_pts: 1.67,
-      };
-      fallbackCalendar = [
-        { date: todayStr, slot: 'morning', status: 'present' },
-        { date: todayStr, slot: 'evening', status: 'present' },
-        { date: yesterdayStr, slot: 'morning', status: 'present' },
-        { date: yesterdayStr, slot: 'evening', status: 'late' },
-        { date: '2026-10-18', slot: 'morning', status: 'present' },
-        { date: '2026-10-18', slot: 'evening', status: 'present' },
-        { date: '2026-10-17', slot: 'morning', status: 'present' },
-        { date: '2026-10-17', slot: 'evening', status: 'present' },
-        { date: '2026-10-16', slot: 'morning', status: 'present' },
-        { date: '2026-10-16', slot: 'evening', status: 'present' },
-        { date: '2026-10-15', slot: 'morning', status: 'present' },
-        { date: '2026-10-15', slot: 'evening', status: 'absent' },
-        { date: '2026-10-14', slot: 'morning', status: 'no_class' },
-        { date: '2026-10-14', slot: 'evening', status: 'present' },
-        { date: '2026-10-13', slot: 'morning', status: 'present' },
-        { date: '2026-10-13', slot: 'evening', status: 'late' },
-        { date: '2026-10-12', slot: 'morning', status: 'present' },
-        { date: '2026-10-12', slot: 'evening', status: 'present' },
-      ];
-    }
-
     return {
-      summary: fallbackSummary,
-      calendar: fallbackCalendar,
-      morningStats: {
-        held: fallbackSummary.morning_held,
-        present: fallbackSummary.morning_present,
-        percentage: fallbackSummary.morning_percentage,
+      summary: {
+        student_id: studentId,
+        enrollment_id: enrollmentId || 0,
+        course_name: '',
+        batch_name: '',
+        semester_no: semesterNo || 1,
+        met_minimum: true,
+        is_current: true,
+        sessions_held: 0,
+        present: 0,
+        late: 0,
+        absent: 0,
+        leave: 0,
+        weighted_present: 0,
+        percentage: 0,
+        status_band: 'ok',
+        can_miss_more: 0,
+        recover_sessions: 0,
+        morning_held: 0,
+        morning_present: 0,
+        morning_percentage: 0,
+        evening_held: 0,
+        evening_present: 0,
+        evening_percentage: 0,
+        deduction_absent_pts: 0,
+        deduction_late_pts: 0,
       },
-      eveningStats: {
-        held: fallbackSummary.evening_held,
-        present: fallbackSummary.evening_present,
-        percentage: fallbackSummary.evening_percentage,
-      },
-      semesters: fallbackSemesters,
-      currentSemester,
+      calendar: [],
+      morningStats: { held: 0, present: 0, percentage: 0 },
+      eveningStats: { held: 0, present: 0, percentage: 0 },
+      semesters: [],
+      currentSemester: semesterNo || 1,
     };
   },
 
@@ -1334,68 +1161,7 @@ export const studentService = {
       }
     } catch (_) {}
 
-    return [
-      {
-        id: 101,
-        examId: 1,
-        examName: 'First Semester University Examination 2026',
-        batchId: batchIds[0] || 1,
-        batchName: 'DMLT Batch A (2023-2025)',
-        courseName: 'Diploma in Medical Laboratory Technology',
-        subjectName: 'Clinical Biochemistry',
-        subjectCode: 'MLT101',
-        examDate: '2026-11-02',
-        startTime: '10:00',
-        endTime: '13:00',
-        room: 'Main Examination Hall A',
-        instructions: 'Reporting time: 09:30 AM. Non-programmable calculators permitted. ID & Hall ticket mandatory.',
-      },
-      {
-        id: 102,
-        examId: 1,
-        examName: 'First Semester University Examination 2026',
-        batchId: batchIds[0] || 1,
-        batchName: 'DMLT Batch A (2023-2025)',
-        courseName: 'Diploma in Medical Laboratory Technology',
-        subjectName: 'Hematology & Blood Banking',
-        subjectCode: 'MLT102',
-        examDate: '2026-11-04',
-        startTime: '10:00',
-        endTime: '13:00',
-        room: 'Main Examination Hall A',
-        instructions: 'Reporting time: 09:30 AM. Mandatory practical logbook verification before theory entrance.',
-      },
-      {
-        id: 103,
-        examId: 1,
-        examName: 'First Semester University Examination 2026',
-        batchId: batchIds[0] || 1,
-        batchName: 'DMLT Batch A (2023-2025)',
-        courseName: 'Diploma in Medical Laboratory Technology',
-        subjectName: 'Medical Microbiology & Parasitology',
-        subjectCode: 'MLT103',
-        examDate: '2026-11-06',
-        startTime: '10:00',
-        endTime: '13:00',
-        room: 'Examination Hall B',
-        instructions: 'Reporting time: 09:30 AM. Standard university answer book rules apply.',
-      },
-      {
-        id: 104,
-        examId: 1,
-        examName: 'First Semester University Examination 2026',
-        batchId: batchIds[0] || 1,
-        batchName: 'DMLT Batch A (2023-2025)',
-        courseName: 'Diploma in Medical Laboratory Technology',
-        subjectName: 'Clinical Pathology & Histotechnology',
-        subjectCode: 'MLT104',
-        examDate: '2026-11-09',
-        startTime: '10:00',
-        endTime: '13:00',
-        room: 'Examination Hall B',
-        instructions: 'Reporting time: 09:30 AM. Final theory paper of Semester 1.',
-      },
-    ];
+    return [];
   },
 };
 

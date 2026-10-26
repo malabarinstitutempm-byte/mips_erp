@@ -58,7 +58,7 @@ abstract class StudentRepository {
   Future<Map<String, dynamic>> addSkillCourse({
     required int studentId,
     required int courseId,
-    required int batchId,
+    int? batchId,
     int? feePaise,
   });
   Future<List<Map<String, dynamic>>> getStudentEnrollments(int studentId);

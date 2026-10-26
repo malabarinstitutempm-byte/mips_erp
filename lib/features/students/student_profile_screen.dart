@@ -771,7 +771,8 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                     value: selectedCourseId,
                     decoration: const InputDecoration(labelText: 'Skill Course'),
                     items: skillCourses.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-                    onChanged: (val) {
+                    onChanged: (val) async {
+                      if (val == null) return;
                       setDialogState(() {
                         selectedCourseId = val;
                         final match = skillCourses.where((c) => c.id == val).toList();
@@ -779,15 +780,43 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                           feeController.text = match.first.totalFee.toStringAsFixed(0);
                         }
                       });
+                      final batchesRes = await ref.read(batchRepositoryProvider).getBatches(courseId: val);
+                      setDialogState(() {
+                        availableBatches = batchesRes.map((b) => {'id': b.id, 'name': b.batchName}).toList();
+                        selectedBatchId = availableBatches.isNotEmpty ? availableBatches.first['id'] as int : null;
+                      });
                     },
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<int?>(
-                    value: selectedBatchId,
-                    decoration: const InputDecoration(labelText: 'Skill Course Batch'),
-                    items: availableBatches.map((b) => DropdownMenuItem(value: b['id'] as int, child: Text(b['name'] as String))).toList(),
-                    onChanged: (val) => setDialogState(() => selectedBatchId = val),
-                  ),
+                  if (availableBatches.isNotEmpty) ...[
+                    DropdownButtonFormField<int?>(
+                      value: selectedBatchId,
+                      decoration: const InputDecoration(labelText: 'Skill Course Batch'),
+                      items: availableBatches.map((b) => DropdownMenuItem(value: b['id'] as int, child: Text(b['name'] as String))).toList(),
+                      onChanged: (val) => setDialogState(() => selectedBatchId = val),
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.purple.withOpacity(0.2)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(LucideIcons.info, size: 16, color: Colors.purple),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No batches found. A default batch will be created automatically upon enrollment.',
+                              style: TextStyle(fontSize: 12, color: Colors.purple),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: feeController,
@@ -805,7 +834,12 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: Colors.purple),
                 onPressed: () async {
-                  if (selectedCourseId == null || selectedBatchId == null) return;
+                  if (selectedCourseId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please select a skill course first.')),
+                    );
+                    return;
+                  }
                   Navigator.pop(ctx);
                   try {
                     final feeAmount = double.tryParse(feeController.text.trim()) ?? 0.0;
@@ -814,7 +848,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                     await client.addSkillCourse(
                       studentId: _student.id!,
                       courseId: selectedCourseId!,
-                      batchId: selectedBatchId!,
+                      batchId: selectedBatchId,
                       feePaise: feePaise > 0 ? feePaise : null,
                     );
 
