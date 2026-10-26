@@ -8,13 +8,12 @@ import '../courses/course_provider.dart';
 
 final studentRepositoryProvider = Provider<StudentRepository>((ref) => SupabaseStudentRepository());
 
-final allBatchesProvider = FutureProvider<List<Batch>>((ref) async {
-  ref.keepAlive();
+final allBatchesProvider = FutureProvider.autoDispose<List<Batch>>((ref) async {
   final repo = ref.watch(batchRepositoryProvider);
   return repo.getBatches(includeCompleted: true);
 });
 
-final batchesMapProvider = FutureProvider<Map<int, Batch>>((ref) async {
+final batchesMapProvider = FutureProvider.autoDispose<Map<int, Batch>>((ref) async {
   final batches = await ref.watch(allBatchesProvider.future);
   return {for (var b in batches) if (b.id != null) b.id!: b};
 });

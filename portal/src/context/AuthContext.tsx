@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { parseDobToIso } from '../lib/formatters';
 import { pushNotificationService } from '../lib/pushNotifications';
 import { accountSyncService } from '../services/accountSyncService';
+import { realtimeSyncService } from '../services/realtimeSyncService';
 import type { UserRole, UserProfile, AuthResponse, AuthUser, LoginFailureDetails } from '../types';
 
 interface AuthContextType {
@@ -233,6 +234,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     };
   }, [user, resetInactivityTimer]);
+
+  // Realtime cross-user synchronization
+  useEffect(() => {
+    realtimeSyncService.init(queryClient, user, role, () => {
+      logout();
+    });
+    return () => {
+      realtimeSyncService.cleanup();
+    };
+  }, [user, role, queryClient, logout]);
 
   // Initial Auth Check with persistent localStorage session support (survives browser reload)
   useEffect(() => {

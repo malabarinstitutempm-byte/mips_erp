@@ -7,7 +7,7 @@ final teacherAdminRepositoryProvider = Provider<TeacherAdminRepository>((ref) {
   return SupabaseTeacherAdminRepository();
 });
 
-final teachersListProvider = FutureProvider<List<Teacher>>((ref) async {
+final teachersListProvider = FutureProvider.autoDispose<List<Teacher>>((ref) async {
   final repo = ref.watch(teacherAdminRepositoryProvider);
   return repo.getTeachers();
 });

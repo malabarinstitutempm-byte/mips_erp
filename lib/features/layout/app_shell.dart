@@ -21,6 +21,7 @@ import '../timetable/timetable_screen.dart';
 import '../teachers/teachers_screen.dart';
 import '../accounts/accounts_screen.dart';
 import '../batches/batches_screen.dart';
+import '../../core/services/realtime_sync_service.dart';
 
 final navigationProvider = StateProvider<int>((ref) => 0);
 final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
@@ -93,6 +94,7 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(realtimeSyncServiceProvider);
     final currentIndex = ref.watch(navigationProvider);
     final isMobile = Responsive.isPhone(context);
     final isDesktop = Responsive.isDesktop(context);

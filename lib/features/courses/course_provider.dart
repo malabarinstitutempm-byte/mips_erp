@@ -9,14 +9,9 @@ import '../../core/repositories/supabase/supabase_batch_repository.dart';
 final courseRepositoryProvider = Provider<CourseRepository>((ref) => SupabaseCourseRepository());
 final batchRepositoryProvider = Provider<BatchRepository>((ref) => SupabaseBatchRepository());
 
-final coursesProvider = FutureProvider<List<Course>>((ref) async {
-  ref.keepAlive();
-  try {
-    final repo = ref.read(courseRepositoryProvider);
-    final list = await repo.getCourses();
-    if (list.isNotEmpty) return list;
-  } catch (_) {}
-  return SupabaseCourseRepository.fallbackCourses;
+final coursesProvider = FutureProvider.autoDispose<List<Course>>((ref) async {
+  final repo = ref.read(courseRepositoryProvider);
+  return await repo.getCourses();
 });
 
 final courseSubjectsProvider = FutureProvider.family<List<CourseSubject>, int>((ref, courseId) async {

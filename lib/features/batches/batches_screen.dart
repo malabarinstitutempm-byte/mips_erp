@@ -26,7 +26,7 @@ final selectedCourseFilterProvider = StateProvider<int?>((ref) => null);
 final batchSearchQueryProvider = StateProvider<String>((ref) => '');
 final promotedYearsProvider = StateProvider<Map<int, int>>((ref) => {});
 
-final batchesListProvider = FutureProvider<List<Batch>>((ref) async {
+final batchesListProvider = FutureProvider.autoDispose<List<Batch>>((ref) async {
   final repo = ref.watch(batchRepositoryProvider);
   final showCompleted = ref.watch(showCompletedBatchesProvider);
   final courseId = ref.watch(selectedCourseFilterProvider);

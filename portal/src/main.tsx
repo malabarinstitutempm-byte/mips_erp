@@ -20,69 +20,68 @@ const queryClient = new QueryClient({
   },
 });
 
-// O3 Optimization: Granular caching rules by data volatility
-// 1. Static / Reference data: long cache (30-60 mins)
+// Granular caching rules with focus refetch safety net
 queryClient.setQueryDefaults(['studentProfile'], {
-  staleTime: 1000 * 60 * 30,
-  gcTime: 1000 * 60 * 60,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30, // 30 seconds
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['teacherProfile'], {
-  staleTime: 1000 * 60 * 30,
-  gcTime: 1000 * 60 * 60,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['courses'], {
-  staleTime: 1000 * 60 * 30,
-  gcTime: 1000 * 60 * 60,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['batches'], {
-  staleTime: 1000 * 60 * 30,
-  gcTime: 1000 * 60 * 60,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['teacherBatches'], {
-  staleTime: 1000 * 60 * 30,
-  gcTime: 1000 * 60 * 60,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['settings'], {
-  staleTime: 1000 * 60 * 60,
-  gcTime: 1000 * 60 * 120,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 60 * 5,
+  gcTime: 1000 * 60 * 30,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 
-// 2. Results and Fees: medium cache (5-10 mins)
+// 2. Results and Fees: medium cache
 queryClient.setQueryDefaults(['studentFees'], {
-  staleTime: 1000 * 60 * 5,
-  gcTime: 1000 * 60 * 30,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['studentResults'], {
-  staleTime: 1000 * 60 * 5,
-  gcTime: 1000 * 60 * 30,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 30,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['studentTimetable'], {
-  staleTime: 1000 * 60 * 10,
-  gcTime: 1000 * 60 * 30,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 60,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 queryClient.setQueryDefaults(['teacherTimetable'], {
-  staleTime: 1000 * 60 * 10,
-  gcTime: 1000 * 60 * 30,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
+  staleTime: 1000 * 60,
+  gcTime: 1000 * 60 * 15,
+  refetchOnWindowFocus: true,
+  refetchOnReconnect: true,
 });
 
 // 3. Volatile / Real-time: notifications and today's attendance (30s-1 min)
