@@ -8,7 +8,7 @@ import '../../features/batches/batches_screen.dart';
 import '../../features/students/student_provider.dart';
 import '../../features/teachers/teacher_provider.dart';
 import '../../features/fees/fees_provider.dart';
-import '../../features/exams/exams_provider.dart';
+import '../../features/exams/exam_provider.dart';
 import '../../features/announcements/announcements_provider.dart';
 import '../../features/timetable/timetable_provider.dart';
 
@@ -105,12 +105,13 @@ class RealtimeSyncService {
         break;
 
       case 'announcement':
-        _ref.invalidate(announcementsProvider);
+        _ref.invalidate(announcementsListProvider);
         _showNotification('Announcement posted by $actorName');
         break;
 
       case 'timetable':
-        _ref.invalidate(timetableRepositoryProvider);
+        _ref.invalidate(timetablesForBatchProvider);
+        _ref.invalidate(timetableEntriesProvider);
         _showNotification('Timetable updated by $actorName');
         break;
     }
