@@ -28,8 +28,6 @@ final sidebarCollapsedProvider = StateProvider<bool>((ref) => false);
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
-  static final _mobileScaffoldKey = GlobalKey<ScaffoldState>();
-
   Future<void> _confirmAndLogout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -99,21 +97,20 @@ class AppShell extends ConsumerWidget {
     final isMobile = Responsive.isPhone(context);
     final isDesktop = Responsive.isDesktop(context);
     final isCollapsed = !isDesktop || ref.watch(sidebarCollapsedProvider);
-    final scaffoldKey = _mobileScaffoldKey;
-
     // Mobile Phone Admin Shell
     if (isMobile) {
       return Scaffold(
-        key: scaffoldKey,
         backgroundColor: AppColors.bg,
         drawer: _buildDrawer(context, ref, currentIndex),
         appBar: AppBar(
           backgroundColor: AppColors.surface,
           elevation: 1,
           shadowColor: AppColors.border,
-          leading: IconButton(
-            icon: const Icon(LucideIcons.menu, color: AppColors.brandDark, size: 22),
-            onPressed: () => scaffoldKey.currentState?.openDrawer(),
+          leading: Builder(
+            builder: (btnCtx) => IconButton(
+              icon: const Icon(LucideIcons.menu, color: AppColors.brandDark, size: 22),
+              onPressed: () => Scaffold.of(btnCtx).openDrawer(),
+            ),
           ),
           title: Row(
             children: [
@@ -152,42 +149,44 @@ class AppShell extends ConsumerWidget {
             const SizedBox(width: 8),
           ],
         ),
-        bottomNavigationBar: NavigationBar(
-          height: 60,
-          backgroundColor: AppColors.surface,
-          indicatorColor: AppColors.brandTint,
-          selectedIndex: _getBottomNavIndex(currentIndex),
-          onDestinationSelected: (navIdx) {
-            switch (navIdx) {
-              case 0: ref.read(navigationProvider.notifier).state = 0; break;
-              case 1: ref.read(navigationProvider.notifier).state = 1; break;
-              case 2: ref.read(navigationProvider.notifier).state = 3; break;
-              case 3: ref.read(navigationProvider.notifier).state = 5; break;
-              case 4: scaffoldKey.currentState?.openDrawer(); break;
-            }
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(LucideIcons.layoutDashboard, size: 20),
-              label: 'Overview',
-            ),
-            NavigationDestination(
-              icon: Icon(LucideIcons.users, size: 20),
-              label: 'Students',
-            ),
-            NavigationDestination(
-              icon: Icon(LucideIcons.indianRupee, size: 20),
-              label: 'Fees',
-            ),
-            NavigationDestination(
-              icon: Icon(LucideIcons.checkSquare, size: 20),
-              label: 'Exams',
-            ),
-            NavigationDestination(
-              icon: Icon(LucideIcons.menu, size: 20),
-              label: 'More',
-            ),
-          ],
+        bottomNavigationBar: Builder(
+          builder: (navCtx) => NavigationBar(
+            height: 60,
+            backgroundColor: AppColors.surface,
+            indicatorColor: AppColors.brandTint,
+            selectedIndex: _getBottomNavIndex(currentIndex),
+            onDestinationSelected: (navIdx) {
+              switch (navIdx) {
+                case 0: ref.read(navigationProvider.notifier).state = 0; break;
+                case 1: ref.read(navigationProvider.notifier).state = 1; break;
+                case 2: ref.read(navigationProvider.notifier).state = 3; break;
+                case 3: ref.read(navigationProvider.notifier).state = 5; break;
+                case 4: Scaffold.of(navCtx).openDrawer(); break;
+              }
+            },
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(LucideIcons.layoutDashboard, size: 20),
+                label: 'Overview',
+              ),
+              NavigationDestination(
+                icon: Icon(LucideIcons.users, size: 20),
+                label: 'Students',
+              ),
+              NavigationDestination(
+                icon: Icon(LucideIcons.indianRupee, size: 20),
+                label: 'Fees',
+              ),
+              NavigationDestination(
+                icon: Icon(LucideIcons.checkSquare, size: 20),
+                label: 'Exams',
+              ),
+              NavigationDestination(
+                icon: Icon(LucideIcons.menu, size: 20),
+                label: 'More',
+              ),
+            ],
+          ),
         ),
         body: SafeArea(
           child: Padding(

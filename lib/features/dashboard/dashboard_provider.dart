@@ -87,38 +87,55 @@ final dashboardSummaryProvider = FutureProvider<DashboardSummary>((ref) async {
   }
 
   // Resilient fallback query
-  final studentRes = await client
-      .from('students')
-      .select('id')
-      .isFilter('deleted_at', null)
-      .eq('status', 'active')
-      .count(CountOption.exact);
-  final courseRes = await client
-      .from('courses')
-      .select('id')
-      .isFilter('deleted_at', null)
-      .count(CountOption.exact);
-  final examRes = await client
-      .from('exams')
-      .select('id')
-      .isFilter('deleted_at', null)
-      .neq('status', 'published')
-      .count(CountOption.exact);
+  try {
+    final studentRes = await client
+        .from('students')
+        .select('id')
+        .isFilter('deleted_at', null)
+        .eq('status', 'active')
+        .count(CountOption.exact);
+    final courseRes = await client
+        .from('courses')
+        .select('id')
+        .isFilter('deleted_at', null)
+        .count(CountOption.exact);
+    final examRes = await client
+        .from('exams')
+        .select('id')
+        .isFilter('deleted_at', null)
+        .neq('status', 'published')
+        .count(CountOption.exact);
 
-  return DashboardSummary(
-    totalStudents: studentRes.count,
-    totalCourses: courseRes.count,
-    totalBatches: 0,
-    totalFees: 0.0,
-    collectedFees: 0.0,
-    pendingFees: 0.0,
-    upcomingExams: examRes.count,
-    todayMarked: 0,
-    todayUnmarked: 0,
-    tomorrowTimetablePublished: false,
-    recentPayments: const [],
-    recentStudents: const [],
-  );
+    return DashboardSummary(
+      totalStudents: studentRes.count,
+      totalCourses: courseRes.count,
+      totalBatches: 0,
+      totalFees: 0.0,
+      collectedFees: 0.0,
+      pendingFees: 0.0,
+      upcomingExams: examRes.count,
+      todayMarked: 0,
+      todayUnmarked: 0,
+      tomorrowTimetablePublished: false,
+      recentPayments: const [],
+      recentStudents: const [],
+    );
+  } catch (_) {
+    return DashboardSummary(
+      totalStudents: 0,
+      totalCourses: 0,
+      totalBatches: 0,
+      totalFees: 0.0,
+      collectedFees: 0.0,
+      pendingFees: 0.0,
+      upcomingExams: 0,
+      todayMarked: 0,
+      todayUnmarked: 0,
+      tomorrowTimetablePublished: false,
+      recentPayments: const [],
+      recentStudents: const [],
+    );
+  }
 });
 
 final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
