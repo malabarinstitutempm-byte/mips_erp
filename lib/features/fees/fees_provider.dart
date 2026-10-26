@@ -16,7 +16,7 @@ final pendingFeesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) asy
 
     final data = await client
         .from('fees')
-        .select('student_id, total_fee_paise, paid_amount_paise, pending_amount_paise, students!inner(id, name, admission_number, course_id, courses(name))')
+        .select('student_id, total_fee_paise, paid_amount_paise, pending_amount_paise, students(id, name, admission_number, course_id, courses(name))')
         .gt('pending_amount_paise', 0)
         .isFilter('deleted_at', null)
         .order('pending_amount_paise', ascending: false);
@@ -57,7 +57,7 @@ final recentPaymentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) 
 
     final data = await client
         .from('payments')
-        .select('id, amount_paise, payment_mode, date, is_cancelled, reference_number, students!inner(name), receipts(receipt_number)')
+        .select('id, amount_paise, payment_mode, date, is_cancelled, reference_number, students(name), receipts(receipt_number)')
         .isFilter('deleted_at', null)
         .order('id', ascending: false)
         .limit(25);

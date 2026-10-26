@@ -31,86 +31,24 @@ class SupabaseAnnouncementRepository implements AnnouncementRepository {
       'dry_run': dryRun,
     };
 
-    try {
-      if (!dryRun) {
-        SupabaseService.instance.assertCanWrite('send announcement');
-      }
-
-      final res = await _client.rpc('send_announcement', params: {'p_payload': payload});
-      if (res is Map && res.isNotEmpty) {
-        return Map<String, dynamic>.from(res);
-      }
-    } catch (_) {}
-
-    // Fallback recipient count estimation
-    int count = 25;
-    if (audienceType == 'all_students') {
-      count = 52;
-    } else if (audienceType == 'course') {
-      count = 25;
-    } else if (audienceType == 'batch') {
-      count = 25;
-    } else if (audienceType == 'fee_defaulters') {
-      count = 4;
+    if (!dryRun) {
+      SupabaseService.instance.assertCanWrite('send announcement');
     }
 
-    if (dryRun) {
-      return {
-        'recipient_count': count,
-        'dry_run': true,
-      };
+    final res = await _client.rpc('send_announcement', params: {'p_payload': payload});
+    if (res is Map && res.isNotEmpty) {
+      return Map<String, dynamic>.from(res);
     }
-
-    final newId = _fallbackAnnouncements.length + 1;
-    final ann = Announcement(
-      id: newId,
-      category: category,
-      title: title,
-      body: body,
-      audienceType: audienceType,
-      audienceIds: audienceIds,
-      minBalancePaise: minBalancePaise,
-      recipientCount: count,
-      readCount: 0,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    _fallbackAnnouncements.insert(0, ann);
-
-    return {
-      'recipient_count': count,
-      'announcement_id': newId,
-      'status': 'success',
-    };
+    throw StateError('Empty response from send_announcement RPC.');
   }
 
   @override
   Future<Map<String, dynamic>> retractAnnouncement(int announcementId) async {
-    try {
-      SupabaseService.instance.assertCanWrite('retract announcement');
-      final res = await _client.rpc('retract_announcement', params: {
-        'p_announcement_id': announcementId,
-      });
-      return Map<String, dynamic>.from(res is Map ? res : {});
-    } catch (_) {}
-
-    final idx = _fallbackAnnouncements.indexWhere((a) => a.id == announcementId);
-    if (idx != -1) {
-      final a = _fallbackAnnouncements[idx];
-      _fallbackAnnouncements[idx] = Announcement(
-        id: a.id,
-        category: a.category,
-        title: a.title,
-        body: a.body,
-        audienceType: a.audienceType,
-        audienceIds: a.audienceIds,
-        minBalancePaise: a.minBalancePaise,
-        recipientCount: a.recipientCount,
-        readCount: a.readCount,
-        createdAt: a.createdAt,
-        retractedAt: DateTime.now().toIso8601String(),
-      );
-    }
-    return {'status': 'retracted'};
+    SupabaseService.instance.assertCanWrite('retract announcement');
+    final res = await _client.rpc('retract_announcement', params: {
+      'p_announcement_id': announcementId,
+    });
+    return Map<String, dynamic>.from(res is Map ? res : {});
   }
 
   @override

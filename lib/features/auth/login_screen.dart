@@ -203,8 +203,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             SizedBox(height: isMobile ? 32 : 64),
             Center(
               child: Text(
-                'MIPS ERP System v1.0.0',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12, color: AppTheme.textTertiary),
+                'MIPS ERP System v1.0.0 • Supabase Ref: evzehywyyqmcktszwmeg',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11, color: AppTheme.textTertiary),
               ),
             )
           ],

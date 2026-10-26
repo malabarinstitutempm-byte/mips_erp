@@ -34,7 +34,7 @@ class SupabaseFeeRepository implements FeeRepository {
   @override
   Future<List<Fee>> getAllFees({int? courseId, int? batchId}) async {
     try {
-      var req = _client.from('fees').select('*, students!inner(id, course_id, batch_id)');
+      var req = _client.from('fees').select('*, students(id, course_id, batch_id)');
 
       req = req.isFilter('deleted_at', null);
 
@@ -81,24 +81,8 @@ class SupabaseFeeRepository implements FeeRepository {
 
       return Receipt.fromMap(Map<String, dynamic>.from(rData));
     } catch (e) {
-      debugPrint('SupabaseFeeRepository.addPayment fallback used: $e');
-      final receiptNum = 'MIPS/REC/${DateTime.now().year}/${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-
-      FeesFallbackStore.recordPayment(
-        studentId: payment.studentId,
-        amount: payment.amountPaise / 100.0,
-        mode: validMode,
-        receiptNumber: receiptNum,
-      );
-
-      return Receipt(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        paymentId: payment.id ?? 1,
-        receiptNumber: receiptNum,
-        studentId: payment.studentId,
-        amountPaise: payment.amountPaise,
-        createdAt: DateTime.now().toIso8601String(),
-      );
+      debugPrint('SupabaseFeeRepository.addPayment error: $e');
+      rethrow;
     }
   }
 

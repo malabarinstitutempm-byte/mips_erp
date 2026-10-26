@@ -241,92 +241,33 @@ class SupabaseBatchRepository implements BatchRepository {
     DateTime? accessUntilOverride,
     bool closeLoginsNow = false,
   }) async {
-    await _ensureFallbackLoaded();
     final dateStr = (completedOn ?? DateTime.now()).toIso8601String().split('T')[0];
     final accessStr = accessUntilOverride?.toIso8601String().split('T')[0];
 
-    try {
-      final res = await _client.rpc('complete_batch', params: {
-        'p_batch_id': batchId,
-        'p_completed_on': dateStr,
-        'p_excluded_student_ids': excludedStudentIds ?? [],
-        'p_access_until': accessStr,
-        'p_close_logins_now': closeLoginsNow,
-      });
+    final res = await _client.rpc('complete_batch', params: {
+      'p_batch_id': batchId,
+      'p_completed_on': dateStr,
+      'p_excluded_student_ids': excludedStudentIds ?? [],
+      'p_access_until': accessStr,
+      'p_close_logins_now': closeLoginsNow,
+    });
 
-      if (res is Map) {
-        return Map<String, dynamic>.from(res);
-      }
-    } catch (e) {
-      debugPrint('SupabaseBatchRepository.completeBatch fallback: $e');
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
     }
-
-    final idx = _fallbackBatches.indexWhere((b) => b.id == batchId);
-    if (idx != -1) {
-      final b = _fallbackBatches[idx];
-      _fallbackBatches[idx] = Batch(
-        id: b.id,
-        courseId: b.courseId,
-        batchName: b.batchName,
-        startDate: b.startDate,
-        endDate: b.endDate,
-        startYear: b.startYear,
-        endYear: b.endYear,
-        currentSemester: b.currentSemester,
-        status: 'completed',
-        completedOn: dateStr,
-      );
-      await _persistFallbackBatches();
-    }
-
-    return {
-      'success': true,
-      'batch_id': batchId,
-      'completed_on': dateStr,
-      'completed_students_count': 2 - (excludedStudentIds?.length ?? 0),
-      'excluded_students_count': excludedStudentIds?.length ?? 0,
-    };
+    throw StateError('Failed to complete batch: invalid response.');
   }
 
   @override
   Future<Map<String, dynamic>> reopenBatch(int batchId, {required String reason}) async {
-    await _ensureFallbackLoaded();
-    try {
-      final res = await _client.rpc('reopen_batch', params: {
-        'p_batch_id': batchId,
-        'p_reason': reason,
-      });
-      if (res is Map) {
-        return Map<String, dynamic>.from(res);
-      }
-    } catch (e) {
-      debugPrint('SupabaseBatchRepository.reopenBatch fallback: $e');
+    final res = await _client.rpc('reopen_batch', params: {
+      'p_batch_id': batchId,
+      'p_reason': reason,
+    });
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
     }
-
-    final idx = _fallbackBatches.indexWhere((b) => b.id == batchId);
-    if (idx != -1) {
-      final b = _fallbackBatches[idx];
-      _fallbackBatches[idx] = Batch(
-        id: b.id,
-        courseId: b.courseId,
-        batchName: b.batchName,
-        startDate: b.startDate,
-        endDate: b.endDate,
-        startYear: b.startYear,
-        endYear: b.endYear,
-        currentSemester: b.currentSemester,
-        status: 'active',
-        completedOn: null,
-      );
-      await _persistFallbackBatches();
-    }
-
-    return {
-      'success': true,
-      'batch_id': batchId,
-      'reason': reason,
-      'reopened_students_count': 2,
-    };
+    throw StateError('Failed to reopen batch: invalid response.');
   }
 
   // ===========================================================================
@@ -335,60 +276,11 @@ class SupabaseBatchRepository implements BatchRepository {
 
   @override
   Future<Map<String, dynamic>> previewSemesterPromotion(int batchId) async {
-    try {
-      final res = await _client.rpc('preview_semester_promotion', params: {'p_batch_id': batchId});
-      if (res is Map) {
-        return Map<String, dynamic>.from(res);
-      }
-    } catch (e) {
-      debugPrint('SupabaseBatchRepository.previewSemesterPromotion fallback: $e');
+    final res = await _client.rpc('preview_semester_promotion', params: {'p_batch_id': batchId});
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
     }
-
-    final b = await getBatchById(batchId);
-    final curSem = b?.currentSemester ?? 1;
-    final curYr = (curSem + 1) ~/ 2;
-    final nextSem = curSem + 1;
-    final nextYr = (nextSem + 1) ~/ 2;
-
-    return {
-      'batch_id': batchId,
-      'batch_name': b?.batchName ?? 'Batch',
-      'course_name': 'Diploma in Medical Laboratory Technology [DMLT]',
-      'current_semester': curSem,
-      'current_year': curYr,
-      'next_semester': nextSem,
-      'next_year': nextYr,
-      'year_will_change': nextYr > curYr,
-      'course_duration_years': 2,
-      'max_semesters': 4,
-      'is_final_semester': curSem >= 4,
-      'total_students': 2,
-      'below_minimum_count': 1,
-      'students': [
-        {
-          'student_id': 101,
-          'name': 'Mohammed Fasil K',
-          'admission_number': '2023MLT042',
-          'registration_number': 'REG-2023-042',
-          'sessions_held': 120,
-          'attended_count': 110,
-          'attendance_percentage': 91.67,
-          'status_band': 'ok',
-          'below_minimum': false,
-        },
-        {
-          'student_id': 102,
-          'name': 'Aysha Nihala',
-          'admission_number': '2023MLT043',
-          'registration_number': 'REG-2023-043',
-          'sessions_held': 120,
-          'attended_count': 84,
-          'attendance_percentage': 70.0,
-          'status_band': 'shortage',
-          'below_minimum': true,
-        },
-      ],
-    };
+    throw StateError('Failed to preview semester promotion: invalid response.');
   }
 
   @override
@@ -397,62 +289,19 @@ class SupabaseBatchRepository implements BatchRepository {
     DateTime closingEndDate,
     DateTime newStartDate,
   ) async {
-    await _ensureFallbackLoaded();
     final closeStr = closingEndDate.toIso8601String().split('T')[0];
     final startStr = newStartDate.toIso8601String().split('T')[0];
 
-    try {
-      final res = await _client.rpc('promote_semester', params: {
-        'p_batch_id': batchId,
-        'p_closing_end_date': closeStr,
-        'p_new_start_date': startStr,
-      });
+    final res = await _client.rpc('promote_semester', params: {
+      'p_batch_id': batchId,
+      'p_closing_end_date': closeStr,
+      'p_new_start_date': startStr,
+    });
 
-      if (res is Map) {
-        return Map<String, dynamic>.from(res);
-      }
-    } catch (e) {
-      debugPrint('SupabaseBatchRepository.promoteSemester fallback: $e');
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
     }
-
-    final idx = _fallbackBatches.indexWhere((b) => b.id == batchId);
-    int nextSem = 2;
-    int nextYr = 1;
-    if (idx != -1) {
-      final b = _fallbackBatches[idx];
-      nextSem = b.currentSemester + 1;
-      nextYr = (nextSem + 1) ~/ 2;
-      _fallbackBatches[idx] = b.copyWith(currentSemester: nextSem);
-
-      final semList = _fallbackSemesters.putIfAbsent(batchId, () => []);
-      for (int i = 0; i < semList.length; i++) {
-        if (semList[i]['semester_no'] == b.currentSemester) {
-          semList[i] = {
-            ...semList[i],
-            'end_date': closeStr,
-            'status': 'closed',
-          };
-        }
-      }
-      semList.add({
-        'id': DateTime.now().millisecondsSinceEpoch % 100000,
-        'batch_id': batchId,
-        'semester_no': nextSem,
-        'start_date': startStr,
-        'end_date': null,
-        'status': 'active',
-      });
-      await _persistFallbackBatches();
-      await _persistFallbackSemesters();
-    }
-
-    return {
-      'success': true,
-      'batch_id': batchId,
-      'promoted_to_semester': nextSem,
-      'promoted_to_year': nextYr,
-      'students_notified': 2,
-    };
+    throw StateError('Failed to promote semester: invalid response.');
   }
 
   @override

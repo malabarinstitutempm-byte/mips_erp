@@ -11,16 +11,12 @@ class SupabaseMarkRepository implements MarkRepository {
 
   @override
   Future<List<Mark>> getMarksForExam(int examId) async {
-    try {
-      final data = await _client
-          .from('marks')
-          .select('*')
-          .eq('exam_id', examId);
+    final data = await _client
+        .from('marks')
+        .select('*')
+        .eq('exam_id', examId);
 
-      return (data as List).map((row) => Mark.fromMap(Map<String, dynamic>.from(row))).toList();
-    } catch (_) {
-      return _fallbackMarks[examId] ?? [];
-    }
+    return (data as List).map((row) => Mark.fromMap(Map<String, dynamic>.from(row))).toList();
   }
 
   @override
@@ -28,25 +24,18 @@ class SupabaseMarkRepository implements MarkRepository {
     required int examId,
     required List<Mark> marks,
   }) async {
-    try {
-      SupabaseService.instance.assertCanWrite('save marks');
+    SupabaseService.instance.assertCanWrite('save marks');
 
-      final marksPayload = marks.map((m) => {
-        'subject_id': m.subjectId,
-        'student_id': m.studentId,
-        'marks_obtained': m.marksObtained,
-        'is_absent': m.isAbsent,
-      }).toList();
+    final marksPayload = marks.map((m) => {
+      'subject_id': m.subjectId,
+      'student_id': m.studentId,
+      'marks_obtained': m.marksObtained,
+      'is_absent': m.isAbsent,
+    }).toList();
 
-      await _client.rpc('save_marks', params: {
-        'p_exam_id': examId,
-        'p_marks': marksPayload,
-      });
-      _fallbackMarks[examId] = marks;
-      return;
-    } catch (_) {
-      // In-memory fallback if RPC or remote table is missing
-      _fallbackMarks[examId] = marks;
-    }
+    await _client.rpc('save_marks', params: {
+      'p_exam_id': examId,
+      'p_marks': marksPayload,
+    });
   }
 }

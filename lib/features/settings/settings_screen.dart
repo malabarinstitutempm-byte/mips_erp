@@ -624,7 +624,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                                   ),
                                                   Text(
                                                     SupabaseService.instance.url.isNotEmpty 
-                                                        ? 'Project URL: ${SupabaseService.instance.url}' 
+                                                        ? 'Project Ref: evzehywyyqmcktszwmeg • URL: ${SupabaseService.instance.url}' 
                                                         : 'Connected via configured endpoint',
                                                     style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                                   ),

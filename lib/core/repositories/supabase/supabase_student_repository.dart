@@ -356,46 +356,10 @@ class SupabaseStudentRepository implements StudentRepository {
         if (student.profilePhotoUpdatedAt != null) _studentPhotoTimes[newStud.id!] = student.profilePhotoUpdatedAt!;
         newStud = _mergeCachedPhoto(newStud);
       }
-      _fallbackStudents.removeWhere((s) => s.id == newStud.id || s.admissionNumber == newStud.admissionNumber);
-      _fallbackStudents.insert(0, newStud);
-      await _persistFallbackStudents();
       return newStud;
     } catch (e) {
-      debugPrint('SupabaseStudentRepository.createStudent fallback saving locally: $e');
-      int maxId = 5;
-      for (final s in _fallbackStudents) {
-        if (s.id != null && s.id! > maxId) {
-          maxId = s.id!;
-        }
-      }
-      final newId = maxId + 1;
-      if (student.profilePhotoPath != null) _studentPhotos[newId] = student.profilePhotoPath!;
-      if (student.profilePhotoThumbPath != null) _studentThumbs[newId] = student.profilePhotoThumbPath!;
-      if (student.profilePhotoUpdatedAt != null) _studentPhotoTimes[newId] = student.profilePhotoUpdatedAt!;
-      final localStudent = _mergeCachedPhoto(Student(
-        id: newId,
-        admissionNumber: admissionNumber,
-        registrationNumber: student.registrationNumber,
-        name: student.name,
-        courseId: student.courseId,
-        batchId: student.batchId,
-        universityId: student.universityId,
-        dob: student.dob,
-        gender: student.gender,
-        phone: student.phone,
-        email: student.email,
-        address: student.address,
-        admissionDate: student.admissionDate ?? DateTime.now().toIso8601String().split('T').first,
-        status: student.status,
-        profilePhotoPath: student.profilePhotoPath,
-        profilePhotoThumbPath: student.profilePhotoThumbPath,
-        profilePhotoUpdatedAt: student.profilePhotoUpdatedAt,
-        isDeleted: false,
-      ));
-      _fallbackStudents.removeWhere((s) => s.id == localStudent.id || s.admissionNumber == localStudent.admissionNumber);
-      _fallbackStudents.insert(0, localStudent);
-      await _persistFallbackStudents();
-      return localStudent;
+      debugPrint('SupabaseStudentRepository.createStudent error: $e');
+      rethrow;
     }
   }
 

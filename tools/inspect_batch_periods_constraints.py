@@ -1,0 +1,12 @@
+import psycopg2
+conn = psycopg2.connect("postgresql://postgres.evzehywyyqmcktszwmeg:AnzTzOTXxapp1Dys@aws-0-ap-south-1.pooler.supabase.com:6543/postgres", connect_timeout=15)
+cur = conn.cursor()
+cur.execute("""
+SELECT conname, pg_get_constraintdef(c.oid)
+FROM pg_constraint c
+JOIN pg_class t ON c.conrelid = t.oid
+WHERE t.relname = 'batch_periods';
+""")
+for r in cur.fetchall():
+    print(r)
+conn.close()

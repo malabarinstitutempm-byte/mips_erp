@@ -351,22 +351,28 @@ results["unlock"] = {"status": unlock_status, "resp": unlock_resp}
 
 # Clean up all created test records
 print("\nCleaning up test rows...")
-if course_id:
-    cur.execute("DELETE FROM courses WHERE id = %s;", (course_id,))
-if skill_course_id:
-    cur.execute("DELETE FROM courses WHERE id = %s;", (skill_course_id,))
-if batch_id:
-    cur.execute("DELETE FROM batches WHERE id = %s;", (batch_id,))
-if skill_batch_id:
-    cur.execute("DELETE FROM batches WHERE id = %s;", (skill_batch_id,))
-if student_id:
-    cur.execute("DELETE FROM students WHERE id = %s;", (student_id,))
-if teacher_id:
-    cur.execute("DELETE FROM teachers WHERE id = %s;", (teacher_id,))
-cur.execute("DELETE FROM portal_credentials WHERE identifier = 'd1_teacher';")
-cur.execute("DELETE FROM announcements WHERE title = 'D1 Announcement';")
-cur.execute("DELETE FROM daily_timetables WHERE date = '2026-10-27';")
+cur.execute("DELETE FROM payment_allocations WHERE payment_id IN (SELECT id FROM payments WHERE reference_number = 'D1-REF-001');")
+cur.execute("DELETE FROM receipts WHERE receipt_number LIKE 'REC/%';")
+cur.execute("DELETE FROM payments WHERE reference_number = 'D1-REF-001';")
+cur.execute("DELETE FROM fee_items WHERE student_id IN (SELECT id FROM students WHERE admission_number IN ('D1-ADM-001', 'EXCEL-001'));")
+cur.execute("DELETE FROM fees WHERE student_id IN (SELECT id FROM students WHERE admission_number IN ('D1-ADM-001', 'EXCEL-001'));")
+cur.execute("DELETE FROM student_enrollments WHERE student_id IN (SELECT id FROM students WHERE admission_number IN ('D1-ADM-001', 'EXCEL-001'));")
+cur.execute("DELETE FROM marks WHERE exam_id IN (SELECT id FROM exams WHERE name = 'D1 Semester 1 Exam');")
+cur.execute("DELETE FROM exam_subjects WHERE exam_id IN (SELECT id FROM exams WHERE name = 'D1 Semester 1 Exam');")
+cur.execute("DELETE FROM exams WHERE name = 'D1 Semester 1 Exam';")
+cur.execute("DELETE FROM attendance_records WHERE session_id IN (SELECT id FROM attendance_sessions WHERE date = '2026-10-26');")
 cur.execute("DELETE FROM attendance_sessions WHERE date = '2026-10-26';")
+cur.execute("DELETE FROM daily_timetable_entries WHERE daily_timetable_id IN (SELECT id FROM daily_timetables WHERE date = '2026-10-27');")
+cur.execute("DELETE FROM daily_timetables WHERE date = '2026-10-27';")
+cur.execute("DELETE FROM announcements WHERE title = 'D1 Announcement';")
+cur.execute("DELETE FROM profiles WHERE teacher_id IN (SELECT id FROM teachers WHERE login_username = 'd1_teacher');")
+cur.execute("DELETE FROM portal_credentials WHERE identifier = 'd1_teacher';")
+cur.execute("DELETE FROM teachers WHERE login_username = 'd1_teacher';")
+cur.execute("DELETE FROM students WHERE admission_number IN ('D1-ADM-001', 'EXCEL-001');")
+cur.execute("DELETE FROM batch_periods WHERE batch_id IN (SELECT id FROM batches WHERE batch_name IN ('D1 Trace Batch', 'Skill Batch 1'));")
+cur.execute("DELETE FROM batches WHERE batch_name IN ('D1 Trace Batch', 'Skill Batch 1');")
+cur.execute("DELETE FROM course_subjects WHERE course_id IN (SELECT id FROM courses WHERE code IN ('D1-CRS', 'SK-PY'));")
+cur.execute("DELETE FROM courses WHERE code IN ('D1-CRS', 'SK-PY');")
 conn.commit()
 conn.close()
 print("Cleanup complete.")
