@@ -15,6 +15,10 @@ import zipfile
 import hashlib
 from pathlib import Path
 
+# Safe Unicode output for all console environments
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 def sha256_file(filepath):
     h = hashlib.sha256()
     with open(filepath, 'rb') as f:
@@ -38,7 +42,7 @@ def audit_archive(zip_path):
     calculated_hash = sha256_file(zip_p)
     sha_file = zip_p.with_suffix('.zip.sha256')
     if sha_file.exists():
-        with open(sha_file, 'r') as f:
+        with open(sha_file, 'r', encoding='utf-8') as f:
             expected_hash = f.read().split()[0].strip()
         if calculated_hash.lower() == expected_hash.lower():
             print(f"[✓] SHA256 Checksum: MATCH ({calculated_hash[:16]}...)")
@@ -123,15 +127,15 @@ def audit_archive(zip_path):
     variance = abs(sum_paid_paise - actual_paid_payments)
 
     print(f"\n[*] Financial Audit:")
-    print(f"    - Total Ledger Fee:     ₹{sum_fee_paise / 100:,.2f}")
-    print(f"    - Ledger Paid Sum:      ₹{sum_paid_paise / 100:,.2f}")
-    print(f"    - Payments Records Sum: ₹{actual_paid_payments / 100:,.2f}")
-    print(f"    - Ledger Pending Sum:   ₹{sum_pending_paise / 100:,.2f}")
+    print(f"    - Total Ledger Fee:     Rs. {sum_fee_paise / 100:,.2f}")
+    print(f"    - Ledger Paid Sum:      Rs. {sum_paid_paise / 100:,.2f}")
+    print(f"    - Payments Records Sum: Rs. {actual_paid_payments / 100:,.2f}")
+    print(f"    - Ledger Pending Sum:   Rs. {sum_pending_paise / 100:,.2f}")
 
     if variance == 0:
-        print(f"[✓] Financial Reconciliation: EXACT MATCH (₹0.00 Variance)")
+        print(f"[✓] Financial Reconciliation: EXACT MATCH (Rs. 0.00 Variance)")
     else:
-        print(f"[!] Financial Variance: ₹{variance / 100:,.2f}")
+        print(f"[!] Financial Variance: Rs. {variance / 100:,.2f}")
 
     # Health Score
     health_score = 100

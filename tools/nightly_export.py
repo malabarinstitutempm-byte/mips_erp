@@ -9,22 +9,28 @@ Usage:
     python tools/nightly_export.py [--output-dir ./backups] [--retention-days 30]
 
 Environment Variables:
-    DATABASE_URL: PostgreSQL connection string (postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres)
+    DATABASE_URL: PostgreSQL connection string
     or
     SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY
 """
 
 import os
 import sys
+import re
 import json
 import time
 import zipfile
 import hashlib
 import argparse
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
+from decimal import Decimal
 from pathlib import Path
 
-# Tables to export in logical dependency order
+# Safe Unicode output for all console environments
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+# Fallback tables list in logical dependency order
 TABLES = [
     "settings",
     "academic_years",
@@ -34,6 +40,7 @@ TABLES = [
     "course_subjects",
     "batches",
     "students",
+    "admin_accounts",
     "fees",
     "payments",
     "receipts",
@@ -42,7 +49,6 @@ TABLES = [
     "marks",
     "results",
     "teachers",
-    "teacher_assignments",
     "attendance_sessions",
     "attendance_records",
     "attendance_changes",
@@ -64,6 +70,17 @@ def sha256_file(filepath):
             h.update(chunk)
     return h.hexdigest()
 
+def get_connection_candidates(db_url):
+    candidates = []
+    # If direct db.ref.supabase.co:5432 is used, add IPv4 pooler candidate first
+    # Supabase direct db.*.supabase.co only has IPv6 (unreachable from GitHub Actions runners)
+    m = re.match(r'postgresql://([^:]+):([^@]+)@db\.([a-z0-9]+)\.supabase\.co(?::5432)?/(.+)', db_url)
+    if m:
+        user, pwd, ref, db = m.groups()
+        candidates.append(f"postgresql://{user}.{ref}:{pwd}@aws-0-ap-south-1.pooler.supabase.com:6543/{db}")
+    candidates.append(db_url)
+    return candidates
+
 def export_via_psycopg2(db_url, export_dir):
     try:
         import psycopg2
@@ -72,23 +89,53 @@ def export_via_psycopg2(db_url, export_dir):
         print("[!] psycopg2 not installed. Run: pip install psycopg2-binary")
         return False, {}
 
-    print(f"[*] Connecting directly to PostgreSQL via connection string...")
-    conn = psycopg2.connect(db_url)
+    conn = None
+    for url in get_connection_candidates(db_url):
+        masked_host = url.split('@')[-1].split('/')[0] if '@' in url else 'host'
+        print(f"[*] Attempting PostgreSQL connection to {masked_host}...")
+        try:
+            conn = psycopg2.connect(url, connect_timeout=15)
+            conn.autocommit = True
+            print(f"[+] Connected successfully to PostgreSQL via {masked_host}!")
+            break
+        except Exception as e:
+            print(f"  [!] Connection failed ({masked_host}): {e}")
+
+    if not conn:
+        print("[!] All direct PostgreSQL connection attempts failed.")
+        return False, {}
+
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+    # Query all base tables dynamically from the public schema
+    try:
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            ORDER BY table_name;
+        """)
+        tables_to_export = [r['table_name'] for r in cursor.fetchall()]
+        print(f"[*] Dynamically discovered {len(tables_to_export)} tables in public schema.")
+    except Exception as e:
+        print(f"  [!] Could not query information_schema, using fallback table list: {e}")
+        tables_to_export = TABLES
+
     stats = {}
-    for table in TABLES:
+    for table in tables_to_export:
         try:
-            cursor.execute(f"SELECT * FROM {table};")
+            cursor.execute(f'SELECT * FROM "{table}";')
             rows = cursor.fetchall()
             
-            # Serialize datetimes and uuids
+            # Serialize datetimes, dates, decimals, and uuids safely
             clean_rows = []
             for row in rows:
                 clean_row = {}
                 for k, v in row.items():
-                    if isinstance(v, (datetime,)):
+                    if isinstance(v, (datetime, date)):
                         clean_row[k] = v.isoformat()
+                    elif isinstance(v, Decimal):
+                        clean_row[k] = float(v) if v % 1 else int(v)
                     elif hasattr(v, '__str__') and type(v).__name__ == 'UUID':
                         clean_row[k] = str(v)
                     else:
@@ -230,9 +277,13 @@ def main():
 
     if db_url:
         success, stats = export_via_psycopg2(db_url, temp_export_dir)
-    elif supabase_url and service_key:
+
+    # Fallback to PostgREST if direct DB failed or wasn't provided
+    if not success and supabase_url and service_key:
+        print("[*] Falling back to Supabase PostgREST API export...")
         success, stats = export_via_postgrest(supabase_url, service_key, temp_export_dir)
-    else:
+
+    if not success and not db_url and not service_key:
         # Check if .env file exists in current or parent directory
         env_files = [Path(".env"), Path("portal/.env"), Path("../.env")]
         for ef in env_files:
@@ -249,13 +300,9 @@ def main():
             success, stats = export_via_psycopg2(db_url, temp_export_dir)
         elif supabase_url and service_key:
             success, stats = export_via_postgrest(supabase_url, service_key, temp_export_dir)
-        else:
-            print("[!] ERROR: Neither DATABASE_URL nor SUPABASE_SERVICE_ROLE_KEY is set in environment.")
-            print("    Please set DATABASE_URL or SUPABASE_SERVICE_ROLE_KEY to execute nightly export.")
-            sys.exit(1)
 
     if not success:
-        print("[!] Export failed. Aborting archive creation.")
+        print("[!] ERROR: Nightly backup export failed. Could not retrieve tables from database.")
         sys.exit(1)
 
     # Financial Reconciliation
@@ -304,9 +351,9 @@ def main():
     print(f"    Size: {zip_path.stat().st_size / 1024:.2f} KB")
     print(f"    SHA256: {checksum}")
     print(f"    Reconciliation Status: {recon['status']}")
-    print(f"    Total Ledger Fee: ₹{recon['total_fee_paise'] / 100:,.2f}")
-    print(f"    Total Paid Sum:  ₹{recon['total_paid_paise'] / 100:,.2f}")
-    print(f"    Variance:        ₹{recon['variance_paise'] / 100:,.2f}")
+    print(f"    Total Ledger Fee: Rs. {recon['total_fee_paise'] / 100:,.2f}")
+    print(f"    Total Paid Sum:  Rs. {recon['total_paid_paise'] / 100:,.2f}")
+    print(f"    Variance:        Rs. {recon['variance_paise'] / 100:,.2f}")
 
     # Retention Purge
     purge_old_backups(out_root, args.retention_days)
