@@ -86,9 +86,14 @@ class CoursesScreen extends ConsumerWidget {
           title: 'Courses & Programs',
           subtitle: 'Manage curriculum, batches, and course parameters',
           actions: [
+            IconButton(
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              tooltip: 'Refresh courses',
+              onPressed: () => ref.invalidate(coursesProvider),
+            ),
             ElevatedButton.icon(
               onPressed: () => showDialog(context: context, builder: (context) => const AddCourseDialog()),
-              icon: Icon(LucideIcons.plus, size: 18),
+              icon: const Icon(LucideIcons.plus, size: 18),
               label: const Text('Add Course'),
             ),
           ],

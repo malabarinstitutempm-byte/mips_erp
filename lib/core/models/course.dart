@@ -67,22 +67,21 @@ class Course {
   }
 
   Map<String, dynamic> toMap() {
+    final feePaise = totalFeePaise > 0 ? totalFeePaise : (totalFee * 100).round();
     return {
       if (id != null) 'id': id,
       'name': name,
       'code': code,
       'university_id': universityId,
       'duration': duration,
-      'total_fee': totalFee,
-      'total_fee_paise': totalFeePaise,
+      'total_fee_paise': feePaise,
       'course_type': courseType,
       'structure': structure,
       'attendance_basis': attendanceBasis,
       'description': description,
       'status': status,
-      'created_at': createdAt,
-      'updated_at': updatedAt,
-      'is_deleted': isDeleted ? 1 : 0,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
     };
   }
 

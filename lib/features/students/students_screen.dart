@@ -429,6 +429,15 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
           title: 'Students Directory',
           subtitle: 'Manage admissions and student records',
           actions: [
+            IconButton(
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              tooltip: 'Refresh students',
+              onPressed: () {
+                ref.invalidate(studentsProvider);
+                ref.invalidate(allBatchesProvider);
+                ref.invalidate(coursesProvider);
+              },
+            ),
             PopupMenuButton<String>(
               onSelected: (val) {
                 if (val == 'template') _downloadTemplate();

@@ -70,92 +70,45 @@ class SupabaseBatchRepository implements BatchRepository {
 
   @override
   Future<Batch> createBatch(Batch batch) async {
-    await _ensureFallbackLoaded();
-    try {
-      SupabaseService.instance.assertCanWrite('create batch');
+    SupabaseService.instance.assertCanWrite('create batch');
 
-      final payload = batch.toMap();
-      payload.remove('id');
-      payload.remove('is_deleted');
-      payload.remove('created_at');
-      payload.remove('updated_at');
+    final payload = batch.toMap();
+    payload.remove('id');
+    payload.remove('is_deleted');
+    payload.remove('created_at');
+    payload.remove('updated_at');
 
-      final data = await _client
-          .from('batches')
-          .insert(payload)
-          .select()
-          .single();
+    final data = await _client
+        .from('batches')
+        .insert(payload)
+        .select()
+        .single();
 
-      final res = Batch.fromMap(Map<String, dynamic>.from(data));
-      _fallbackBatches.removeWhere((b) => b.id == res.id);
-      _fallbackBatches.insert(0, res);
-      await _persistFallbackBatches();
-      return res;
-    } catch (e) {
-      debugPrint('SupabaseBatchRepository.createBatch fallback used: $e');
-      int maxId = 8;
-      for (final b in _fallbackBatches) {
-        if (b.id != null && b.id! > maxId) {
-          maxId = b.id!;
-        }
-      }
-      final newId = maxId + 1;
-      final localBatch = Batch(
-        id: newId,
-        courseId: batch.courseId,
-        batchName: batch.batchName,
-        startDate: batch.startDate,
-        endDate: batch.endDate,
-        startYear: batch.startYear,
-        endYear: batch.endYear,
-        currentSemester: batch.currentSemester,
-        isDeleted: false,
-      );
-      _fallbackBatches.add(localBatch);
-      await _persistFallbackBatches();
-      return localBatch;
-    }
+    return Batch.fromMap(Map<String, dynamic>.from(data));
   }
 
   @override
   Future<Batch> updateBatch(Batch batch) async {
-    await _ensureFallbackLoaded();
-    try {
-      SupabaseService.instance.assertCanWrite('update batch');
+    SupabaseService.instance.assertCanWrite('update batch');
 
-      if (batch.id == null) {
-        throw ArgumentError('Batch ID is required for update.');
-      }
-
-      final payload = batch.toMap();
-      payload.remove('id');
-      payload.remove('is_deleted');
-      payload.remove('created_at');
-      payload['updated_at'] = DateTime.now().toIso8601String();
-
-      final data = await _client
-          .from('batches')
-          .update(payload)
-          .eq('id', batch.id!)
-          .select()
-          .single();
-
-      final res = Batch.fromMap(Map<String, dynamic>.from(data));
-      final index = _fallbackBatches.indexWhere((b) => b.id == batch.id);
-      if (index != -1) {
-        _fallbackBatches[index] = res;
-      }
-      await _persistFallbackBatches();
-      return res;
-    } catch (e) {
-      debugPrint('SupabaseBatchRepository.updateBatch fallback used: $e');
-      final index = _fallbackBatches.indexWhere((b) => b.id == batch.id);
-      if (index != -1) {
-        _fallbackBatches[index] = batch;
-      }
-      await _persistFallbackBatches();
-      return batch;
+    if (batch.id == null) {
+      throw ArgumentError('Batch ID is required for update.');
     }
+
+    final payload = batch.toMap();
+    payload.remove('id');
+    payload.remove('is_deleted');
+    payload.remove('created_at');
+    payload['updated_at'] = DateTime.now().toIso8601String();
+
+    final data = await _client
+        .from('batches')
+        .update(payload)
+        .eq('id', batch.id!)
+        .select()
+        .single();
+
+    return Batch.fromMap(Map<String, dynamic>.from(data));
   }
 
   @override

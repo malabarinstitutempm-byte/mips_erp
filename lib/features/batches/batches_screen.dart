@@ -378,6 +378,16 @@ class _BatchesScreenState extends ConsumerState<BatchesScreen> {
               title: 'Batches & Cohorts',
               subtitle: 'Manage academic batches, mark batch completion, and view enrollment cohorts',
               actions: [
+                IconButton(
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                  tooltip: 'Refresh batches',
+                  onPressed: () {
+                    ref.invalidate(batchesListProvider);
+                    ref.invalidate(allBatchesProvider);
+                    ref.invalidate(batchesMapProvider);
+                    ref.invalidate(coursesProvider);
+                  },
+                ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.brand, foregroundColor: Colors.white),
                   onPressed: () => _openAddBatchDialog(coursesAsync.value ?? []),

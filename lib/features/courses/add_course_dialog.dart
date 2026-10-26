@@ -349,20 +349,12 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
         universityId: widget.existingCourse?.universityId ?? 1,
       );
 
-      int courseId;
-      if (widget.existingCourse == null) {
-        courseId = await courseRepo.addCourse(course);
-      } else {
-        courseId = widget.existingCourse!.id!;
-        await courseRepo.updateCourse(course);
-      }
-
-      // Save Course Subjects
+      // Prepare Course Subjects
       final validSubjects = _subjects
           .where((s) => s.nameCtrl.text.trim().isNotEmpty)
           .map((s) => CourseSubject(
                 id: s.id,
-                courseId: courseId,
+                courseId: widget.existingCourse?.id ?? 0,
                 periodNo: _structure == 'single' ? null : s.periodNo,
                 subjectName: s.nameCtrl.text.trim(),
                 subjectCode: s.codeCtrl.text.trim().isEmpty ? null : s.codeCtrl.text.trim(),
@@ -371,7 +363,11 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
               ))
           .toList();
 
-      await courseRepo.saveCourseSubjects(courseId, validSubjects);
+      if (widget.existingCourse == null) {
+        await courseRepo.createCourse(course, validSubjects);
+      } else {
+        await courseRepo.updateCourse(course, validSubjects);
+      }
 
       ref.invalidate(coursesProvider);
       if (mounted) {
