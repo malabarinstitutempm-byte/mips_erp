@@ -442,10 +442,9 @@ export const studentService = {
               id,
               exam_id,
               subject_id,
-              obtained_marks,
+              marks_obtained,
               is_absent,
-              subjects ( id, name, code ),
-              exam_subjects!inner ( max_marks, pass_marks )
+              exam_subjects ( id, name, code, max_marks, pass_marks )
             `)
             .eq('student_id', studentId)
             .in('exam_id', examIds)
@@ -458,13 +457,13 @@ export const studentService = {
             const subjectBreakdown = examMarks.map((m: any) => {
               const subMax = Number(m.exam_subjects?.max_marks || 100);
               const subPass = Number(m.exam_subjects?.pass_marks || 40);
-              const obtained = m.is_absent ? 0 : Number(m.obtained_marks || 0);
+              const obtained = m.is_absent ? 0 : Number(m.marks_obtained || 0);
               maxMarks += subMax;
 
               return {
                 subjectId: m.subject_id,
-                subjectName: m.subjects?.name || 'Subject',
-                subjectCode: m.subjects?.code || '',
+                subjectName: m.exam_subjects?.name || 'Subject',
+                subjectCode: m.exam_subjects?.code || '',
                 obtainedMarks: obtained,
                 maxMarks: subMax,
                 passMarks: subPass,
@@ -989,8 +988,8 @@ export const studentService = {
             start_time,
             end_time,
             room,
-            subjects ( name ),
-            teachers ( name )
+            course_subjects ( id, subject_name, subject_code ),
+            teachers ( id, name )
           )
         `)
         .in('batch_id', batchIds)
@@ -1013,7 +1012,7 @@ export const studentService = {
             slot: (e.slot || 'morning') as 'morning' | 'evening',
             startTime: e.start_time?.slice(0, 5) || '09:00',
             endTime: e.end_time?.slice(0, 5) || '10:00',
-            subjectName: e.subjects?.name || 'Subject',
+            subjectName: e.course_subjects?.subject_name || 'Subject',
             teacherName: e.teachers?.name || 'Faculty',
             room: e.room || 'Room 101',
           })),
@@ -1021,30 +1020,7 @@ export const studentService = {
       }
     } catch (_) {}
 
-    return [
-      {
-        timetableId: 1,
-        batchId: batchIds[0] || 1,
-        batchName: 'Batch 2024-26 (A)',
-        courseName: 'Diploma in Medical Laboratory Technology',
-        courseType: 'primary',
-        academicYear: '2024-26',
-        effectiveFrom: '2026-06-01',
-        publishedAt: '2026-05-25T10:00:00Z',
-        entries: [
-          { id: 1, weekday: 1, slot: 'morning', startTime: '09:00', endTime: '12:30', subjectName: 'Clinical Biochemistry', teacherName: 'Prof. Suresh Kumar', room: 'LH-1' },
-          { id: 2, weekday: 1, slot: 'evening', startTime: '13:30', endTime: '16:30', subjectName: 'Hematology Lab', teacherName: 'Dr. Alan Turing', room: 'Lab-A' },
-          { id: 3, weekday: 2, slot: 'morning', startTime: '09:00', endTime: '12:30', subjectName: 'Medical Microbiology', teacherName: 'Prof. Fatima', room: 'LH-1' },
-          { id: 4, weekday: 2, slot: 'evening', startTime: '13:30', endTime: '16:30', subjectName: 'Clinical Pathology', teacherName: 'Prof. Suresh Kumar', room: 'LH-2' },
-          { id: 5, weekday: 3, slot: 'morning', startTime: '09:00', endTime: '12:30', subjectName: 'Hematology Theory', teacherName: 'Dr. Alan Turing', room: 'LH-1' },
-          { id: 6, weekday: 3, slot: 'evening', startTime: '13:30', endTime: '16:30', subjectName: 'Microbiology Practical', teacherName: 'Prof. Fatima', room: 'Lab-B' },
-          { id: 7, weekday: 4, slot: 'morning', startTime: '09:00', endTime: '12:30', subjectName: 'Biochemistry Lab', teacherName: 'Prof. Suresh Kumar', room: 'Lab-C' },
-          { id: 8, weekday: 4, slot: 'evening', startTime: '13:30', endTime: '16:30', subjectName: 'Hospital Clinical Rotation', teacherName: 'Clinical Preceptor', room: 'Hospital Ward' },
-          { id: 9, weekday: 5, slot: 'morning', startTime: '09:00', endTime: '12:30', subjectName: 'Clinical Pathology Lab', teacherName: 'Prof. Suresh Kumar', room: 'Lab-A' },
-          { id: 10, weekday: 5, slot: 'evening', startTime: '13:30', endTime: '16:30', subjectName: 'Seminar & Case Discussion', teacherName: 'Faculty Panel', room: 'Seminar Hall' },
-        ],
-      },
-    ];
+    return [];
   },
 
   // 6. Notifications
@@ -1070,33 +1046,7 @@ export const studentService = {
       }
     } catch (_) {}
 
-    // Resilient fallback notifications for demo/offline testing
-    return [
-      {
-        id: 1,
-        category: 'timetable',
-        title: "Tomorrow's Timetable Published",
-        message: "The academic schedule for tomorrow has been published. Tap here to review your scheduled classes.",
-        read_at: null,
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: 2,
-        category: 'programme',
-        title: 'Clinical Laboratory Workshop',
-        message: 'Annual Bio-chemistry and Pathology seminar scheduled this Friday at Seminar Hall.',
-        read_at: null,
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        id: 3,
-        category: 'fee_reminder',
-        title: 'Term Tuition Fee Notice',
-        message: 'Second installment fee due date is approaching. Please review your fee ledger.',
-        read_at: new Date(Date.now() - 172800000).toISOString(),
-        created_at: new Date(Date.now() - 172800000).toISOString(),
-      },
-    ];
+    return [];
   },
 
   async markNotificationRead(id: number): Promise<void> {
