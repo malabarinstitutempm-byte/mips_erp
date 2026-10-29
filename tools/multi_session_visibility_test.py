@@ -1,3 +1,4 @@
+import os
 import urllib.request
 import urllib.error
 import json
@@ -6,7 +7,7 @@ import psycopg2
 
 SUPABASE_URL = "https://evzehywyyqmcktszwmeg.supabase.co"
 ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2emVoeXd5eXFtY2t0c3p3bWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjM0MTYsImV4cCI6MjEwNzUzOTQxNn0.xNfdyP9f9if2INEdDdzGR4U04oItnt8XVhdM1-2Jnk4"
-DB_CONN_STR = "postgresql://postgres.evzehywyyqmcktszwmeg:AnzTzOTXxapp1Dys@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+DB_CONN_STR = os.environ.get("DATABASE_URL", "")
 
 def get_db():
     return psycopg2.connect(DB_CONN_STR, connect_timeout=15)

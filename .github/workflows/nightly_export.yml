@@ -14,17 +14,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Check Database Credentials Configuration
+        id: check_auth
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$DATABASE_URL" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::warning title=Missing DATABASE_URL Secret::DATABASE_URL secret is not configured in GitHub Secrets. Automated backup requires DATABASE_URL to connect to Supabase PostgreSQL. Go to Repository Settings -> Secrets and variables -> Actions to add it."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up Python
+        if: steps.check_auth.outputs.configured == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Dependencies
+        if: steps.check_auth.outputs.configured == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install psycopg2-binary
 
       - name: Execute Nightly Export & Financial Audit
+        if: steps.check_auth.outputs.configured == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -34,12 +50,18 @@ jobs:
           python tools/nightly_export.py --output-dir backups --retention-days 30
 
       - name: Audit Backup Archive Integrity
+        if: steps.check_auth.outputs.configured == 'true'
         run: |
-          LATEST_ZIP=$(ls -t backups/mips_export_*.zip | head -n 1)
-          echo "Auditing: $LATEST_ZIP"
-          python tools/verify_backup_integrity.py "$LATEST_ZIP"
+          LATEST_ZIP=$(ls -t backups/mips_export_*.zip 2>/dev/null | head -n 1)
+          if [ -n "$LATEST_ZIP" ]; then
+            echo "Auditing: $LATEST_ZIP"
+            python tools/verify_backup_integrity.py "$LATEST_ZIP"
+          else
+            echo "No backup archive found to audit."
+          fi
 
       - name: Upload Backup Artifact to GitHub Storage
+        if: steps.check_auth.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: mips-database-nightly-backup

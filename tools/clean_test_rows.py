@@ -1,6 +1,7 @@
+import os
 import psycopg2
 
-conn = psycopg2.connect("postgresql://postgres.evzehywyyqmcktszwmeg:AnzTzOTXxapp1Dys@aws-0-ap-south-1.pooler.supabase.com:6543/postgres", connect_timeout=15)
+conn = psycopg2.connect(os.environ.get("DATABASE_URL", ""), connect_timeout=15)
 cur = conn.cursor()
 
 cur.execute("DELETE FROM payment_allocations WHERE payment_id IN (SELECT id FROM payments WHERE reference_number = 'D1-REF-001');")

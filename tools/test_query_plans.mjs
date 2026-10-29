@@ -4,7 +4,7 @@
 
 import pg from 'pg';
 
-const connectionString = 'postgresql://postgres:AnzTzOTXxapp1Dys@db.evzehywyyqmcktszwmeg.supabase.co:5432/postgres';
+const connectionString = process.env.DATABASE_URL || "";
 
 const QUERIES = [
   {

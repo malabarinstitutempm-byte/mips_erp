@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2emVoeXd5eXFtY2t0c3p3bWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjM0MTYsImV4cCI6MjEwNzUzOTQxNn0.xNfdyP9f9if2INEdDdzGR4U04oItnt8XVhdM1-2Jnk4';
 
 // Service role or admin connection for benchmarking
-const PG_CONN = 'postgresql://postgres:AnzTzOTXxapp1Dys@db.evzehywyyqmcktszwmeg.supabase.co:5432/postgres';
+const PG_CONN = process.env.DATABASE_URL || "";
 
 const recordedLogs = [];
 let currentScreen = 'Init';
